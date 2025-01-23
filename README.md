@@ -6,13 +6,13 @@ This is a tool to automate the creation and management of art and personal proje
 1. Clone the repository:
 ```bash
 git clone git@github.com:yourusername/project-automation.git
-cd project-automation
+cd script
 ```
 
 2. Create and activate a virtual environment:
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: venv\Scripts\activate
 cd .. # Run script from root directory
 ```
 
@@ -39,31 +39,31 @@ cp .env.example .env
 
 ### Create a new project:
 ```bash
-python src/script.py
+python src/main.py
 
 # Alternatively...
-python src/script.py --command create
+python src/main.py --command create
 ```
 
 ### List all projects:
 ```bash
-python src/script.py --command list
+python src/main.py --command list
 ```
 This will show all projects with their display names, canonical names, creation dates, and status.
 
 ### Publish project updates:
 ```bash
 # Publish all out-of-date projects
-python src/script.py --command publish --all
+python src/main.py --command publish --all
 
 # Publish specific project
-python src/script.py --command publish --name plant-autowater
+python src/main.py --command publish --name plant-autowater
 ```
 
 ### Rename a project:
 ```bash
 # Start rename process (will prompt for new name)
-python src/script.py --command rename --name plant-autowater
+python src/main.py --command rename --name plant-autowater
 ```
 The rename command will:
 - Update the Things 3 project name
