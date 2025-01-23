@@ -2,7 +2,7 @@
 
 [View on my website](http://mayaferrandiz.github.io/project-automation)
 
-This is a tool to automate the creation and management of art and personal proejcts. It creates local project directories to store work-in-progress files and media, GitHub repositories, and Things 3 projects with consistent organization and metadata. Once ready, it also facilitates publication to a Jekyll website and will also be able to syndicate content to other
+This is a tool to automate the creation and management of art and personal proejcts. It creates local project directories to store work-in-progress files and media, GitHub repositories, and Things 3 projects with consistent organization and metadata. Once ready, it also facilitates publication to a Jekyll website and will also be able to syndicate content to other platforms in the future.
 
 ## Setup
 1. Clone the repository:
@@ -30,8 +30,8 @@ cp .env.example .env
 
 ## Environment Variables
 - `WEBSITE_DOMAIN`: The domain on which your Jekyll website will ultimately be served
-- `PROJECT_BASE_DIR`: Base directory for all projects
-- `JEKYLL_SITE_PATH`: Path to Jekyll site
+- `PROJECT_BASE_DIR`: Path for where you would like to create and manage projects
+- `JEKYLL_DIR`: Path to where your Jekyll site content is located
 - `GITHUB_USERNAME`: Your GitHub username
 - `GITHUB_TOKEN`: Your GitHub personal access token
 - `ENABLE_THINGS3`: Enable/disable Things 3 integration (true/false)

@@ -300,7 +300,7 @@ class ProjectAutomation:
             'description': project.get('description', ''),
             'date': f"{project['date_created']} 15:01:35 +0300",
             'tags': project.get('tags', []),
-            'github': f"{self.config.github_url_path}/{name}"
+            'github': f"{self.config.github_url_path}{name}"
         }
 
         featured_image = project.get('featured_image')

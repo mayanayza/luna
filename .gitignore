@@ -1,4 +1,5 @@
 content.md
+metadata.yml
 src/.env
 src/venv/
 
