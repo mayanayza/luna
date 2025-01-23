@@ -26,7 +26,7 @@ def get_formatted_name(name: str) -> str:
 
 def prompt_for_name() -> tuple[str, str]:
     """Prompt user for project name and return (name, formatted_name)"""
-    display_name = input("Enter project display name (e.g. '🌱 Plant Autowater; a canonical name will be generated like plant-autowater.'): ").strip()
+    display_name = input("Enter project display name (e.g. '🌱 Project Name; a canonical name will be generated like project-name.'): ").strip()
     if not display_name:
         raise ValueError("Project name cannot be empty")
     
@@ -44,7 +44,7 @@ def prompt_for_name() -> tuple[str, str]:
 
 def prompt_for_new_name(old_name: str) -> tuple[str, str]:
     """Prompt user for new project name and return (name, formatted_name)"""
-    new_display_name = input("Enter project display name (e.g. '🌱 Plant Autowater; a canonical name will be generated like plant-autowater.'): ").strip()
+    new_display_name = input("Enter project display name (e.g. '🌱 Project Name; a canonical name will be generated like project-name.'): ").strip()
     if not new_display_name:
         raise ValueError("New project name cannot be empty")
     

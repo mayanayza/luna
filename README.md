@@ -39,31 +39,31 @@ cp .env.example .env
 
 ### Create a new project:
 ```bash
-python src/main.py
+python -m script.src.main
 
 # Alternatively...
-python src/main.py --command create
+python -m script.src.main --command create
 ```
 
 ### List all projects:
 ```bash
-python src/main.py --command list
+python -m script.src.main --command list
 ```
 This will show all projects with their display names, canonical names, creation dates, and status.
 
 ### Publish project updates:
 ```bash
 # Publish all out-of-date projects
-python src/main.py --command publish --all
+python -m script.src.main --command publish --all
 
 # Publish specific project
-python src/main.py --command publish --name plant-autowater
+python -m script.src.main --command publish --name project-name
 ```
 
 ### Rename a project:
 ```bash
 # Start rename process (will prompt for new name)
-python src/main.py --command rename --name plant-autowater
+python -m script.src.main --command rename --name project-name
 ```
 The rename command will:
 - Update the Things 3 project name
