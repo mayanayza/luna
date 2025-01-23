@@ -74,7 +74,7 @@ class JekyllHandler:
         featured_content = project.get('featured_content')
         if featured_content.get('type') == 'code':
             print(featured_content['source'])
-            source_file = project_dir / featured_content['source']
+            source_file = project_dir / str(featured_content['source'])
             print(source_file)
             if source_file.exists():
                 with open(source_file, 'r') as f:
