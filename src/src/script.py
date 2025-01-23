@@ -348,7 +348,7 @@ class ProjectAutomation:
         post += "---\n"
 
         visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
-        print(visibility)
+        visibility = visibility.stdout.strip().upper()
         if visibility == 'PUBLIC':
             post += f"[View on GitHub]({self.config.github_url_path}/{name})\n\n"
         post += f"{content}\n"
