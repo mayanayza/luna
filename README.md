@@ -1,6 +1,8 @@
 # ⚙️ Project Automation
 
-This is a tool to automate the creation and management of art and personal projects. It creates local project directories to store work-in-progress files and media, GitHub repositories, and Things 3 projects with consistent organization and metadata. Once ready, it also facilitates publication to a Jekyll website and will also be able to syndicate content to other platforms in the future.
+This is a tool to automate the creation and management of art and personal projects. It creates local project directories to store work-in-progress files and media, GitHub repositories, and Things 3 projects with consistent organization and metadata. Once ready, it also facilitates publication to a Jekyll website in the form of project-specific posts and an overall roadmap.
+
+(Almost) all content on this website is published and maintaned using this script.
 
 ## Setup
 1. Clone the repository:
@@ -128,7 +130,7 @@ project-automation/
 ## Development
 To modify templates or add features:
 1. Templates are in the `templates/` directory
-2. Main script is `src/main.py`
+2. Script files are in `src/`
 3. Add any new dependencies to `requirements.txt`
 
 ## Things 3 Integration
@@ -139,8 +141,8 @@ The script integrates with Things 3 on macOS:
 
 ## Naming Convention
 Projects use two types of names:
-- Display Name: User-friendly name with emoji (e.g., "🌱 Plant Autowater")
-- Canonical Name: URL-safe, lowercase name (e.g., "plant-autowater")
+- Display Name: User-friendly name with emoji (e.g., "🌱 Project Name")
+- Canonical Name: URL-safe, lowercase name (e.g., "project-name")
 
 The script automatically handles conversion between these formats.
 ## Media
