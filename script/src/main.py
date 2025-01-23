@@ -97,6 +97,7 @@ def main():
                 automation.jekyll.publish_roadmap()
             elif args.all:
                 automation.publish_all_projects()
+                automation.jekyll.publish_roadmap()
             else:
                 parser.error("Either --name or --all must be specified for publish command")
                 
