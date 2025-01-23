@@ -13,6 +13,7 @@ cd project-automation
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+cd .. # Run script from root directory
 ```
 
 3. Install dependencies:
@@ -50,13 +51,13 @@ python src/script.py --command list
 ```
 This will show all projects with their display names, canonical names, creation dates, and status.
 
-### Sync project updates:
+### Publish project updates:
 ```bash
-# Sync all out-of-date projects
-python src/script.py --command sync --all
+# Publish all out-of-date projects
+python src/script.py --command publish --all
 
-# Sync specific project
-python src/script.py --command sync --name plant-autowater
+# Publish specific project
+python src/script.py --command publish --name plant-autowater
 ```
 
 ### Rename a project:
@@ -88,7 +89,6 @@ project-name/
 │   ├── videos/
 │   └── models/
 ├── content.md       # Project documentation
-├── README.md        # Project documentation
 └── metadata.yml     # Project metadata
 ```
 
@@ -98,15 +98,22 @@ The script uses the content.md + anything in the /media folder as the basis for 
 ```
 project-automation/
 ├── src/
-│   └── script.py
+│   └── automation.py
+│   └── config.py
+│   └── constants.py
+│   └── file.py
+│   └── github.py
+│   └── jekyll.py
+│   └── main.py
+│   └── things.py
+│   └── utils.py
 ├── templates/
-│   ├── readme.md           # Template for project READMEs
+│   ├── content.md           # Template for project READMEs
 │   ├── metadata.yml        # Template for project metadata
 │   ├── gitignore          # Template for project .gitignore
-│   └── project-page.md     # Template for Jekyll project pages
 ├── .env.example            # Example environment variables
-├── .env                    # Local environment variables (git-ignored)
-├── .gitignore             # Git ignore for this repo
+├── .env                    # Local environment variables (create your own)
+├── .gitignore
 ├── requirements.txt        # Python dependencies
 └── README.md              # This file
 ```
@@ -121,7 +128,7 @@ project-automation/
 ## Development
 To modify templates or add features:
 1. Templates are in the `templates/` directory
-2. Main script is in `src/script.py`
+2. Main script is `src/main.py`
 3. Add any new dependencies to `requirements.txt`
 
 ## Things 3 Integration

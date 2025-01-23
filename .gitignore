@@ -1,6 +1,8 @@
 content.md
 script/.env
 script/.venv/
+script/__pycache__/
+script/src/__pycache__
 
 # Internal media files
 media-internal/
