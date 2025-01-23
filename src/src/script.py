@@ -346,7 +346,11 @@ class ProjectAutomation:
         post = "---\n"
         post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
         post += "---\n"
-        post += f"[View on GitHub]({self.config.github_url_path}/{name})\n\n"
+
+        visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
+        print(visibility)
+        if visibility == 'PUBLIC':
+            post += f"[View on GitHub]({self.config.github_url_path}/{name})\n\n"
         post += f"{content}\n"
 
         return post
