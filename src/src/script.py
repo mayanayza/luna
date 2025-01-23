@@ -347,6 +347,7 @@ class ProjectAutomation:
         post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
         post += "---\n"
 
+        os.chdir(project_dir)
         visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
         visibility = visibility.stdout.strip().upper()
         if visibility == 'PUBLIC':
@@ -360,11 +361,21 @@ class ProjectAutomation:
         projects = self.get_project_directories()
         in_progress = []
         backlog = []
+        public_repos = []
         
         for project_dir, name in projects:
+
             with open(project_dir / self.METADATA_FILE, 'r') as f:
                 metadata = yaml.safe_load(f)
                 project = metadata['project']
+                name = metadata['project']['name']
+
+                os.chdir(project_dir)
+                visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
+                visibility = visibility.stdout.strip().upper()
+                if visibility == 'PUBLIC':
+                    public_repos.append(name)
+
                 if project['status'] == 'in_progress':
                     in_progress.append(project)
                 elif project['status'] == 'backlog':
@@ -379,12 +390,15 @@ class ProjectAutomation:
         content += "title: Roadmap\n"
         content += "permalink: /roadmap/\n"
         content += "---\n"
-        
+
         content += "\n## In Progress\n"
         if in_progress:
             content += "\n| Project | Description |\n|---------|-------------|\n"
             for project in in_progress:
-                content += f"| <a href='{self.config.github_url_path}/{project['name']}' target='_blank'>{project['display_name']}</a> | {project.get('description', '')} | \n"
+                if project['name'] in public_repos:
+                    content += f"| <a href='{self.config.github_url_path}/{project['name']}' target='_blank'>{project['display_name']}</a> | {project.get('description', '')} | \n"
+                else:
+                    content += f"| {project['display_name']} | {project.get('description', '')} | \n"
         else:
             content += "Nothing currently in progress"
         
@@ -392,7 +406,7 @@ class ProjectAutomation:
         if backlog:
             content += "\n| Project | Description | Priority |\n|---------|-------------|----------|\n"
             for project in backlog:
-                content += f"| <a href='{self.config.github_url_path}/{project['name']}' target='_blank'>{project['display_name']}</a> | {project.get('description', '')} | {project.get('priority', 0)} |\n"
+                content += f"| {project['display_name']} | {project.get('description', '')} | {project.get('priority', 0)} |\n"
         else:
             content += "Nothing currently in backlog"
 
