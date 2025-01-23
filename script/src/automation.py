@@ -1,6 +1,5 @@
 
 from script.src.config import Config
-from script.src.constants import Status
 from script.src.file import FileHandler
 from script.src.github import GithubHandler
 from script.src.jekyll import JekyllHandler
@@ -22,31 +21,42 @@ class Automation:
         self.files = FileHandler(config)
         self.logger = setup_logging(__name__)
 
+    def publish_all(self) -> None:
+        self.stage_all_projects()
+        self.jekyll.stage_roadmap()
+        self.jekyll.publish()
+
+    def publish_website(self) -> None:
+        self.jekyll.publish()
+
     def publish_project(self, name: str) -> None:
-        """Generate and publish to various platforms"""
-        
-        metadata = get_project_metadata(self, name)
-        
-        
-        try:                
-            self.github.stage_readme(name)
-            self.github.publish(name)
-
-            if metadata['project']['status'] == Status.COMPLETE:
-
-                self.github.publish_repo_post_info(name)
-                self.jekyll.stage_post(name)                    
-                self.jekyll.stage_media(name)
-                self.jekyll.publish()
-                        
-                self.logger.info(f"Successfully published project: {name}")
-        except Exception as e:
-            self.logger.error(f"Failed to sync project: {e}")
-            raise
+        self.stage_project(name)
+        self.github.publish(name)
+        self.jekyll.publish()
 
     def publish_roadmap(self) -> None:
         self.jekyll.stage_roadmap()
         self.jekyll.publish()
+    
+    def publish_all_projects(self) -> None:
+        self.stage_all_projects()
+        projects = get_project_directories(self)
+        for project_dir, name in projects:
+            self.github.publish(name)
+            self.github.publish_repo_post_info(name)
+        self.jekyll.publish()
+
+    def stage_project(self, name: str) -> None:
+        """Generate and publish to various platforms"""
+        self.github.stage_readme(name)
+        self.jekyll.stage_post(name)                    
+        self.jekyll.stage_media(name)
+
+    def stage_all_projects(self) -> None:
+        """Publish all projects that need updating"""
+        projects = get_project_directories(self)
+        for project_dir, name in projects:
+            self.stage_project(name)
 
     def create_project(self, name: str, display_name: str) -> None:
         self.files.create(name, display_name)
@@ -72,13 +82,6 @@ class Automation:
                 self.logger.info(f"{display_name} ({name}); Created: {date}; Status: {status}")
             except Exception as e:
                 self.logger.error(f"Error reading project {name}: {e}")
-
-    def publish_all_projects(self) -> None:
-        """Publish all projects that need updating"""
-        projects = get_project_directories(self)
-        for project_dir, name in projects:
-            self.publish_project(name)
-            self.logger.info("-----")
 
     def rename_project(self, old_name: str, new_name: str, new_display_name: str) -> None:
         """Rename a project locally and on GitHub"""        

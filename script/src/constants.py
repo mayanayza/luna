@@ -9,11 +9,11 @@ class Files:
    README = 'README.md'
    METADATA = 'metadata.yml'
    CONTENT = 'content.md'
-   GITIGNORE = 'gitignore'
+   GITIGNORE = '.gitignore'
 
 # Status enums
 class Status(str, Enum):
-   IN_PROGRESS = 'in_progress'
+   ARCHIVE = 'archive'
    BACKLOG = 'backlog'
+   IN_PROGRESS = 'in_progress'
    COMPLETE = 'complete'
-   PUBLISHED = 'published'

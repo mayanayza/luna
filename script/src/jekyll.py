@@ -23,7 +23,6 @@ class JekyllHandler:
     def __init__(self, config: Config):
         self.config = config
         self.github = GithubHandler(config)
-        print(self.github)
         self.logger = setup_logging(__name__)
 
     @property
@@ -52,12 +51,15 @@ class JekyllHandler:
 
     def stage_post(self, name: str) -> None:
        
-        self.logger.info(f"Staging post for {name}")
-
-        """Generate Jekyll post content from project metadata"""
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
         project = metadata['project']
+        status = metadata['project']['status']
+
+        if status != Status.COMPLETE:
+            return
+
+        self.logger.info(f"Staging post for {name}")
         
         # Build front matter
         front_matter = {
@@ -69,10 +71,20 @@ class JekyllHandler:
             'github': f"{self.github.url_path}/{name}"
         }
 
-        featured_image = project.get('featured_image')
-        if featured_image:
-            featured_image_path = f"/media/{project['name']}/images/{featured_image}"
-            front_matter['image'] = featured_image_path
+        featured_content = project.get('featured_content')
+        if featured_content.get('type') == 'code':
+            source_file = project_dir / featured_content['source']
+            if source_file.exists():
+                with open(source_file, 'r') as f:
+                    lines = f.readlines()
+                    start = featured_content.get('start_line', 0)
+                    end = featured_content.get('end_line', min(start + 10, len(lines)))
+                    code_snippet = ''.join(lines[start:end])
+                    
+                front_matter['featured_code'] = code_snippet
+                front_matter['code_language'] = featured_content.get('language')
+        else:
+            front_matter['image'] = f"/media/{project['name']}/images/{featured_content['source']}"
         
         with open(project_dir / Files.CONTENT, 'r') as f:
             content = f.read()
@@ -131,21 +143,20 @@ class JekyllHandler:
         
         for project_dir, name in projects:
 
-            with open(project_dir / Files.METADATA, 'r') as f:
-                metadata = yaml.safe_load(f)
-                project = metadata['project']
-                name = metadata['project']['name']
+            metadata = get_project_metadata(self, name)
+            project = metadata['project']
+            name = metadata['project']['name']
 
-                os.chdir(project_dir)
-                visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
-                visibility = visibility.stdout.strip().upper()
-                if visibility == 'PUBLIC':
-                    public_repos.append(name)
+            os.chdir(project_dir)
+            visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
+            visibility = visibility.stdout.strip().upper()
+            if visibility == 'PUBLIC':
+                public_repos.append(name)
 
-                if project['status'] == Status.IN_PROGRESS:
-                    in_progress.append(project)
-                elif project['status'] == Status.BACKLOG:
-                    backlog.append(project)
+            if project['status'] == Status.IN_PROGRESS:
+                in_progress.append(project)
+            elif project['status'] == Status.BACKLOG:
+                backlog.append(project)
         
         # Sort by priority
         #in_progress.sort(key=lambda x: x.get('priority', 0), reverse=True)
@@ -187,6 +198,13 @@ class JekyllHandler:
 
         source_dir = get_project_path(self, name) / 'media'
         dest_dir = self.media_dir / name
+        metadata = get_project_metadata(self, name)
+        project = metadata['project']
+        status = project['status']
+
+        if status != Status.COMPLETE:
+            return
+
         """Sync media files from project to Jekyll site"""
         self.logger.info(f"Staging media for {name}")
         if not source_dir.exists():

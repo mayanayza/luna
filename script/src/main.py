@@ -65,8 +65,11 @@ def main():
     parser = argparse.ArgumentParser(description='Project Automation Tool')
     parser.add_argument('--command', choices=['create', 'publish', 'rename', 'list'], default='create', 
                        help='Command to execute')
-    parser.add_argument('--name', help='Project name for renaming or syncing')
-    parser.add_argument('--all', action='store_true', help='Flag to sync all projects instead of a specific named project')
+    parser.add_argument('--all', action='store_true', help='Flag to publish all projects, roadmap, and website')
+    parser.add_argument('--project', help='Flag to publish a specific project')
+    parser.add_argument('--allprojects', action='store_true', help='Flag to publish all projects')
+    parser.add_argument('--website', action='store_true', help='Flag to publish website')
+    parser.add_argument('--roadmap', action='store_true', help='Flag to publish roadmap')
     args = parser.parse_args()
 
     # Calculate templates directory relative to script location
@@ -86,26 +89,29 @@ def main():
         if args.command == 'create':
             name, display_name = prompt_for_name()
             automation.create_project(name, display_name)
-            automation.publish_roadmap()
             
         elif args.command == 'list':
             automation.list_projects()
 
         elif args.command == 'publish':
-            if args.name:
-                automation.publish_project(args.name)
-                automation.publish_roadmap()
-            elif args.all:
+            if args.all:
+                automation.publish_all()
+            elif args.project:
+                automation.publish_project(args.project)
+            elif args.allprojects:
                 automation.publish_all_projects()
+            elif args.website:
+                automation.publish_website()
+            elif args.roadmap:
                 automation.publish_roadmap()
             else:
                 parser.error("Either --name or --all must be specified for publish command")
                 
         elif args.command == 'rename':
-            if not args.name:
-                parser.error("--name is required for rename command")
-            new_name, new_display_name = prompt_for_new_name(args.name)
-            automation.rename_project(args.name, new_name, new_display_name)
+            if not args.project:
+                parser.error("--project is required for rename command")
+            new_name, new_display_name = prompt_for_new_name(args.project)
+            automation.rename_project(args.project, new_name, new_display_name)
             
     except Exception as e:
         logging.error(f"Operation failed: {e}")

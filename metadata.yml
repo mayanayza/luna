@@ -5,7 +5,12 @@ project:
   status: "complete" # backlog, in progress, complete
   priority: 0
   description: "Why is it so hard for me to work on anything without having an overly elaborate system in place first?"
-  featured_image: ""  # Just the filename, e.g. "hero.jpg"
+  featured_content: 
+    type: 'code' 
+    source: "/script/src/jekyll.py"
+    language: ""
+    start_line: 10
+    end_line: 25
   tags: ["Automation", "Productivity"]
 
 physical_specifications:

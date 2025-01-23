@@ -2,10 +2,15 @@ project:
   name: "{name}"
   display_name: "{display_name}"
   date_created: "{date}"
-  status: "backlog" # backlog, in_progress, complete
+  status: "archive" # backlog, in_progress, complete, archive
   priority: 0
   description: ""
-  featured_image: ""  # Just the filename, e.g. "hero.jpg"
+  featured_content: 
+    type: "image"
+    source: ""  # Just the filename, e.g. "hero.jpg"
+    language: ""
+    start_line: 0
+    end_line: 10
   tags: []
 
 physical_specifications:

@@ -2,7 +2,7 @@ import os
 import subprocess
 
 from script.src.config import Config
-from script.src.constants import Files
+from script.src.constants import Files, Status
 from script.src.utils import (
     get_media_path,
     get_project_metadata,
@@ -32,7 +32,7 @@ class GithubHandler:
         try:
             os.chdir(project_dir)
             subprocess.run(['git', 'init'], check=True)
-            subprocess.run(['git', 'add', f".{Files.GITIGNORE}", Files.METADATA], check=True)
+            subprocess.run(['git', 'add', Files.GITIGNORE, Files.METADATA], check=True)
             subprocess.run(['git', 'commit', '-m', 'Initial commit with metadata, and .gitignore'], check=True)
             subprocess.run(['gh', 'repo', 'create', name, '--private', '--source=.'], check=True)
             subprocess.run(['git', 'branch', '-M', 'main'], check=True)
@@ -73,12 +73,17 @@ class GithubHandler:
 
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
+        status = metadata['project']['status']
         description = metadata['project']['description']
         os.chdir(project_dir)
         result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
 
         try:
             if result.stdout.strip():
+                
+                if status == Status.COMPLETE:
+                    subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
+
                 if description:
                     subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
 
@@ -132,13 +137,4 @@ class GithubHandler:
         self.logger.info(f"Successfully staged README.md for {name}")
 
         with open(project_dir / Files.README, 'w') as f:
-            f.write(readme)
-
-    def publish_repo_post_info(self, name: str) -> None:
-        project_dir = get_project_path(self, name)
-        try:
-            os.chdir(project_dir)
-            subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
-        except Exception as e:
-            self.logger.error(f"Failed to publish repo post info for {name}: {e}")
-            raise
+            f.write(readme)        

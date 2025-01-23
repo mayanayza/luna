@@ -52,7 +52,7 @@ class FileHandler:
 
         # Create .gitignore from template
         gitignore_content = load_template(self, Files.GITIGNORE)
-        with open(project_dir / f".{Files.GITIGNORE}", 'w') as f:
+        with open(project_dir / Files.GITIGNORE, 'w') as f:
             f.write(gitignore_content)
 
     def rename(self, old_name: str, old_display_name: str, old_path: str, new_name: str, new_display_name: str, new_path: str) -> None:
