@@ -32,14 +32,15 @@ class Automation:
         self.logger.info(f"Publishing project: {name}")
 
         try:                
-            self.github.publish_readme(name)
-            self.github.publish_file_changes(name)
+            self.github.stage_readme(name)
+            self.github.publish(name)
 
             if metadata['project']['status'] == Status.COMPLETE:
 
-                self.github.update_repo_published_post_info(name)
-                self.jekyll.pubish_post(name)                    
-                self.jekyll.publish_media(project_dir / 'media', jekyll_media_dir)
+                self.github.publish_repo_post_info(name)
+                self.jekyll.stage_post(name)                    
+                self.jekyll.stage_media(project_dir / 'media', jekyll_media_dir)
+                self.jekyll.publish()
                         
                 self.logger.info(f"Successfully published project: {name}")
         except Exception as e:
@@ -47,7 +48,16 @@ class Automation:
             raise
 
     def publish_roadmap(self) -> None:
-        self.jekyll.publish_roadmap()
+
+        self.logger.info("Publishing roadmap")
+
+        try:
+            self.jekyll.stage_roadmap()
+            self.jekyll.publish()
+            self.logger.info("Successfully published roadmap")
+        except Exception as e:
+            self.logger.error(f"Failed to publish roadmap: {e}")
+            raise
 
     def create_project(self, name: str, display_name: str) -> None:
         self.files.create(name, display_name)

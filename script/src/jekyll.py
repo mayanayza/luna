@@ -38,7 +38,19 @@ class JekyllHandler:
     def pages_dir(self) -> Path:
         return self.config.jekyll_dir / '_pages'
 
-    def publish_post(self, name: str) -> None:
+    def publish(self) -> None:
+        os.chdir(self.config.jekyll_dir)
+        result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
+        
+        if result.stdout.strip():
+            subprocess.run(['git', 'add', '.'], check=True)
+            subprocess.run(['git', 'commit', '-m', 'Publishing staged files'], check=True)
+            subprocess.run(['git', 'push', 'origin', 'main'], check=True)
+            self.logger.info("Published Jekyll site changes")
+        else:
+            self.logger.info("No changes to publish for Jekyll site")
+
+    def stage_post(self, name: str) -> None:
         """Generate Jekyll post content from project metadata"""
         project_dir = get_project_path(self, name)
 
@@ -107,7 +119,7 @@ class JekyllHandler:
         with open(post_file, 'w') as f:
             f.write(post)
 
-    def publish_roadmap(self) -> None:
+    def stage_roadmap(self) -> None:
         """Generate roadmap page from projects metadata"""
         projects = get_project_directories(self)
         in_progress = []
@@ -168,7 +180,7 @@ class JekyllHandler:
 
         self.logger.info("Successfully generated and synced roadmap")
 
-    def publish_media(self, source_dir: Path, dest_dir: Path) -> None:
+    def stage_media(self, source_dir: Path, dest_dir: Path) -> None:
         """Sync media files from project to Jekyll site"""
         if not source_dir.exists():
             return

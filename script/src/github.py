@@ -69,12 +69,18 @@ class GithubHandler:
         except subprocess.CalledProcessError as e:
             self.logger.warning(f"Failed to update GitHub repository: {e}")
 
-    def publish_file_changes(self, name: str) -> None:
+    def publish(self, name: str) -> None:
         project_dir = get_project_path(self, name)
+        metadata = get_project_metadata(self, name)
+        description = metadata['project']['description']
         os.chdir(project_dir)
         result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
         
         if result.stdout.strip():
+
+            if description:
+                subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
+
             subprocess.run(['git', 'add', '.'], check=True)
             subprocess.run(['git', 'commit', '-m', 'Publishing new files and updating readme'], check=True)
             subprocess.run(['git', 'push', 'origin', 'main'], check=True)
@@ -82,7 +88,7 @@ class GithubHandler:
         else:
             self.logger.info(f"No git changes to publish for project: {name}")
 
-    def publish_readme(self, name: str) -> None:
+    def stage_readme(self, name: str) -> None:
         """Generate README.md content from project metadata and content.md"""
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
@@ -124,10 +130,7 @@ class GithubHandler:
         with open(project_dir / Files.README, 'w') as f:
             f.write(readme)
 
-    def update_repo_published_post_info(self, name: str) -> None:
+    def publish_repo_post_info(self, name: str) -> None:
         project_dir = get_project_path(self, name)
-        metadata = get_project_metadata(self, name)
-
         os.chdir(project_dir)
-        subprocess.run(['gh', 'repo', 'edit', '--description', f"{metadata['project']['description']}"])
         subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
