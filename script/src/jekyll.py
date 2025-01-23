@@ -39,73 +39,73 @@ class JekyllHandler:
         return self.config.jekyll_dir / '_pages'
 
     def publish_post(self, name: str) -> None:
-            """Generate Jekyll post content from project metadata"""
-            project_dir = get_project_path(self, name)
+        """Generate Jekyll post content from project metadata"""
+        project_dir = get_project_path(self, name)
 
-            metadata = get_project_metadata(self, name)
-            project = metadata['project']
-            
-            # Build front matter
-            front_matter = {
-                'layout': 'post',
-                'title': strip_emoji(project['display_name']).strip(),
-                'description': project.get('description', ''),
-                'date': f"{project['date_created']} 15:01:35 +0300",
-                'tags': project.get('tags', []),
-                'github': f"{self.github.url_path}/{name}"
-            }
+        metadata = get_project_metadata(self, name)
+        project = metadata['project']
+        
+        # Build front matter
+        front_matter = {
+            'layout': 'post',
+            'title': strip_emoji(project['display_name']).strip(),
+            'description': project.get('description', ''),
+            'date': f"{project['date_created']} 15:01:35 +0300",
+            'tags': project.get('tags', []),
+            'github': f"{self.github.url_path}/{name}"
+        }
 
-            featured_image = project.get('featured_image')
-            if featured_image:
-                featured_image_path = f"/media/{project['name']}/images/{featured_image}"
-                front_matter['image'] = featured_image_path
-            
-            with open(project_dir / Files.CONTENT, 'r') as f:
-                content = f.read()
-                    
-            # Add image gallery if images exist
-            extensions = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
-            images = []
-            for extension in extensions:
-                images.extend( get_media_path(self, project_dir, 'images').glob(extension) )
-            if images:
-                content += '\n\n<div class="gallery-box">\n  <div class="gallery">\n'
-                for img in images:
-                    if img.name != project.get(self, 'featured_image', ''):  # Skip featured image
-                        content += f'    <img src="/media/{project["name"]}/images/{img.name}">\n'
-                content += '  </div>\n</div>\n'
-            
-            # Add videos if they exist
-            videos = list( get_media_path(self, project_dir, 'videos').glob('*.webm') )
-            if videos:
-                for video in videos:
-                    content += f'\n\n<video controls>\n  <source src="/media/{project["name"]}/videos/{video.name}" type="video/webm">\n</video>\n'
-            
-            # Add models if they exist
-            models = list( get_media_path(self, project_dir, 'models').glob('*.glb'))
-            if models:
-                for model in models:
-                    content += f'\n\n<model-viewer src="/media/{project["name"]}/models/{model.name}" auto-rotate camera-controls></model-viewer>\n'
-            
-            self.logger.info(f"Successfully generated Jekyll post for {name}")
+        featured_image = project.get('featured_image')
+        if featured_image:
+            featured_image_path = f"/media/{project['name']}/images/{featured_image}"
+            front_matter['image'] = featured_image_path
+        
+        with open(project_dir / Files.CONTENT, 'r') as f:
+            content = f.read()
+                
+        # Add image gallery if images exist
+        extensions = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
+        images = []
+        for extension in extensions:
+            images.extend( get_media_path(self, project_dir, 'images').glob(extension) )
+        if images:
+            content += '\n\n<div class="gallery-box">\n  <div class="gallery">\n'
+            for img in images:
+                if img.name != project.get(self, 'featured_image', ''):  # Skip featured image
+                    content += f'    <img src="/media/{project["name"]}/images/{img.name}">\n'
+            content += '  </div>\n</div>\n'
+        
+        # Add videos if they exist
+        videos = list( get_media_path(self, project_dir, 'videos').glob('*.webm') )
+        if videos:
+            for video in videos:
+                content += f'\n\n<video controls>\n  <source src="/media/{project["name"]}/videos/{video.name}" type="video/webm">\n</video>\n'
+        
+        # Add models if they exist
+        models = list( get_media_path(self, project_dir, 'models').glob('*.glb'))
+        if models:
+            for model in models:
+                content += f'\n\n<model-viewer src="/media/{project["name"]}/models/{model.name}" auto-rotate camera-controls></model-viewer>\n'
+        
+        self.logger.info(f"Successfully generated Jekyll post for {name}")
 
-            # Combine front matter and content
+        # Combine front matter and content
 
-            post = "---\n"
-            post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
-            post += "---\n"
+        post = "---\n"
+        post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
+        post += "---\n"
 
-            os.chdir(project_dir)
-            visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
-            visibility = visibility.stdout.strip().upper()
-            if visibility == 'PUBLIC':
-                post += f"[View on GitHub]({self.github.url_path}/{name})\n\n"
-            post += f"{content}\n"
+        os.chdir(project_dir)
+        visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
+        visibility = visibility.stdout.strip().upper()
+        if visibility == 'PUBLIC':
+            post += f"[View on GitHub]({self.github.url_path}/{name})\n\n"
+        post += f"{content}\n"
 
-            post_date = metadata['project']['date_created']
-            post_file = self.jekyll.posts_dir / f"{post_date}-{name}.md"
-            with open(post_file, 'w') as f:
-                f.write(post)
+        post_date = metadata['project']['date_created']
+        post_file = self.jekyll.posts_dir / f"{post_date}-{name}.md"
+        with open(post_file, 'w') as f:
+            f.write(post)
 
     def publish_roadmap(self) -> None:
         """Generate roadmap page from projects metadata"""
@@ -155,7 +155,7 @@ class JekyllHandler:
         
         content += "\n## Backlog\n"
         if backlog:
-            content += "\n| Project | Description | Priority |\n|---------|-------------|----------|\n"
+            content += "\n| Project | Description |\n|---------|-------------|\n"
             for project in backlog:
                 content += f"| {project['display_name']} | {project.get('description', '')} | {project.get('priority', 0)} |\n"
         else:
