@@ -26,7 +26,7 @@ class ProjectConfig:
 
     @property
     def github_url_path(self) -> str:
-        return f"https://github.com/{self.github_username}/"
+        return f"https://github.com/{self.github_username}"
 
     @property
     def templates_dir(self) -> Path:
@@ -300,7 +300,7 @@ class ProjectAutomation:
             'description': project.get('description', ''),
             'date': f"{project['date_created']} 15:01:35 +0300",
             'tags': project.get('tags', []),
-            'github': f"{self.config.github_url_path}{name}"
+            'github': f"{self.config.github_url_path}/{name}"
         }
 
         featured_image = project.get('featured_image')
@@ -346,6 +346,7 @@ class ProjectAutomation:
         post = "---\n"
         post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
         post += "---\n"
+        post += f"[View on my GitHub]({self.config.github_url_path}/{name})\n"
         post += f"{content}\n"
 
         return post
