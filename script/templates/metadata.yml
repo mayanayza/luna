@@ -2,7 +2,7 @@ project:
   name: "{name}"
   display_name: "{display_name}"
   date_created: "{date}"
-  status: "backlog" # backlog, in_progress, complete, published
+  status: "backlog" # backlog, in_progress, complete
   priority: 0
   description: ""
   featured_image: ""  # Just the filename, e.g. "hero.jpg"

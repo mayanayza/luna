@@ -56,7 +56,6 @@ class JekyllHandler:
 
         """Generate Jekyll post content from project metadata"""
         project_dir = get_project_path(self, name)
-
         metadata = get_project_metadata(self, name)
         project = metadata['project']
         
@@ -78,6 +77,7 @@ class JekyllHandler:
         with open(project_dir / Files.CONTENT, 'r') as f:
             content = f.read()
                 
+
         # Add image gallery if images exist
         extensions = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
         images = []
@@ -86,10 +86,10 @@ class JekyllHandler:
         if images:
             content += '\n\n<div class="gallery-box">\n  <div class="gallery">\n'
             for img in images:
-                if img.name != project.get(self, 'featured_image', ''):  # Skip featured image
+                if img.name != project.get('featured_image', ''):  # Skip featured image
                     content += f'    <img src="/media/{project["name"]}/images/{img.name}">\n'
             content += '  </div>\n</div>\n'
-        
+        print(1)
         # Add videos if they exist
         videos = list( get_media_path(self, project_dir, 'videos').glob('*.webm') )
         if videos:
@@ -102,10 +102,6 @@ class JekyllHandler:
             for model in models:
                 content += f'\n\n<model-viewer src="/media/{project["name"]}/models/{model.name}" auto-rotate camera-controls></model-viewer>\n'
         
-        self.logger.info(f"Successfully staged post for {name}")
-
-        # Combine front matter and content
-
         post = "---\n"
         post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
         post += "---\n"
@@ -118,12 +114,15 @@ class JekyllHandler:
         post += f"{content}\n"
 
         post_date = metadata['project']['date_created']
-        post_file = self.jekyll.posts_dir / f"{post_date}-{name}.md"
+        post_file = self.posts_dir / f"{post_date}-{name}.md"
         with open(post_file, 'w') as f:
             f.write(post)
+        
+        self.logger.info(f"Successfully staged post for {name}")
 
     def stage_roadmap(self) -> None:
         """Generate roadmap page from projects metadata"""
+        self.logger.info("Staging roadmap")
         
         projects = get_project_directories(self)
         in_progress = []
@@ -184,8 +183,12 @@ class JekyllHandler:
 
         self.logger.info("Successfully staged roadmap")
 
-    def stage_media(self, source_dir: Path, dest_dir: Path) -> None:
+    def stage_media(self, name: str) -> None:
+
+        source_dir = get_project_path(self, name) / 'media'
+        dest_dir = self.media_dir / name
         """Sync media files from project to Jekyll site"""
+        self.logger.info(f"Staging media for {name}")
         if not source_dir.exists():
             return
             

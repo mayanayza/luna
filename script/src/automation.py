@@ -8,7 +8,6 @@ from script.src.things import ThingsHandler
 from script.src.utils import (
     get_project_directories,
     get_project_metadata,
-    get_project_path,
     setup_logging,
 )
 
@@ -25,9 +24,9 @@ class Automation:
 
     def publish_project(self, name: str) -> None:
         """Generate and publish to various platforms"""
-        project_dir = get_project_path(self, name)
+        
         metadata = get_project_metadata(self, name)
-        jekyll_media_dir = self.jekyll.media_dir / name
+        
         
         try:                
             self.github.stage_readme(name)
@@ -37,7 +36,7 @@ class Automation:
 
                 self.github.publish_repo_post_info(name)
                 self.jekyll.stage_post(name)                    
-                self.jekyll.stage_media(project_dir / 'media', jekyll_media_dir)
+                self.jekyll.stage_media(name)
                 self.jekyll.publish()
                         
                 self.logger.info(f"Successfully published project: {name}")
