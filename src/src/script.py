@@ -292,8 +292,6 @@ class ProjectAutomation:
             metadata = yaml.safe_load(f)
 
         project = metadata['project']
-        featured_image = project.get('featured_image', '')
-        featured_image_path = f"/media/{project['name']}/images/{featured_image}" if featured_image else ''
         
         # Build front matter
         front_matter = {
@@ -301,10 +299,14 @@ class ProjectAutomation:
             'title': strip_emoji(project['display_name']).strip(),
             'description': project.get('description', ''),
             'date': f"{project['date_created']} 15:01:35 +0300",
-            'image': featured_image_path,
             'tags': project.get('tags', []),
             'github': f"{self.config.github_url_path}/{name}"
         }
+
+        featured_image = project.get('featured_image')
+        if featured_image:
+            featured_image_path = f"/media/{project['name']}/images/{featured_image}"
+            front_matter['image'] = featured_image_path
         
         # Generate content with media sections
         try:
