@@ -51,6 +51,9 @@ class JekyllHandler:
             self.logger.info("No changes to publish for Jekyll site")
 
     def stage_post(self, name: str) -> None:
+       
+        self.logger.info(f"Staging post for {name}")
+
         """Generate Jekyll post content from project metadata"""
         project_dir = get_project_path(self, name)
 
@@ -122,8 +125,6 @@ class JekyllHandler:
     def stage_roadmap(self) -> None:
         """Generate roadmap page from projects metadata"""
         
-        self.logger.info("Staging roadmap")
-
         projects = get_project_directories(self)
         in_progress = []
         backlog = []

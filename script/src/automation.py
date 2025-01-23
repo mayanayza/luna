@@ -29,8 +29,6 @@ class Automation:
         metadata = get_project_metadata(self, name)
         jekyll_media_dir = self.jekyll.media_dir / name
         
-        self.logger.info(f"Publishing project: {name}")
-
         try:                
             self.github.stage_readme(name)
             self.github.publish(name)
