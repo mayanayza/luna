@@ -2,7 +2,7 @@ project:
   name: "project-automation"
   display_name: "⚙️ Project Automation"
   date_created: "2025-01-22"
-  status: "in_progress" # backlog, in progress, complete, published
+  status: "published" # backlog, in progress, complete, published
   priority: 0
   description: "Why is it so hard to work on anything without feeling like I have a system in place first?"
   featured_image: ""  # Just the filename, e.g. "hero.jpg"
