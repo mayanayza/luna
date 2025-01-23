@@ -1,6 +1,6 @@
 content.md
-src/.env
-src/venv/
+script/.env
+script/.venv/
 
 # Internal media files
 media-internal/
