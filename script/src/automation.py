@@ -46,6 +46,9 @@ class Automation:
             self.logger.error(f"Failed to sync project: {e}")
             raise
 
+    def publish_roadmap(self) -> None:
+        self.jekyll.publish_roadmap()
+
     def create_project(self, name: str, display_name: str) -> None:
         self.files.create(name, display_name)
         self.github.create(name)

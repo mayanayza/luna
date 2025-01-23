@@ -86,7 +86,7 @@ def main():
         if args.command == 'create':
             name, display_name = prompt_for_name()
             automation.create_project(name, display_name)
-            automation.jekyll.publish_roadmap()
+            automation.publish_roadmap()
             
         elif args.command == 'list':
             automation.list_projects()
@@ -94,10 +94,10 @@ def main():
         elif args.command == 'publish':
             if args.name:
                 automation.publish_project(args.name)
-                automation.jekyll.publish_roadmap()
+                automation.publish_roadmap()
             elif args.all:
                 automation.publish_all_projects()
-                automation.jekyll.publish_roadmap()
+                automation.publish_roadmap()
             else:
                 parser.error("Either --name or --all must be specified for publish command")
                 
