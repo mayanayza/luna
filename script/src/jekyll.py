@@ -89,7 +89,7 @@ class JekyllHandler:
                 if img.name != project.get('featured_image', ''):  # Skip featured image
                     content += f'    <img src="/media/{project["name"]}/images/{img.name}">\n'
             content += '  </div>\n</div>\n'
-        print(1)
+
         # Add videos if they exist
         videos = list( get_media_path(self, project_dir, 'videos').glob('*.webm') )
         if videos:
@@ -172,7 +172,7 @@ class JekyllHandler:
         if backlog:
             content += "\n| Project | Description |\n|---------|-------------|\n"
             for project in backlog:
-                content += f"| {project['display_name']} | {project.get('description', '')} | {project.get('priority', 0)} |\n"
+                content += f"| {project['display_name']} | {project.get('description', '')} |\n"
         else:
             content += "Nothing currently in backlog"
 
