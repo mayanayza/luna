@@ -346,7 +346,7 @@ class ProjectAutomation:
         post = "---\n"
         post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
         post += "---\n"
-        post += f"[View on my GitHub]({self.config.github_url_path}/{name})\n"
+        post += f"[View on my GitHub]({self.config.github_url_path}/{name})\n\n"
         post += f"{content}\n"
 
         return post
