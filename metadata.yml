@@ -9,8 +9,8 @@ project:
     type: 'code' 
     source: "script/src/jekyll.py"
     language: ""
-    start_line: 10
-    end_line: 25
+    start_line: 25
+    end_line: 50
   tags: ["Automation", "Productivity"]
 
 physical_specifications:

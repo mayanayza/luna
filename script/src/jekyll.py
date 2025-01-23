@@ -72,18 +72,14 @@ class JekyllHandler:
         }
 
         featured_content = project.get('featured_content')
-        if featured_content.get('type') == 'code':
-            print(f"Project dir: {project_dir}")
-            print(f"Source path: {featured_content['source']}")
-            
+        if featured_content.get('type') == 'code':            
             # Explicitly create path object
             source_file = Path(project_dir) / Path(featured_content['source'])
-            print(f"Full path: {source_file}")
             if source_file.exists():
                 with open(source_file, 'r') as f:
                     lines = f.readlines()
-                    start = featured_content.get('start_line', 0)
-                    end = featured_content.get('end_line', min(start + 10, len(lines)))
+                    start = featured_content.get('start_line')
+                    end = featured_content.get('end_line')
                     code_snippet = ''.join(lines[start:end])
                     
                 front_matter['featured_code'] = code_snippet
