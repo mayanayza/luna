@@ -48,16 +48,8 @@ class Automation:
             raise
 
     def publish_roadmap(self) -> None:
-
-        self.logger.info("Publishing roadmap")
-
-        try:
-            self.jekyll.stage_roadmap()
-            self.jekyll.publish()
-            self.logger.info("Successfully published roadmap")
-        except Exception as e:
-            self.logger.error(f"Failed to publish roadmap: {e}")
-            raise
+        self.jekyll.stage_roadmap()
+        self.jekyll.publish()
 
     def create_project(self, name: str, display_name: str) -> None:
         self.files.create(name, display_name)

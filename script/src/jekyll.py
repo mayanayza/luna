@@ -121,6 +121,9 @@ class JekyllHandler:
 
     def stage_roadmap(self) -> None:
         """Generate roadmap page from projects metadata"""
+        
+        self.logger.info("Staging roadmap")
+
         projects = get_project_directories(self)
         in_progress = []
         backlog = []
