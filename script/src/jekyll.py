@@ -99,7 +99,7 @@ class JekyllHandler:
             for model in models:
                 content += f'\n\n<model-viewer src="/media/{project["name"]}/models/{model.name}" auto-rotate camera-controls></model-viewer>\n'
         
-        self.logger.info(f"Successfully generated Jekyll post for {name}")
+        self.logger.info(f"Successfully staged post for {name}")
 
         # Combine front matter and content
 
@@ -178,7 +178,7 @@ class JekyllHandler:
         with open(self.pages_dir / 'roadmap.md', 'w') as f:
             f.write(content)
 
-        self.logger.info("Successfully generated and synced roadmap")
+        self.logger.info("Successfully staged roadmap")
 
     def stage_media(self, source_dir: Path, dest_dir: Path) -> None:
         """Sync media files from project to Jekyll site"""
@@ -196,7 +196,7 @@ class JekyllHandler:
                     if file.is_file():
                         shutil.copy2(file, dest_dir / media_type / file.name)
 
-        self.logger.info("Successfully synced Jekyll media files")
+        self.logger.info("Successfully staged media files")
 
     def rename(self, old_name: str, new_name: str, display_name: str) -> None:
         """Update all Jekyll-related files when renaming a project"""

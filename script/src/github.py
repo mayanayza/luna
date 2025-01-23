@@ -70,23 +70,27 @@ class GithubHandler:
             self.logger.warning(f"Failed to update GitHub repository: {e}")
 
     def publish(self, name: str) -> None:
+
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
         description = metadata['project']['description']
         os.chdir(project_dir)
         result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
-        
-        if result.stdout.strip():
 
-            if description:
-                subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
+        try:
+            if result.stdout.strip():
+                if description:
+                    subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
 
-            subprocess.run(['git', 'add', '.'], check=True)
-            subprocess.run(['git', 'commit', '-m', 'Publishing new files and updating readme'], check=True)
-            subprocess.run(['git', 'push', 'origin', 'main'], check=True)
-            self.logger.info(f"Git changes synced for project: {name}")
-        else:
-            self.logger.info(f"No git changes to publish for project: {name}")
+                subprocess.run(['git', 'add', '.'], check=True)
+                subprocess.run(['git', 'commit', '-m', 'Publishing new files and updating readme'], check=True)
+                subprocess.run(['git', 'push', 'origin', 'main'], check=True)
+                self.logger.info(f"Git changes synced for project: {name}")
+            else:
+                self.logger.info(f"No git changes to publish for project: {name}")
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to publish github {name}: {e}")
+            raise
 
     def stage_readme(self, name: str) -> None:
         """Generate README.md content from project metadata and content.md"""
@@ -125,12 +129,16 @@ class GithubHandler:
             for model in models:
                 readme += f"- [{model.stem}](media/models/{model.name})\n"
         
-        self.logger.info(f"Successfully generated README.md for {name}")
+        self.logger.info(f"Successfully staged README.md for {name}")
 
         with open(project_dir / Files.README, 'w') as f:
             f.write(readme)
 
     def publish_repo_post_info(self, name: str) -> None:
         project_dir = get_project_path(self, name)
-        os.chdir(project_dir)
-        subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
+        try:
+            os.chdir(project_dir)
+            subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
+        except Exception as e:
+            self.logger.error(f"Failed to publish repo post info for {name}: {e}")
+            raise
