@@ -162,8 +162,8 @@ class JekyllHandler:
             content += "Nothing currently in backlog"
 
         # Publish roadmap
-        self.jekyll_pages_dir.mkdir(exist_ok=True)
-        with open(self.jekyll_pages_dir / 'roadmap.md', 'w') as f:
+        self.pages_dir.mkdir(exist_ok=True)
+        with open(self.pages_dir / 'roadmap.md', 'w') as f:
             f.write(content)
 
         self.logger.info("Successfully generated and synced roadmap")
