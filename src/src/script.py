@@ -244,10 +244,6 @@ class ProjectAutomation:
 
          # Build README content
         readme = f"# {project['display_name']}\n\n"
-
-        if status == 'published':
-            readme += f"[View on my website]({self.config.website_domain}/{name})\n\n"
-
         readme += f"{content}\n## Media\n\n"
                 
         # Add images section if images exist
@@ -548,8 +544,13 @@ class ProjectAutomation:
             else:
                 self.logger.info(f"No git changes to sync for project: {name}")
 
-            # Generate and sync Jekyll post content
+            # Published project actions
             if metadata['project']['status'] == 'published':
+
+                os.chdir(project_dir)
+                subprocess.run(['gh', 'repo', 'edit', '--description', f"{metadata['project']['description']}"])
+                subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
+
                 post_content = self.generate_jekyll_post(name)
                 post_date = metadata['project']['date_created']
                 post_file = self.config.jekyll_posts_dir / f"{post_date}-{name}.md"

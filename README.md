@@ -1,7 +1,5 @@
 # ⚙️ Project Automation
 
-[View on my website](http://mayaferrandiz.github.io/project-automation)
-
 This is a tool to automate the creation and management of art and personal proejcts. It creates local project directories to store work-in-progress files and media, GitHub repositories, and Things 3 projects with consistent organization and metadata. Once ready, it also facilitates publication to a Jekyll website and will also be able to syndicate content to other platforms in the future.
 
 ## Setup
