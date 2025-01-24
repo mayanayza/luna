@@ -17,29 +17,33 @@ class ChannelRegistry:
     def publish(self, 
                 channels: Optional[List[str]] = None, 
                 projects: Optional[List[str]] = None, 
+                all_projects: Optional[bool] = False,
+                all_channels: Optional[bool] = False,
                 **kwargs):
 
-        if not projects:
-            raise ValueError("No projects specified. Use --projects or -p.")
-        
-        # If no channels specified, publish to all registered channels
-        if not channels:
-            raise ValueError("No channels specified. Use --channels or -c.")
-            
-        # Validate channels
-        invalid_channels = set(channels) - set(self._channels.keys())
-        if invalid_channels:
-            raise ValueError(f"Invalid channels specified: {invalid_channels}")
+        all_projects = []
+        for item in self.config.base_dir.iterdir():
+            if item.is_dir() and (item / Files.METADATA).exists():
+                all_projects.append(item.name)
 
-        if channels == 'all':
+        if all_channels:
             channels = list(self._channels.keys())
+        elif not channels:
+            raise ValueError("No channels specified. Use --channels or -c.")
+        else:
+            invalid_channels = set(channels) - set(self._channels.keys())
+            if invalid_channels:
+                raise ValueError(f"Invalid channels specified: {invalid_channels}")
 
-        if projects == 'all':
-            projects = []
-            for item in self.config.base_dir.iterdir():
-                if item.is_dir() and (item / Files.METADATA).exists():
-                    projects.append(item.name)
-        
+        if all_projects:
+            projects = all_projects
+        elif not projects:
+            raise ValueError("No projects specified. Use --projects or -p.")
+        else:
+            invalid_projects = set(projects) - set(all_projects)
+            if invalid_projects:
+                raise ValueError(f"Invalid projects specified: {invalid_projects}")        
+
         # Prepare context for publication
         publish_context = {
             **kwargs,

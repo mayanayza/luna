@@ -101,10 +101,18 @@ def parse_arguments():
     parser.add_argument('--command', '-c', 
                         help='Command to execute. Create, list, rename, or publish.')
 
+    parser.add_argument('--all-projects', 
+                        action='store_true',
+                        help='Publish for all projects')
+
     parser.add_argument('--projects', '-p', 
                         nargs='+', 
-                        help='Specific projects to publish. Use "all" to publish all projects.')
+                        help='Specific projects to publish.')
         
+    parser.add_argument('--all-channels', 
+                        action='store_true',
+                        help='Publish across all channels')
+
     parser.add_argument('--channel', '-ch', 
                         nargs='+', 
                         help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
@@ -134,8 +142,6 @@ def main():
     automation = Automation(config)
     publication_registry = setup_publication_registry(automation, config)
 
-    print(args.command)
-
     try:
         
         if args.command == 'create':
@@ -150,12 +156,7 @@ def main():
 
             try:
                 # Publish based on command-line arguments
-                publication_registry.publish(
-                    channels=args.channel, 
-                    projects=args.projects,
-                    collate_images=args.collate_images, 
-                    filename_prepend=args.filename_prepend
-                )
+                publication_registry.publish(**vars(args))
             except ValueError as e:
                 print(f"Publication error: {e}")
                 sys.exit(1)
