@@ -59,6 +59,8 @@ class FileHandler:
         """Rename media files in-place with sequential naming."""
         project_dir = get_project_path(self, name)
 
+        self.logger.info(f"Organizing media for {name}")
+
         for media_type in MEDIA_TYPES:
             type_dir = get_media_path(self, project_dir, media_type)
             if not type_dir.exists():
