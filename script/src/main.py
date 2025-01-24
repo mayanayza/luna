@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from script.src.automation import Automation
 from script.src.config import Config
+from script.src.constants import Files
 from script.src.utils import strip_emoji
 
 load_dotenv()
@@ -63,11 +64,15 @@ def prompt_for_new_name(old_name: str) -> tuple[str, str]:
 
 def main():
     parser = argparse.ArgumentParser(description='Project Automation Tool')
-    parser.add_argument('--command', choices=['create', 'publish', 'rename', 'list'], default='create', 
-                       help='Command to execute')
-    parser.add_argument('--all', action='store_true', help='Flag to publish all projects, roadmap, and website')
-    parser.add_argument('--project', help='Flag to publish a specific project')
-    parser.add_argument('--website', action='store_true', help='Flag to publish website')
+    parser.add_argument('--command', choices=['create', 'publish', 'rename', 'list'], default='create', help='Command to execute')
+    
+    parser.add_argument('--channel', nargs='+', help='Publish to specific channels: web, pdf, github. Will publish to all if not provided.')
+    parser.add_argument('--projects', nargs='+', help='Input to specify one or more specific project name for publish and rename automation')
+    parser.add_argument('--all', default=False, action='store_true', help='Flag to run publication workflows for all projects')
+
+    parser.add_argument('--collate_images', default=False, action='store_true', help='Add images to PDF for PDF publish')
+    parser.add_argument('--filename_prepend', default='', help='Prepend text to image filenames for PDF publish')
+
     args = parser.parse_args()
 
     # Calculate templates directory relative to script location
@@ -87,25 +92,40 @@ def main():
         if args.command == 'create':
             name, display_name = prompt_for_name()
             automation.create_project(name, display_name)
-            
-        elif args.command == 'list':
-            automation.list_projects()
-
-        elif args.command == 'publish':
-            if args.all:
-                automation.publish_all()
-            elif args.project:
-                automation.publish_project(args.project)
-            elif args.website:
-                automation.publish_website()
-            else:
-                parser.error("Either --project, --all, or --website must be specified for publish command")
-                
         elif args.command == 'rename':
-            if not args.project:
-                parser.error("--project is required for rename command")
-            new_name, new_display_name = prompt_for_new_name(args.project)
-            automation.rename_project(args.project, new_name, new_display_name)
+                new_name, new_display_name = prompt_for_new_name(args.project)
+                automation.rename_project(args.project, new_name, new_display_name)
+        else:
+
+            projects = []
+
+            if args.all:
+                for item in config.base_dir.iterdir():
+                    if item.is_dir() and (item / Files.METADATA).exists():
+                        projects.append(item.name)
+            elif args.projects:
+                projects = args.projects
+            else:
+                raise ValueError('Must include at least one project using --project arg or specify --all')
+
+            if args.command == 'list':
+                automation.list_projects(projects)
+
+            elif args.command == 'publish':
+
+                if not args.channel:
+                    automation.publish_website(projects)
+                    automation.publish_pdf(projects)
+                    automation.publish_github(projects)
+                else:
+                    if 'web' in args.channel:
+                        automation.publish_website(projects)
+                    if 'pdf' in args.channel:
+                        automation.publish_pdf(projects, args.collate_images, args.filename_prepend)
+                    if 'github' in args.channel:
+                        automation.publish_github(projects)
+                
+            
             
     except Exception as e:
         logging.error(f"Operation failed: {e}")

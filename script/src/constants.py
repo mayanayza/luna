@@ -16,6 +16,7 @@ class Files:
    CONTENT = 'content.md'
    GITIGNORE = '.gitignore'
    PDF_LAYOUT = 'pdf_layout.html'
+   PDF_IMAGE_LAYOUT = 'pdf_image_layout.html'
    PDF_STYLE = 'pdf_style.css'
 
 # Status enums

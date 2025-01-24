@@ -6,12 +6,11 @@ from pathlib import Path
 import yaml
 
 from script.src.config import Config
-from script.src.constants import MEDIA_TYPES, Extensions, Status
-from script.src.github import GithubHandler
+from script.src.constants import MEDIA_TYPES, Extensions, Files, Status
+from script.src.output.github import GithubHandler
 from script.src.utils import (
     get_media_path,
     get_project_content,
-    get_project_directories,
     get_project_metadata,
     get_project_path,
     setup_logging,
@@ -138,18 +137,21 @@ class JekyllHandler:
         """Generate roadmap page from projects metadata"""
         self.logger.info("Staging roadmap")
         
-        projects = get_project_directories(self)
+        projects = []
+        for item in self.config.base_dir.iterdir():
+            if item.is_dir() and (item / Files.METADATA).exists():
+                projects.append(item.name)
         in_progress = []
         backlog = []
         public_repos = []
         
-        for project_dir, name in projects:
+        for name in projects:
 
             metadata = get_project_metadata(self, name)
             project = metadata['project']
             name = metadata['project']['name']
 
-            os.chdir(project_dir)
+            os.chdir(get_project_path(name))
             visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
             visibility = visibility.stdout.strip().upper()
             if visibility == 'PUBLIC':

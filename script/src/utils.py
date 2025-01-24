@@ -41,18 +41,6 @@ def get_project_content(self, name: str) -> str:
     with open(project_dir / Files.CONTENT, 'r') as f:
         return f.read()
 
-def get_project_directories(self) -> list[tuple[Path, str]]:
-        """Get list of all project directories and their names"""
-        try:
-            projects = []
-            for item in self.config.base_dir.iterdir():
-                if item.is_dir() and (item / Files.METADATA).exists():
-                    projects.append((item, item.name))
-            return projects
-        except Exception as e:
-            self.logger.error(f"Failed to read project directories: {e}")
-            raise
-
 def get_project_path(self, name: str) -> Path:
         """Get the full path for a project"""
         try:

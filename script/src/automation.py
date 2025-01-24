@@ -1,12 +1,11 @@
 
 from script.src.config import Config
-from script.src.file import FileHandler
-from script.src.github import GithubHandler
-from script.src.jekyll import JekyllHandler
-from script.src.pdf import PDFHandler
-from script.src.things import ThingsHandler
+from script.src.output.github import GithubHandler
+from script.src.output.jekyll import JekyllHandler
+from script.src.output.pdf import PDFHandler
+from script.src.output.things import ThingsHandler
+from script.src.setup import SetupHandler
 from script.src.utils import (
-    get_project_directories,
     get_project_metadata,
     setup_logging,
 )
@@ -19,60 +18,42 @@ class Automation:
         self.github = GithubHandler(config)
         self.jekyll = JekyllHandler(config)
         self.things = ThingsHandler(config)
-        self.files = FileHandler(config)
+        self.setup = SetupHandler(config)
         self.pdf = PDFHandler(config)
         self.logger = setup_logging(__name__)
 
-    def publish_all(self) -> None:
-        self.stage_all_projects()
-
-        projects = get_project_directories(self)
-        for project_dir, name in projects:
+    def publish_website(self, projects: list) -> None:
+        for name in projects:
+            self.github.stage_readme(name)
             self.github.publish(name)
-        
+
+    def publish_github(self, projects: list) -> None:
+        for name in projects:
+            self.jekyll.stage_post(name)                    
+            self.jekyll.stage_media(name)
         self.jekyll.stage_roadmap()
         self.jekyll.publish()
 
-    def publish_website(self) -> None:
-        self.jekyll.publish()
-
-    def publish_project(self, name: str) -> None:
-        self.stage_project(name)
-
-        self.github.publish(name)
-
-        self.jekyll.stage_roadmap()
-        self.jekyll.publish()
-
-    def stage_project(self, name: str) -> None:
-        self.files.organize_media(name)
-        self.github.stage_readme(name)
-        self.jekyll.stage_post(name)                    
-        self.jekyll.stage_media(name)
-        self.pdf.create(name)
-
-    def stage_all_projects(self) -> None:
-        projects = get_project_directories(self)
-        for project_dir, name in projects:
-            self.stage_project(name)
+    def publish_pdf(self, projects: list, collate_images: bool=False, filename_prepend: str=''):
+        for name in projects:
+            self.pdf.stage_media(name, filename_prepend)
+            self.pdf.stage_pdf(name, collate_images)
+        self.pdf.publish()                    
 
     def create_project(self, name: str, display_name: str) -> None:
-        self.files.create(name, display_name)
+        self.setup.create(name, display_name)
         self.github.create(name)
         self.things.create(display_name)
-        self.pdf.create(name)
         self.publish_project(name)
     
-    def list_projects(self) -> None:
-        """List all projects with their details"""
-        projects = get_project_directories(self)
-        
+    def list_projects(self, projects) -> None:
+        """List projects with their details"""        
         if not projects:
             self.logger.info("No projects found")
             return
             
         self.logger.info(f"\n -- Found {len(projects)} projects: --")
-        for project_dir, name in sorted(projects):
+        for name in sorted(projects):
             try:
                 metadata = get_project_metadata(self, name)
                 display_name = metadata['project']['display_name']
@@ -97,11 +78,11 @@ class Automation:
             metadata = get_project_metadata(self, old_name)
             old_display_name = metadata['project']['display_name']
 
+            self.setup.rename(old_name, old_display_name, old_path, new_name, new_display_name, new_path)
+            
             self.things.rename(old_display_name, new_display_name)
-            self.files.rename(old_name, old_display_name, old_path, new_name, new_display_name, new_path)
             self.jekyll.rename(old_name, new_name, new_display_name)
             self.github.rename(old_name, new_name, new_path)
-            self.pdf.rename(old_name, new_name)
             self.publish_project(new_name)
 
             self.logger.info(f"Successfully renamed project from {old_name} to {new_name}")

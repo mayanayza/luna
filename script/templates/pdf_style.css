@@ -1,25 +1,45 @@
 @page {
-    margin: 2cm;
+    size: letter;
+    margin: 2.5cm 2cm;
     @top-center {
         content: string(title);
         font-family: "Helvetica Neue", sans-serif;
         font-size: 9pt;
         color: #666;
-    }
-    @bottom-center {
-        content: counter(page);
-        font-family: "Helvetica Neue", sans-serif;
-        font-size: 9pt;
-        color: #666;
+        padding: 0.5cm;
+        border-bottom: 0.5pt solid #eee;
     }
 }
 
 body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     line-height: 1.4;
-    max-width: 21cm;
-    margin: 0 auto;
     color: #333;
+    margin: 0;
+    padding: 0;
+    height: 279mm;
+    width: 216mm;
+    counter-reset: total-pages;
+}
+
+.image-table {
+    width: 100%;
+    border-spacing: 2cm;
+    border-collapse: separate;
+    margin: 2cm 0;
+}
+
+.image-table td {
+    width: 100%;
+    padding: 0;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.image-table img {
+    max-width: 80mm;
+    max-height: 80mm;
+    object-fit: contain;
 }
 
 h1 {
@@ -30,6 +50,14 @@ h1 {
     margin: 1cm 0 0.5cm 0;
     padding-bottom: 0.3cm;
     border-bottom: 0.5pt solid #ddd;
+}
+
+.hidden-title {
+    visibility: hidden; 
+    height: 0; 
+    margin: 0; 
+    padding: 0; 
+    position: absolute;
 }
 
 .subtitle {

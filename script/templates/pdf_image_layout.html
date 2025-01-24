@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1 class="hidden-title">{{ title }}</h1>
+    <table class="image-table">
+        <tr>
+            {% for image in images %}
+                <td><img src="{{ image }}"></td>
+                {% if loop.index is odd and not loop.last %}
+                    </tr><tr>
+                {% endif %}
+            {% endfor %}
+            {% if images|length is odd %}
+                <td></td>
+            {% endif %}
+        </tr>
+    </table>
+</body>
+</html>
