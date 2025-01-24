@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from script.src.config import Config
-from script.src.constants import MEDIA_TYPES, Status
+from script.src.constants import MEDIA_TYPES, Extensions, Status
 from script.src.github import GithubHandler
 from script.src.utils import (
     get_media_path,
@@ -90,9 +90,8 @@ class JekyllHandler:
         content = get_project_content(self, name)
                 
         # Add image gallery if images exist
-        extensions = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
         images = []
-        for extension in extensions:
+        for extension in Extensions.IMAGE:
             images.extend( get_media_path(self, project_dir, 'images').glob(extension) )
         if images:
             content += '\n\n<div class="gallery-box">\n  <div class="gallery">\n'
@@ -102,13 +101,17 @@ class JekyllHandler:
             content += '  </div>\n</div>\n'
 
         # Add videos if they exist
-        videos = list( get_media_path(self, project_dir, 'videos').glob('*.webm') )
+        videos = []
+        for extensions in Extensions.VIDEO:
+            videos.extend( get_media_path(self, project_dir, 'videos').glob("*.webm") )
         if videos:
             for video in videos:
                 content += f'\n\n<video controls>\n  <source src="/media/{project["name"]}/videos/{video.name}" type="video/webm">\n</video>\n'
         
         # Add models if they exist
-        models = list( get_media_path(self, project_dir, 'models').glob('*.glb'))
+        models =  []
+        for extensions in Extensions.MODEL:
+            models.extend( get_media_path(self, project_dir, 'models').glob('*.glb'))
         if models:
             for model in models:
                 content += f'\n\n<model-viewer src="/media/{project["name"]}/models/{model.name}" auto-rotate camera-controls></model-viewer>\n'

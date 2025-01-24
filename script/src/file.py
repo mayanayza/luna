@@ -3,7 +3,7 @@ from datetime import datetime
 import yaml
 
 from script.src.config import Config
-from script.src.constants import BASE_DIRS, IMAGE_EXTENSIONS, MEDIA_TYPES, Files
+from script.src.constants import BASE_DIRS, MEDIA_TYPES, Extensions, Files
 from script.src.utils import (
     get_media_path,
     get_project_metadata,
@@ -71,10 +71,10 @@ class FileHandler:
             
             # Get all files of supported types
             if media_type == 'images':
-                for ext in IMAGE_EXTENSIONS:
+                for ext in Extensions.IMAGE:
                     files.extend(type_dir.glob(f'*{ext}'))
             elif media_type == 'videos':
-                for ext in IMAGE_EXTENSIONS:
+                for ext in Extensions.VIDEO:
                     files.extend(type_dir.glob(f'*{ext}'))
             
             # Rename files in place

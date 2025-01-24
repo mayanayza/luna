@@ -4,8 +4,10 @@ from enum import Enum
 BASE_DIRS = ['src', 'docs', 'hardware'] 
 MEDIA_TYPES = ['images', 'videos', 'models']
 
-IMAGE_EXTENSIONS = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
-VIDEO_EXTENSIONS = ('.mp4')
+class Extensions:
+   IMAGE = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
+   VIDEO = (".mp4", "*.webm")
+   MODEL = ("*.glb")
 
 # Template file names
 class Files:

@@ -3,8 +3,9 @@ from jinja2 import Template
 from weasyprint import CSS, HTML
 
 from script.src.config import Config
-from script.src.constants import Files
+from script.src.constants import Extensions, Files
 from script.src.utils import (
+    get_media_path,
     get_project_content,
     get_project_metadata,
     get_project_path,
@@ -63,6 +64,12 @@ class PDFHandler:
             maintenance_supplies = ", ".join(ex['maintenance']['supplies_needed'])
             maintenance_instructions = ex['maintenance']['tasks']
 
+            images = []
+            for extension in Extensions.IMAGE:
+                images.extend( get_media_path(self, project_dir, 'images').glob(extension) )
+
+            image_file_names = ", ".join([image.name for image in images])
+
             # Prepare template data
             template_data = {
                 'title': strip_emoji(project['display_name']).strip(),
@@ -83,6 +90,7 @@ class PDFHandler:
                 'setup_people': setup_people,
                 'maintenance_supplies': maintenance_supplies,
                 'maintenance_instructions': maintenance_instructions,
+                'image_file_names': image_file_names,
                 'content': html_content,
             }
 
