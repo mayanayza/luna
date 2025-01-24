@@ -45,6 +45,7 @@ class Automation:
         self.jekyll.publish()
 
     def stage_project(self, name: str) -> None:
+        self.files.organize_media(name)
         self.github.stage_readme(name)
         self.jekyll.stage_post(name)                    
         self.jekyll.stage_media(name)

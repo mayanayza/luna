@@ -4,6 +4,9 @@ from enum import Enum
 BASE_DIRS = ['src', 'docs', 'hardware'] 
 MEDIA_TYPES = ['images', 'videos', 'models']
 
+IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png')
+VIDEO_EXTENSIONS = ('.mp4')
+
 # Template file names
 class Files:
    README = 'README.md'

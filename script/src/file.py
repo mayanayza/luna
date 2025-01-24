@@ -3,7 +3,7 @@ from datetime import datetime
 import yaml
 
 from script.src.config import Config
-from script.src.constants import BASE_DIRS, MEDIA_TYPES, Files
+from script.src.constants import BASE_DIRS, IMAGE_EXTENSIONS, MEDIA_TYPES, Files
 from script.src.utils import (
     get_media_path,
     get_project_metadata,
@@ -54,6 +54,33 @@ class FileHandler:
         gitignore_content = load_template(self, Files.GITIGNORE)
         with open(project_dir / Files.GITIGNORE, 'w') as f:
             f.write(gitignore_content)
+
+    def organize_media(self, name: str) -> None:
+        """Rename media files in-place with sequential naming."""
+        project_dir = get_project_path(self, name)
+
+        for media_type in MEDIA_TYPES:
+            type_dir = get_media_path(self, project_dir, media_type)
+            if not type_dir.exists():
+                continue
+
+            counter = 1
+            files = []
+            
+            # Get all files of supported types
+            if media_type == 'images':
+                for ext in IMAGE_EXTENSIONS:
+                    files.extend(type_dir.glob(f'*{ext}'))
+            elif media_type == 'videos':
+                for ext in IMAGE_EXTENSIONS:
+                    files.extend(type_dir.glob(f'*{ext}'))
+            
+            # Rename files in place
+            for file in sorted(files):
+                new_name = f"{name}_{counter}{file.suffix}"
+                new_path = type_dir / new_name
+                file.rename(new_path)
+                counter += 1
 
     def rename(self, old_name: str, old_display_name: str, old_path: str, new_name: str, new_display_name: str, new_path: str) -> None:
         # Update metadata
