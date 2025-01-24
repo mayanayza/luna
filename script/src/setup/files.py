@@ -13,7 +13,7 @@ from script.src.utils import (
 )
 
 
-class SetupHandler:
+class FileHandler:
 
     def __init__(self, config: Config):
         self.config = config

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import yaml
 
+from script.src.channels.github import GithubHandler
 from script.src.config import Config
 from script.src.constants import MEDIA_TYPES, Extensions, Files, Status
-from script.src.output.github import GithubHandler
 from script.src.utils import (
     get_media_path,
     get_project_content,
@@ -18,7 +18,7 @@ from script.src.utils import (
 )
 
 
-class JekyllHandler:
+class WebsiteHandler:
 
     def __init__(self, config: Config):
         self.config = config
@@ -151,7 +151,7 @@ class JekyllHandler:
             project = metadata['project']
             name = metadata['project']['name']
 
-            os.chdir(get_project_path(name))
+            os.chdir(get_project_path(self, name))
             visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
             visibility = visibility.stdout.strip().upper()
             if visibility == 'PUBLIC':

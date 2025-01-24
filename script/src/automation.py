@@ -1,10 +1,11 @@
 
+from script.src.channels.github import GithubHandler
+from script.src.channels.pdf import PDFHandler
+from script.src.channels.website import WebsiteHandler
 from script.src.config import Config
-from script.src.output.github import GithubHandler
-from script.src.output.jekyll import JekyllHandler
-from script.src.output.pdf import PDFHandler
-from script.src.output.things import ThingsHandler
-from script.src.setup import SetupHandler
+from script.src.constants import Files
+from script.src.setup.files import FileHandler
+from script.src.setup.things import ThingsHandler
 from script.src.utils import (
     get_project_metadata,
     setup_logging,
@@ -16,18 +17,18 @@ class Automation:
     def __init__(self, config: Config):
         self.config = config
         self.github = GithubHandler(config)
-        self.jekyll = JekyllHandler(config)
+        self.jekyll = WebsiteHandler(config)
         self.things = ThingsHandler(config)
-        self.setup = SetupHandler(config)
+        self.setup = FileHandler(config)
         self.pdf = PDFHandler(config)
         self.logger = setup_logging(__name__)
 
-    def publish_website(self, projects: list) -> None:
+    def publish_github(self, projects: list) -> None:
         for name in projects:
             self.github.stage_readme(name)
             self.github.publish(name)
 
-    def publish_github(self, projects: list) -> None:
+    def publish_web(self, projects: list) -> None:
         for name in projects:
             self.jekyll.stage_post(name)                    
             self.jekyll.stage_media(name)
@@ -46,13 +47,13 @@ class Automation:
         self.things.create(display_name)
         self.publish_project(name)
     
-    def list_projects(self, projects) -> None:
-        """List projects with their details"""        
-        if not projects:
-            self.logger.info("No projects found")
-            return
-            
-        self.logger.info(f"\n -- Found {len(projects)} projects: --")
+    def list_projects(self) -> None:
+        """List projects with their details"""
+        projects = []
+        for item in self.config.base_dir.iterdir():
+            if item.is_dir() and (item / Files.METADATA).exists():
+                projects.append(item.name)                
+        self.logger.info(f"\n -- Listing {len(projects)} projects: --")
         for name in sorted(projects):
             try:
                 metadata = get_project_metadata(self, name)
