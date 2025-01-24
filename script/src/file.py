@@ -64,6 +64,7 @@ class FileHandler:
         for media_type in MEDIA_TYPES:
             type_dir = get_media_path(self, project_dir, media_type)
             if not type_dir.exists():
+                print(f"{media_type} doesn't exist for {name}")
                 continue
 
             counter = 1
@@ -71,6 +72,7 @@ class FileHandler:
             
             # Get all files of supported types
             if media_type == 'images':
+                print(f"organizing images for {name}")
                 for ext in IMAGE_EXTENSIONS:
                     files.extend(type_dir.glob(f'*{ext}'))
             elif media_type == 'videos':
