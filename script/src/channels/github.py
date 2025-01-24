@@ -1,6 +1,7 @@
 import os
 import subprocess
 
+from script.src.channels._channel import Channel
 from script.src.config import Config
 from script.src.constants import Files, Status
 from script.src.utils import (
@@ -8,15 +9,15 @@ from script.src.utils import (
     get_project_content,
     get_project_metadata,
     get_project_path,
-    setup_logging,
 )
 
 
-class GithubHandler:
+class GithubHandler(Channel):
 
     def __init__(self, config: Config):
-        self.config = config
-        self.logger = setup_logging(__name__)
+        
+        super().__init__('Github', config)
+
         if self.config.github_token:
             os.environ['GH_TOKEN'] = self.config.github_token
         else:
@@ -27,7 +28,9 @@ class GithubHandler:
         return f"https://github.com/{self.config.github_username}"
 
     def create(self, name: str) -> None:
-        """Initialize and set up git repository"""
+        
+        super().create()
+
         project_dir = get_project_path(self, name)
 
         try:
@@ -44,7 +47,9 @@ class GithubHandler:
             raise
 
     def rename(self, old_name: str, new_name: str, new_path: str) -> None:
-        """Rename GitHub repository and update remote URL"""
+        
+        super().rename(old_name, new_name)
+
         try:
             os.chdir(new_path)
             
@@ -72,6 +77,8 @@ class GithubHandler:
 
     def publish(self, name: str) -> None:
 
+        super().publish(name)
+
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
         status = metadata['project']['status']
@@ -97,6 +104,10 @@ class GithubHandler:
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Failed to publish github {name}: {e}")
             raise
+
+    def stage(self, name: str) -> None:
+
+        super().stage()
 
     def stage_readme(self, name: str) -> None:
         """Generate README.md content from project metadata and content.md"""

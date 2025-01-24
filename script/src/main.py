@@ -113,7 +113,7 @@ def parse_arguments():
                         action='store_true',
                         help='Publish across all channels')
 
-    parser.add_argument('--channel', '-ch', 
+    parser.add_argument('--channels', '-ch', 
                         nargs='+', 
                         help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
     

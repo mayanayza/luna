@@ -29,7 +29,7 @@ class ChannelRegistry:
         if all_channels:
             channels = list(self._channels.keys())
         elif not channels:
-            raise ValueError("No channels specified. Use --channels or -c.")
+            raise ValueError("No channels specified. Use --channels or -ch.")
         else:
             invalid_channels = set(channels) - set(self._channels.keys())
             if invalid_channels:
