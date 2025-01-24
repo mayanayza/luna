@@ -5,6 +5,7 @@ from script.src.config import Config
 from script.src.constants import Files, Status
 from script.src.utils import (
     get_media_path,
+    get_project_content,
     get_project_metadata,
     get_project_path,
     setup_logging,
@@ -103,8 +104,7 @@ class GithubHandler:
         metadata = get_project_metadata(self, name)
         project = metadata['project']
         
-        with open(project_dir / Files.CONTENT, 'r') as f:
-            content = f.read()
+        content = get_project_content(self, name)
 
          # Build README content
         readme = f"# {project['display_name']}\n\n"

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <header>
+        <h1>{{ title }}</h1>
+        <div class="subtitle">
+            <p class="description">{{ description }}</p>
+            <p class="date">{{ date }}</p>
+            {% if website %}
+            <p class="website"><a href="{{ website }}">Website Link</a></p>
+            {% endif %}
+        </div>
+    </header>
+    <main>
+        <section class="specifications">
+            <h2>Specifications</h2>
+            {% if materials %}<p><span class="label">Materials:</span> {{ materials }}</p>{% endif %}
+            {% if dimensions %}<p><span class="label">Dimensions:</span> {{ dimensions }}</p>{% endif %}
+            {% if weight %}<p><span class="label">Weight:</span> {{ weight }}</p>{% endif %}
+        </section>
+        <section class="requirements">
+            <h2>Requirements</h2>
+            {% if lighting %}<p><span class="label">Lighting:</span> {{ lighting }}</p>{% endif %}
+            {% if mounting %}<p><span class="label">Mounting:</span> {{ mounting }}</p>{% endif %}
+            {% if temperature_range %}<p><span class="label">Temperature:</span> {{ temperature_range }}</p>{% endif %}
+            {% if humidity_range %}<p><span class="label">Humidity:</span> {{ humidity_range }}</p>{% endif %}
+            {% if ventilation_needs %}<p><span class="label">Ventilation:</span> {{ ventilation_needs }}</p>{% endif %}
+        </section>
+        <section class="exhibition">
+            <h2>Setup & Maintenance</h2>
+            {% if setup_time and setup_people and setup_instructions %}
+            <div class="setup">
+                <h3>Setup ({{ setup_time }}, {{ setup_people }})</h3>
+                {% for instruction in setup_instructions %}
+                <p>{{ instruction }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if maintenance_supplies and maintenance_instructions %}
+            <div class="maintenance">
+                <h3>Maintenance</h3>
+                <p><span class="label">Supplies:</span> {{ maintenance_supplies }}</p>
+                {% for instruction in maintenance_instructions %}
+                <p>{{ instruction }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+        {% if content %}
+        <section class="content">
+            {{ content }}
+        </section>
+        {% endif %}
+    </main>
+</body>
+</html>

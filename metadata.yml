@@ -11,7 +11,7 @@ project:
     language: ""
     start_line: 25
     end_line: 50
-  tags: ["Automation", "Productivity"]
+  tags: ["Automation", "Workflow"]
 
 physical_specifications:
   dimensions:

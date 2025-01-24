@@ -6,10 +6,11 @@ from pathlib import Path
 import yaml
 
 from script.src.config import Config
-from script.src.constants import MEDIA_TYPES, Files, Status
+from script.src.constants import MEDIA_TYPES, Status
 from script.src.github import GithubHandler
 from script.src.utils import (
     get_media_path,
+    get_project_content,
     get_project_directories,
     get_project_metadata,
     get_project_path,
@@ -73,7 +74,6 @@ class JekyllHandler:
 
         featured_content = project.get('featured_content')
         if featured_content.get('type') == 'code':            
-            # Explicitly create path object
             source_file = Path(project_dir) / Path(featured_content['source'])
             if source_file.exists():
                 with open(source_file, 'r') as f:
@@ -86,11 +86,9 @@ class JekyllHandler:
                 front_matter['code_language'] = featured_content.get('language')
         else:
             front_matter['image'] = f"/media/{project['name']}/images/{featured_content['source']}"
-        
-        with open(project_dir / Files.CONTENT, 'r') as f:
-            content = f.read()
                 
-
+        content = get_project_content(self, name)
+                
         # Add image gallery if images exist
         extensions = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
         images = []

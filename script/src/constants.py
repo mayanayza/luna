@@ -10,6 +10,8 @@ class Files:
    METADATA = 'metadata.yml'
    CONTENT = 'content.md'
    GITIGNORE = '.gitignore'
+   PDF_LAYOUT = 'pdf_layout.html'
+   PDF_STYLE = 'pdf_style.css'
 
 # Status enums
 class Status(str, Enum):

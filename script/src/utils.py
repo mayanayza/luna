@@ -36,6 +36,11 @@ def get_project_metadata(self, name: str) -> yaml:
     with open(project_dir / Files.METADATA, 'r') as f:
         return yaml.safe_load(f)
 
+def get_project_content(self, name: str) -> str:
+    project_dir = get_project_path(self, name)
+    with open(project_dir / Files.CONTENT, 'r') as f:
+        return f.read()
+
 def get_project_directories(self) -> list[tuple[Path, str]]:
         """Get list of all project directories and their names"""
         try:

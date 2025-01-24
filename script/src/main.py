@@ -67,9 +67,7 @@ def main():
                        help='Command to execute')
     parser.add_argument('--all', action='store_true', help='Flag to publish all projects, roadmap, and website')
     parser.add_argument('--project', help='Flag to publish a specific project')
-    parser.add_argument('--allprojects', action='store_true', help='Flag to publish all projects')
     parser.add_argument('--website', action='store_true', help='Flag to publish website')
-    parser.add_argument('--roadmap', action='store_true', help='Flag to publish roadmap')
     args = parser.parse_args()
 
     # Calculate templates directory relative to script location
@@ -98,14 +96,10 @@ def main():
                 automation.publish_all()
             elif args.project:
                 automation.publish_project(args.project)
-            elif args.allprojects:
-                automation.publish_all_projects()
             elif args.website:
                 automation.publish_website()
-            elif args.roadmap:
-                automation.publish_roadmap()
             else:
-                parser.error("Either --name or --all must be specified for publish command")
+                parser.error("Either --project, --all, or --website must be specified for publish command")
                 
         elif args.command == 'rename':
             if not args.project:

@@ -15,12 +15,11 @@ cd script
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # On Windows: venv\Scripts\activate
-cd .. # Run script from root directory
 ```
 
 3. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 4. Create your environment file:
@@ -59,13 +58,16 @@ This will show all projects with their display names, canonical names, creation 
 python -m script.src.main --command publish --all
 
 # Publish specific project
-python -m script.src.main --command publish --name project-name
+python -m script.src.main --command publish --project project-name
+
+# Publish website (for any non-project website changes)
+python -m script.src.main --command publish --website
 ```
 
 ### Rename a project:
 ```bash
 # Start rename process (will prompt for new name)
-python -m script.src.main --command rename --name project-name
+python -m script.src.main --command rename --project project-name
 ```
 The rename command will:
 - Update the Things 3 project name

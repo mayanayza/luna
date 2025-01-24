@@ -1,0 +1,97 @@
+@page {
+    margin: 2cm;
+    @top-center {
+        content: string(title);
+        font-family: "Helvetica Neue", sans-serif;
+        font-size: 9pt;
+        color: #666;
+    }
+    @bottom-center {
+        content: counter(page);
+        font-family: "Helvetica Neue", sans-serif;
+        font-size: 9pt;
+        color: #666;
+    }
+}
+
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    line-height: 1.4;
+    max-width: 21cm;
+    margin: 0 auto;
+    color: #333;
+}
+
+h1 {
+    string-set: title content();
+    font-size: 24pt;
+    font-weight: 600;
+    color: #222;
+    margin: 1cm 0 0.5cm 0;
+    padding-bottom: 0.3cm;
+    border-bottom: 0.5pt solid #ddd;
+}
+
+.subtitle {
+    margin-bottom: 1cm;
+}
+
+.description {
+    font-size: 12pt;
+    color: #666;
+    font-style: italic;
+    margin: 0 0 0.3cm 0;
+}
+
+.date, .website {
+    font-size: 10pt;
+    color: #888;
+    margin: 0;
+}
+
+h2 {
+    font-size: 14pt;
+    color: #444;
+    margin: 0.8cm 0 0.4cm 0;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 12pt;
+    color: #555;
+    margin: 0.6cm 0 0.3cm 0;
+}
+
+section {
+    margin-bottom: 0.8cm;
+}
+
+p {
+    margin: 0 0 0.3cm 0;
+}
+
+.label {
+    font-weight: 600;
+}
+
+a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.setup, .maintenance {
+    margin-left: 0.3cm;
+}
+
+/* Preserve URLs in print */
+@media print {
+    a[href]::after {
+        content: " (" attr(href) ")";
+        font-size: 90%;
+        color: #666;
+    }
+}
