@@ -54,8 +54,8 @@ class TemplateProcessor:
     def process_project_metadata(self, name: str) -> Dict:
         
         try:
+            processed = {}
             metadata = get_project_metadata(self, name)
-            
             project = metadata['project']
 
             if (project['status'] == Status.COMPLETE):
@@ -63,53 +63,43 @@ class TemplateProcessor:
             if is_public_github_repo(self, name):
                 project['github'] = f"{self.config.github_url_path}/{name}"
 
+            processed['project'] = project
+
             specs = metadata['physical_specifications']
                 
-            dimensions = f"{specs['dimensions']['width']}{specs['dimensions']['unit']} w x {specs['dimensions']['height']}{specs['dimensions']['unit']} h x {specs['dimensions']['depth']}{specs['dimensions']['unit']} d"
-            weight = f"{specs['weight']['value']} {specs['weight']['unit']}"
+            if (specs['dimensions']['width'] and specs['dimensions']['height'] and specs['dimensions']['depth']):
+                processed['dimensions'] = f"{specs['dimensions']['width']}{specs['dimensions']['unit']} w x {specs['dimensions']['height']}{specs['dimensions']['unit']} h x {specs['dimensions']['depth']}{specs['dimensions']['unit']} d"
             
-            materials = specs['materials']['primary']
-            consumables = specs['materials']['consumables']
-
-            materials = ", ".join(materials)
-            consumables = ", ".join(materials)
+            if specs['weight']['value']:
+                processed['weight'] = f"{specs['weight']['value']} {specs['weight']['unit']}"
+            
+            if specs['materials']:
+                processed['materials'] = ", ".join(specs['materials']['primary'])
 
             reqs = metadata['technical_requirements']
-
-            lighting = reqs['lighting']
-            mounting = reqs['mounting']
-            temperature_range = reqs['environmental']['temperature_range']
-            humidity_range = reqs['environmental']['humidity_range']
-            ventilation_needs = reqs['environmental']['ventilation_needs']
+            for key in reqs:
+                if reqs[key]:
+                    processed[key] = reqs[key]
 
             ex = metadata['exhibition']
 
-            setup_instructions = ex['setup']['instructions']
-            setup_time = ex['setup']['time_required']
-            setup_people = ex['setup']['people_required']
-            setup_tools = ", ".join(ex['setup']['tools_required'])
+            if ex['setup']['instructions']:
+                processed['setup_instructions'] = ex['setup']['instructions']
+            
+            if ex['setup']['time_required']:
+                processed['setup_time'] = ex['setup']['time_required']
 
-            maintenance_supplies = ", ".join(ex['maintenance']['supplies_needed'])
-            maintenance_instructions = ex['maintenance']['tasks']
+            if ex['setup']['people_required']:
+                processed['setup_tools'] = ex['setup']['people_required']
+            
+            if ex['setup']['tools_required']:
+                processed['setup_people'] = ", ".join(ex['setup']['tools_required'])
 
-            processed = {
-                'project': project,
-                'dimensions': dimensions,
-                'weight': weight,
-                'materials': materials,
-                'consumables': consumables,
-                'lighting': lighting,
-                'mounting': mounting,
-                'temperature_range': temperature_range,
-                'humidity_range': humidity_range,
-                'ventilation_needs': ventilation_needs,
-                'setup_instructions': setup_instructions,
-                'setup_time': setup_time,
-                'setup_tools': setup_tools,
-                'setup_people': setup_people,
-                'maintenance_supplies': maintenance_supplies,
-                'maintenance_instructions': maintenance_instructions,
-            }
+            if ex['maintenance']['supplies_needed']:
+                processed['maintenance_supplies'] = ", ".join(ex['maintenance']['supplies_needed'])
+            
+            if ex['maintenance']['tasks']:
+                processed['maintenance_instructions'] = ex['maintenance']['tasks']
 
             return processed
 

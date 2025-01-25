@@ -64,7 +64,7 @@ class Automation:
         """List projects with their details"""
         projects = []
         for item in self.config.base_dir.iterdir():
-            if item.is_dir() and (item / Files.METADATA).exists():
+            if item.is_dir() and (item / 'content' / Files.METADATA).exists():
                 projects.append(item.name)                
         self.logger.info(f"\n -- Listing {len(projects)} projects: --")
         for name in sorted(projects):

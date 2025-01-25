@@ -24,19 +24,15 @@ physical_specifications:
   weight:
     value: ''
     unit: kg
-  materials:
-    primary: []
-    secondary: []
-    consumables: []
+  materials: []
 technical_requirements:
   power: ''
   space: ''
   lighting: ''
   mounting: ''
-  environmental:
-    temperature_range: ''
-    humidity_range: ''
-    ventilation_needs: ''
+  temperature_range: ''
+  humidity_range: ''
+  ventilation_needs: ''
 exhibition:
   setup:
     time_required: ''

@@ -8,8 +8,13 @@ import yaml
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import MEDIA, Files, Status
-from script.src.utils import get_media_files, get_project_metadata, get_project_path
+from script.src.constants import MEDIA, Status
+from script.src.utils import (
+    get_media_files,
+    get_project_metadata,
+    get_project_path,
+    is_project,
+)
 
 
 class WebsiteHandler(Channel):
@@ -69,7 +74,6 @@ class WebsiteHandler(Channel):
                 roadmap = self.generate_roadmap()
                 with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
                     f.write(roadmap)
-
             self.logger.info(f"Successfully staged website content for {name}")
 
             return name
@@ -130,7 +134,9 @@ class WebsiteHandler(Channel):
         try:
             projects = []
             for item in self.config.base_dir.iterdir():
-                if item.is_dir() and (item / Files.METADATA).exists():
+                print(1)
+                print(item)
+                if is_project(self, item):
                     projects.append(item.name)
             in_progress = []
             backlog = []

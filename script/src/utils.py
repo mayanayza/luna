@@ -43,6 +43,10 @@ def is_public_github_repo(self, name) -> str:
     else:
         return False
 
+def is_project(self, item) -> bool:
+    print(2)
+    return item.is_dir() and (item / 'content' / Files.METADATA).exists()
+
 def get_media_files(self, name, type, extensions):
     project_dir = get_project_path(self, name)
     media_path = project_dir / 'media' / type
@@ -53,7 +57,7 @@ def get_media_files(self, name, type, extensions):
 
 def get_project_metadata(self, name: str) -> yaml:
     project_dir = get_project_path(self, name)
-    with open(project_dir / Files.METADATA, 'r') as f:
+    with open(project_dir / 'content' / Files.METADATA, 'r') as f:
         return yaml.safe_load(f)
 
 def get_project_content(self, name: str) -> str:
@@ -67,8 +71,4 @@ def get_project_readme(self, name: str) -> str:
         return f.read()
 
 def get_project_path(self, name: str) -> Path:
-        """Get the full path for a project"""
-        try:
-            return self.config.base_dir / name
-        except Exception as e:
-            self.logger.error(f"Failed to read project path: {e}")
+    return self.config.base_dir / name

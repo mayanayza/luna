@@ -47,7 +47,7 @@ class FileHandler:
             with open(project_dir / 'content' / Files.CONTENT, 'w') as f:
                 f.write(content_template)
 
-            # Create content.md from template
+            # Create readme.md from template
             readme_remplate = load_template(self, Files.README)
             with open(project_dir / 'content' / Files.README, 'w') as f:
                 f.write(readme_remplate)

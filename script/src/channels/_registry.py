@@ -34,7 +34,7 @@ class ChannelRegistry:
 
         all_p = []
         for item in self.config.base_dir.iterdir():
-            if item.is_dir() and (item / Files.METADATA).exists():
+            if item.is_dir() and (item / 'content' / Files.METADATA).exists():
                 all_p.append(item.name)
         if all_projects:
             projects = all_p

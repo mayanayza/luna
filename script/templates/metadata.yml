@@ -7,11 +7,11 @@ project:
   priority: 0
   description: ""
   featured_content: 
-    type: "image"
+    type: "image" # image or code
     source: ""  # Just the filename, e.g. "hero.jpg"
     language: ""
     start_line: 0
-    end_line: 10
+    end_line: 0
   tags: []
 
 physical_specifications:
@@ -19,24 +19,20 @@ physical_specifications:
     width: ""
     height: ""
     depth: ""
-    unit: "cm"
+    unit: ""
   weight:
     value: ""
-    unit: "kg"
-  materials:
-    primary: []
-    secondary: []
-    consumables: []
+    unit: ""
+  materials: []
 
 technical_requirements:
   power: ""
   space: ""
   lighting: ""
   mounting: ""
-  environmental:
-    temperature_range: ""
-    humidity_range: ""
-    ventilation_needs: ""
+  temperature_range: ""
+  humidity_range: ""
+  ventilation_needs: ""
 
 exhibition:
   setup:
