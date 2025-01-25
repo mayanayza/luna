@@ -12,7 +12,6 @@ from script.src.constants import MEDIA_TYPES, Extensions, Files, Status
 from script.src.utils import (
     get_project_metadata,
     get_project_path,
-    is_public_github_repo,
 )
 
 
@@ -80,11 +79,9 @@ class WebsiteHandler(Channel):
             template_path = "html/post.html"
 
             context = {
-                'is_public_github_repo': is_public_github_repo(self, name),
                 'images': self.tp.get_media_files(name, Extensions.IMAGE),
                 'videos': self.tp.get_media_files(name, Extensions.VIDEO),
-                'models': self.tp.get_media_files(name, Extensions.MODEL),
-                'audio': self.tp.get_media_files(name, Extensions.AUDIO),
+                'models': self.tp.get_media_files(name, Extensions.MODEL)
             }
             
             rendered_content = self.tp.process_template(name, template_path, context)
@@ -141,9 +138,6 @@ class WebsiteHandler(Channel):
                 metadata = get_project_metadata(self, name)
                 project = metadata['project']
                 name = metadata['project']['name']
-
-                if is_public_github_repo(self, name):
-                    public_repos.append(name)
 
                 if project['status'] == Status.IN_PROGRESS:
                     in_progress.append(project)

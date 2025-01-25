@@ -6,9 +6,8 @@ MEDIA_TYPES = ['images', 'videos', 'models', 'audio']
 
 class Extensions:
    IMAGE = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
-   VIDEO = (".mp4", "*.webm")
-   MODEL = ("*.glb")
-   AUDIO = ()
+   VIDEO = ("*.mp4", "*.webm")
+   MODEL = "*.glb"
       
 # Template file names
 class Files:

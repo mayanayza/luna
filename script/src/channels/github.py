@@ -108,9 +108,6 @@ class GithubHandler(Channel):
 
             context = {
                 'images': self.tp.get_media_files(name, Extensions.IMAGE),
-                'videos': self.tp.get_media_files(name, Extensions.VIDEO),
-                'models': self.tp.get_media_files(name, Extensions.MODEL),
-                'audio': self.tp.get_media_files(name, Extensions.AUDIO),
             }
             return self.tp.process_template(name, template_path, context)
 

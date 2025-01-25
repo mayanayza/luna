@@ -28,7 +28,7 @@ class TemplateProcessor:
         media_path = project_dir / 'media'
         files = []
         for ext in extensions:
-            files.extend(media_path.rglob(ext))
+            files.extend(list(media_path.rglob(ext)))
         return files
 
     def process_template(self, name: str, template_name: str, context: Dict={}):
