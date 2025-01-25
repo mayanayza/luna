@@ -62,14 +62,13 @@ class FileHandler:
             with open(project_dir / Files.GITIGNORE, 'w') as f:
                 f.write(gitignore_content)
 
-            self.logger.error(f"Created project files for {name}")
+            self.logger.info(f"Created project files for {name}")
         except Exception as e:
             self.logger.error(f"Failed to create project files for {name}: {e}")
 
     def rename(self, old_name: str, new_name: str, new_display_name: str, new_title: str) -> None:
         # Update metadata
         try:
-            self.logger.error(f"Renaming project files for {old_name}")
             metadata = get_project_metadata(self, old_name)
             metadata['project']['name'] = new_name
             metadata['project']['display_name'] = new_display_name
@@ -84,7 +83,7 @@ class FileHandler:
             
             # Rename local directory
             old_project_dir.rename(new_project_dir)
-            self.logger.error(f"Renamed project files from {old_name} to {new_name}")
+            self.logger.info(f"Renamed project files from {old_name} to {new_name}")
         except Exception as e:
             self.logger.error(f"Failed to rename project files for {old_name}: {e}")
 

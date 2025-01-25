@@ -1,4 +1,4 @@
-# ⚙️ Project Automation
+# 🦋 Luna
 
 This is a tool to automate the creation and management of art and personal projects. It creates local project directories to store work-in-progress files and media, GitHub repositories, and Things 3 projects with consistent organization and metadata. Once ready, it also facilitates publication to a Jekyll website in the form of project-specific posts and an overall roadmap.
 

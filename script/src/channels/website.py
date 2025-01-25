@@ -73,7 +73,6 @@ class WebsiteHandler(Channel):
             raise
 
     def generate_post(self, name) -> None:
-        self.logger.info(f"Staging post for {name}")
         try:
             metadata = get_project_metadata(self, name)
             template_path = "html/post.html"
@@ -161,8 +160,6 @@ class WebsiteHandler(Channel):
             raise
 
     def stage_media(self, name: str) -> None:
-        self.logger.info(f"Staging website media for {name}")
-
         try:
             source_dir = get_project_path(self, name) / 'media'
             dest_dir = self.config.website_media_dir / name
