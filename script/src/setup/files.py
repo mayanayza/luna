@@ -55,15 +55,19 @@ class FileHandler:
         with open(project_dir / Files.GITIGNORE, 'w') as f:
             f.write(gitignore_content)
 
-    def rename(self, old_name: str, old_display_name: str, old_path: str, new_name: str, new_display_name: str, new_path: str) -> None:
+    def rename(self, old_name: str, new_name: str, new_title: str, new_display_name: str) -> None:
         # Update metadata
         metadata = get_project_metadata(self, old_name)
         metadata['project']['name'] = new_name
         metadata['project']['display_name'] = new_display_name
+        metadata['project']['title'] = new_title
+
+        old_project_dir = get_project_path(self, old_name)
+        new_project_dir = get_project_path(self, new_name)
         
         # Save updated metadata
-        with open(old_path / Files.METADATA, 'w') as f:
+        with open(old_project_dir / Files.METADATA, 'w') as f:
             yaml.safe_dump(metadata, f, sort_keys=False, allow_unicode=True)
         
         # Rename local directory
-        old_path.rename(new_path)
+        old_project_dir.rename(new_project_dir)

@@ -1,6 +1,7 @@
 project:
   name: "project-automation"
   display_name: "⚙️ Project Automation"
+  title: "Project Automation"
   date_created: "2025-01-22"
   status: "complete" # backlog, in progress, complete
   priority: 0

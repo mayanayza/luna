@@ -38,10 +38,11 @@ class GithubHandler(Channel):
             self.logger.error(f"Git initialization failed: {e}")
             raise
 
-    def rename(self, old_name: str, new_name: str, new_path: str) -> None:
+    def rename(self, old_name: str, new_name: str) -> None:
         
         try:
-            os.chdir(new_path)
+            project_dir = get_project_path(self, new_name)
+            os.chdir(project_dir)
             
             # First get the current remote URL to verify the repository name
             subprocess.check_output(['git', 'remote', 'get-url', 'origin'], text=True).strip()
@@ -96,7 +97,6 @@ class GithubHandler(Channel):
     def stage(self, name: str) -> None:
         project_dir = get_project_path(self, name)
         readme = self.generate_readme(name)
-        print(2)
         with open(project_dir / Files.README, 'w') as f:
             f.write(readme)  
 
@@ -112,7 +112,6 @@ class GithubHandler(Channel):
                 'models': self.tp.get_media_files(name, Extensions.MODEL),
                 'audio': self.tp.get_media_files(name, Extensions.AUDIO),
             }
-            print(0)
             return self.tp.process_template(name, template_path, context)
 
         except Exception as e:

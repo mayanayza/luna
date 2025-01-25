@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -10,59 +9,10 @@ from dotenv import load_dotenv
 from script.src.automation import Automation
 from script.src.channels._registry import ChannelRegistry
 from script.src.config import Config
-from script.src.utils import strip_emoji
 
 load_dotenv()
 
-def get_formatted_name(name: str) -> str:
-    # Remove emoji and other special characters, convert to lowercase
-    cleaned = strip_emoji(name)
-    cleaned = re.sub(r'[^a-zA-Z0-9\s-]', '', cleaned)
-    
-    # Convert to kebab-case
-    formatted = cleaned.strip().lower().replace(' ', '-')
-    formatted = re.sub(r'-+', '-', formatted)
-    
-    return formatted
-
-def prompt_for_name() -> tuple[str, str]:
-    """Prompt user for project name and return (name, formatted_name)"""
-    display_name = input("Enter project display name (e.g. '🌱 Project Name; a canonical name will be generated like project-name.'): ").strip()
-    if not display_name:
-        raise ValueError("Project name cannot be empty")
-    
-    name = get_formatted_name(display_name)
-    
-    print("\nProject details:")
-    print(f"Name: {name}")
-    print(f"Formatted name: {display_name}")
-    
-    confirm = input("\nConfirm these details? (y/n): ").strip().lower()
-    if confirm != 'y':
-        raise ValueError("Project creation cancelled by user")
-    
-    return name, display_name
-
-def prompt_for_new_name(old_name: str) -> tuple[str, str]:
-    """Prompt user for new project name and return (name, formatted_name)"""
-    new_display_name = input("Enter project display name (e.g. '🌱 Project Name; a canonical name will be generated like project-name.'): ").strip()
-    if not new_display_name:
-        raise ValueError("New project name cannot be empty")
-    
-    new_name = get_formatted_name(new_display_name)
-    
-    print("\nRename details:")
-    print(f"Old name: {old_name}")
-    print(f"New name: {new_name}")
-    print(f"New display name: {new_display_name}")
-    
-    confirm = input("\nConfirm these details? (y/n): ").strip().lower()
-    if confirm != 'y':
-        raise ValueError("Project rename cancelled by user")
-    
-    return new_name, new_display_name
-
-def setup_publication_registry(automation, config):
+def setup_channel_registry(automation, config):
 
     registry = ChannelRegistry(config)
     
@@ -90,40 +40,14 @@ def setup_publication_registry(automation, config):
     return registry
 
 def parse_arguments():
-    """
-    Parse command-line arguments.
-    
-    Returns:
-        Parsed arguments object
-    """    
     parser = argparse.ArgumentParser(description='Project Publication Tool')
-    
-    parser.add_argument('--command', '-c', 
-                        help='Command to execute. Create, list, rename, or publish.')
-
-    parser.add_argument('--all-projects', 
-                        action='store_true',
-                        help='Publish for all projects')
-
-    parser.add_argument('--projects', '-p', 
-                        nargs='+', 
-                        help='Specific projects to publish.')
-        
-    parser.add_argument('--all-channels', 
-                        action='store_true',
-                        help='Publish across all channels')
-
-    parser.add_argument('--channels', '-ch', 
-                        nargs='+', 
-                        help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
-    
-    parser.add_argument('--collate-images', 
-                        action='store_true', 
-                        help='Collate images for PDF publication')
-    
-    parser.add_argument('--filename-prepend', 
-                        default='', 
-                        help='Prepend string for PDF filename')
+    parser.add_argument('--command', '-c', help='Command to execute. Create, list, rename, or publish.')
+    parser.add_argument('--all-projects', default=False, action='store_true', help='Publish for all projects')
+    parser.add_argument('--projects', '-p', nargs='+', help='Specific projects to publish.')
+    parser.add_argument('--all-channels', default=False, action='store_true', help='Publish across all channels')
+    parser.add_argument('--channels', '-ch', nargs='+', help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
+    parser.add_argument('--collate-images', action='store_true', help='Collate images for PDF publication')
+    parser.add_argument('--filename-prepend', default='', help='Prepend string for PDF filename')
     
     return parser.parse_args()
 
@@ -140,23 +64,21 @@ def main():
         enable_things3=os.environ.get('ENABLE_THINGS3', 'true').lower() == 'true'
     )
     automation = Automation(config)
-    publication_registry = setup_publication_registry(automation, config)
+    channels = setup_channel_registry(automation, config)
 
     try:
         
         if args.command == 'create':
-            name, display_name = prompt_for_name()
-            automation.create_project(name, display_name)
+            automation.create_project()
         elif args.command == 'list':
             automation.list_projects()
         elif args.command == 'rename':
-            new_name, new_display_name = prompt_for_new_name(args.project)
-            automation.rename_project(args.project, new_name, new_display_name)
+            automation.rename_project()
         elif args.command == 'publish':
 
             try:
                 # Publish based on command-line arguments
-                publication_registry.publish(**vars(args))
+                channels.publish(**vars(args))
             except ValueError as e:
                 print(f"Publication error: {e}")
                 sys.exit(1)

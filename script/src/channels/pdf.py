@@ -68,16 +68,16 @@ class PDFHandler(Channel):
             raise
 
     def stage(self, name, collate_images, filename_prepend) -> None:
-        self.stage_media(name, filename_prepend)
-        self.stage_pdf(name, collate_images)
+        self.generate_pdf(name, filename_prepend, collate_images)
 
-    def generate_pdf(self, name, filename_prepend=False, collate_images=True):
+    def generate_pdf(self, name, filename_prepend, collate_images):
         """Generate PDF with optional image collation."""
         self.logger.info(f"Generating PDF for {name}")
 
         try:
             project_dir = get_project_path(self, name)
-            temp_dir = Path(project_dir / 'temp_pdf').mkdir(exist_ok=True)
+            temp_dir = project_dir / 'temp_pdf'
+            Path(temp_dir).mkdir(exist_ok=True)
             css = CSS(string=self.tp.env.get_template('pdf/style.css').render())
 
             image_pdfs = []
@@ -88,7 +88,7 @@ class PDFHandler(Channel):
                 context['image_file_names'] = self.stage_images(name, Extensions.IMAGE, filename_prepend)
             
             # Generate main content PDF
-            html_string = self.process_template('pdf/project_cover.html', context)
+            html_string = self.tp.process_template(name, 'pdf/project_cover.html', context)
             main_pdf = HTML(string=html_string).render(stylesheets=[css])
             
             # Combine main content with image pages
@@ -115,7 +115,7 @@ class PDFHandler(Channel):
                 context = {
                     'images': [str(image.absolute()) for image in group]
                 }
-                rendered_html = self.tp.process_template('pdf/project_images.html', context)
+                rendered_html = self.tp.process_template(name, 'pdf/project_images.html', context)
                 image_pdf = HTML(string=rendered_html).render(stylesheets=[css])
                 image_pdfs.extend(image_pdf.pages)
 
@@ -124,18 +124,21 @@ class PDFHandler(Channel):
             self.logger.error(f"Failed to generate image PDF for {name}: {e}")
             raise
             
-    def stage_images(self, name, extensions, filename_prepend: str=''):
+    def stage_images(self, name, extensions, filename_prepend):
         try:
             project_dir = get_project_path(self, name)
-            temp_dir = Path(project_dir / 'temp_pdf').mkdir(exist_ok=True)
+            temp_dir = project_dir / 'temp_pdf'
+            Path(temp_dir).mkdir(exist_ok=True)
             images = self.tp.get_media_files(name, Extensions.IMAGE)
             
             counter = 1
             new_names = []
             
             for file in sorted(images):
-                new_name = f"{filename_prepend}_{name}_{counter}{file.suffix}"
-                new_names.extend(new_name)
+                new_name = f"{name}_{counter}{file.suffix}"
+                if filename_prepend:
+                    new_name = f"{filename_prepend}_{new_name}"
+                new_names.append(new_name)
                 shutil.copy(str(file), str(temp_dir / new_name))
                 counter += 1
             return ", ".join(new_names)

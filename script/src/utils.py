@@ -1,5 +1,7 @@
 import logging
+import os
 import re
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -30,6 +32,16 @@ def load_template(self, template_name: str) -> str:
     except FileNotFoundError:
         self.logger.error(f"Template file not found: {template_path}")
         raise
+
+def is_public_github_repo(self, name) -> str:
+    project_dir = get_project_path(self, name)
+    os.chdir(project_dir)
+    visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
+    visibility = visibility.stdout.strip().upper()
+    if visibility == 'PUBLIC':
+        return True
+    else:
+        return False
 
 def get_project_metadata(self, name: str) -> yaml:
     project_dir = get_project_path(self, name)

@@ -10,10 +10,12 @@
         <div class="subtitle">
             <p class="description">{{ project.description }}</p>
             <p class="date">{{ project.date_created }}</p>
-            {% if website %}
+            {% if project.website %}
             <p class="website"><a href="{{ project.website }}">Website Link</a></p>
             {% endif %}
+            {% if image_file_names %}
             <p class="images">{{ image_file_names }}</p>
+            {% endif %}
         </div>
     </header>
     <main>

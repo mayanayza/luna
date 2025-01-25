@@ -17,12 +17,12 @@ class Config:
 
     @property
     def website_posts_dir(self) -> Path:
-        return self.config.jekyll_dir / '_posts'
+        return self.jekyll_dir / '_posts'
 
     @property
     def website_media_dir(self) -> Path:
-        return self.config.jekyll_dir / 'media'
+        return self.jekyll_dir / 'media'
 
     @property
     def website_pages_dir(self) -> Path:
-        return self.config.jekyll_dir / '_pages'
+        return self.jekyll_dir / '_pages'

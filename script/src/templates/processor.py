@@ -3,11 +3,12 @@ from typing import Dict
 
 from jinja2 import Environment, FileSystemLoader
 from script.src.config import Config
+from script.src.constants import Status
 from script.src.utils import (
     get_project_content,
     get_project_metadata,
     get_project_path,
-    strip_emoji,
+    is_public_github_repo,
 )
 
 
@@ -42,16 +43,21 @@ class TemplateProcessor:
         
         project = metadata['project']
 
-        project['title'] = strip_emoji(project['display_name']).strip()
-        project['date_created'] = f"{project['date_created']} 15:01:35 +0300",
-        project['website'] = f"{self.config.website_domain}/{name}"
-        project['github'] = f"{self.config.github_url_path}/{name}"
+        if (project['status'] == Status.COMPLETE):
+            project['website'] = f"{self.config.website_domain}/{name}"
+        if is_public_github_repo(self, name):
+            project['github'] = f"{self.config.github_url_path}/{name}"
 
         specs = metadata['physical_specifications']
             
         dimensions = f"{specs['dimensions']['width']}{specs['dimensions']['unit']} w x {specs['dimensions']['height']}{specs['dimensions']['unit']} h x {specs['dimensions']['depth']}{specs['dimensions']['unit']} d"
         weight = f"{specs['weight']['value']} {specs['weight']['unit']}"
-        materials = ", ".join(specs['materials'])
+        
+        materials = specs['materials']['primary']
+        consumables = specs['materials']['consumables']
+
+        materials = ", ".join(materials)
+        consumables = ", ".join(materials)
 
         reqs = metadata['technical_requirements']
 
@@ -77,6 +83,7 @@ class TemplateProcessor:
             'dimensions': dimensions,
             'weight': weight,
             'materials': materials,
+            'consumables': consumables,
             'lighting': lighting,
             'mounting': mounting,
             'temperature_range': temperature_range,
@@ -90,7 +97,3 @@ class TemplateProcessor:
             'maintenance_instructions': maintenance_instructions,
         }
 
-
-
-
-    

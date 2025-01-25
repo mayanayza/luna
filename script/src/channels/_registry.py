@@ -21,26 +21,27 @@ class ChannelRegistry:
                 all_channels: Optional[bool] = False,
                 **kwargs):
 
-        all_projects = []
-        for item in self.config.base_dir.iterdir():
-            if item.is_dir() and (item / Files.METADATA).exists():
-                all_projects.append(item.name)
-
+        all_c = self._channels.keys()
         if all_channels:
-            channels = list(self._channels.keys())
+            channels = list(all_c)
         elif not channels:
             raise ValueError("No channels specified. Use --channels or -ch.")
         else:
-            invalid_channels = set(channels) - set(self._channels.keys())
+            invalid_channels = set(channels) - set(all_c)
             if invalid_channels:
                 raise ValueError(f"Invalid channels specified: {invalid_channels}")
 
+
+        all_p = []
+        for item in self.config.base_dir.iterdir():
+            if item.is_dir() and (item / Files.METADATA).exists():
+                all_p.append(item.name)
         if all_projects:
-            projects = all_projects
+            projects = all_p
         elif not projects:
             raise ValueError("No projects specified. Use --projects or -p.")
         else:
-            invalid_projects = set(projects) - set(all_projects)
+            invalid_projects = set(projects) - set(all_p)
             if invalid_projects:
                 raise ValueError(f"Invalid projects specified: {invalid_projects}")        
 

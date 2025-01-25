@@ -12,6 +12,7 @@ from script.src.constants import MEDIA_TYPES, Extensions, Files, Status
 from script.src.utils import (
     get_project_metadata,
     get_project_path,
+    is_public_github_repo,
 )
 
 
@@ -60,36 +61,37 @@ class WebsiteHandler(Channel):
     def generate_post(self, name) -> None:
         self.logger.info(f"Staging post for {name}")
         try:
-            project_dir = get_project_path(self, name)
             metadata = get_project_metadata(self, name)
             template_path = "html/post.html"
 
             context = {
-                'is_public_github_repo': self.is_public_github_repo(name),
+                'is_public_github_repo': is_public_github_repo(self, name),
                 'images': self.tp.get_media_files(name, Extensions.IMAGE),
                 'videos': self.tp.get_media_files(name, Extensions.VIDEO),
                 'models': self.tp.get_media_files(name, Extensions.MODEL),
                 'audio': self.tp.get_media_files(name, Extensions.AUDIO),
             }
             
-            rendered_content = self.tp.process_template(template_path, context)
+            rendered_content = self.tp.process_template(name, template_path, context)
 
             front_matter = {
                 'layout': 'post',
-                'title': metadata['title'],
-                'description': metadata['description'],
-                'date': metadata['date_created'],
-                'tags': metadata['tags'],
-                'github': metadata['github']
-            } | self.determine_featured_content(name, metadata, project_dir)
+                'title': metadata['project']['title'],
+                'description': metadata['project']['description'],
+                'date': metadata['project']['date_created'],
+                'tags': metadata['project']['tags'],
+            } | self.determine_featured_content(name)
 
             return f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
         except Exception as e:
             self.logger.error(f"Failed to generate post for {name}: {e}")
             raise
 
-    def determine_featured_content(name, metadata, project_dir) -> Dict:
-        featured_content = metadata['featured_content']
+    def determine_featured_content(self, name) -> Dict:
+        metadata = get_project_metadata(self, name)
+        project_dir = get_project_path(self, name)
+
+        featured_content = metadata['project']['featured_content']
         if featured_content.get('type') == 'code':            
             source_file = Path(project_dir) / Path(featured_content['source'])
             if source_file.exists():
@@ -108,16 +110,6 @@ class WebsiteHandler(Channel):
                 'image': f"/media/{name}/images/{featured_content['source']}"
             }
 
-    def is_public_github_repo(self, name) -> str:
-        project_dir = get_project_path(self, name)
-        os.chdir(project_dir)
-        visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
-        visibility = visibility.stdout.strip().upper()
-        if visibility == 'PUBLIC':
-            return True
-        else:
-            return False
-
     def generate_roadmap(self) -> None:
         self.logger.info("Staging roadmap")
         try:
@@ -135,7 +127,7 @@ class WebsiteHandler(Channel):
                 project = metadata['project']
                 name = metadata['project']['name']
 
-                if self.is_public_github_repo(name):
+                if is_public_github_repo(self, name):
                     public_repos.append(name)
 
                 if project['status'] == Status.IN_PROGRESS:
@@ -151,7 +143,7 @@ class WebsiteHandler(Channel):
                 'public_repos': public_repos
             }
 
-            return self.tp.process_template('markdown/roadmap.md', context)
+            return self.tp.process_template(name, 'md/roadmap.md', context)
         except Exception as e:
             self.logger.error(f"Failed to generate roadmap for {name}: {e}")
             raise
@@ -182,7 +174,7 @@ class WebsiteHandler(Channel):
             self.logger.error(f"Failed to stage media for {name}: {e}")
             raise
 
-    def rename(self, old_name: str, new_name: str, display_name: str) -> None:
+    def rename(self, old_name: str, new_name: str) -> None:
         """Update all Jekyll-related files when renaming a project"""
         try:
             # Remove post file in _posts directory (will be recreated)
