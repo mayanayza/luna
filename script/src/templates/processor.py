@@ -35,15 +35,14 @@ class TemplateProcessor:
                     context_cleaned[key] = value
 
             content = get_project_content(self, name)
-
             if content:
                 content = Template( str(content) ).render(context)
-                context['content'] = content
+                context_cleaned['content'] = content
 
             readme = get_project_readme(self, name)
             if readme:
                 readme = Template( str(readme) ).render(context)
-                context['readme'] = readme
+                context_cleaned['readme'] = readme
             
             template = self.env.get_template(template_name)
             rendered = template.render(context_cleaned)

@@ -56,10 +56,10 @@ def parse_arguments():
     parser.add_argument('--all-channels', default=False, action='store_true', help='Publish across all channels')
     parser.add_argument('--channels', '-ch', nargs='+', help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
     
-    parser.add_argument('--collate-images', action='store_true', help='Collate images for PDF publication')
-    parser.add_argument('--filename-prepend', default='', help='Prepend string for PDF filename')
+    parser.add_argument('--collate-images', '-ci', action='store_true', help='Collate images for PDF publication')
+    parser.add_argument('--filename-prepend', '-fp', default='', help='Prepend string for PDF filename')
 
-    parser.add_argument('--commit-message','-m', default='', help='Commit message for publishing to github')
+    parser.add_argument('--commit-message','-cm', default='', help='Commit message for publishing to github')
     
     return parser.parse_args()
 
