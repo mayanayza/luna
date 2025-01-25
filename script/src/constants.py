@@ -1,8 +1,7 @@
 from enum import Enum
 
 # Directory structure
-BASE_DIRS = ['src', 'docs', 'hardware'] 
-MEDIA_TYPES = ['images', 'videos', 'models', 'audio']
+MEDIA_TYPES = ['images', 'videos', 'models']
 
 class Extensions:
    IMAGE = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")

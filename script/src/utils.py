@@ -48,9 +48,14 @@ def get_project_metadata(self, name: str) -> yaml:
     with open(project_dir / Files.METADATA, 'r') as f:
         return yaml.safe_load(f)
 
-def get_project_content(self, name: str, content_type) -> str:
+def get_project_content(self, name: str) -> str:
     project_dir = get_project_path(self, name)
-    with open(project_dir / content_type, 'r') as f:
+    with open(project_dir / 'content' / Files.CONTENT, 'r') as f:
+        return f.read()
+
+def get_project_readme(self, name: str) -> str:
+    project_dir = get_project_path(self, name)
+    with open(project_dir / 'content' / Files.README, 'r') as f:
         return f.read()
 
 def get_project_path(self, name: str) -> Path:
@@ -60,7 +65,5 @@ def get_project_path(self, name: str) -> Path:
         except Exception as e:
             self.logger.error(f"Failed to read project path: {e}")
 
-def get_media_path(self, project_dir: Path, media_type: str, internal: bool = False) -> Path:
-    """Get the media path for a specific type"""
-    base = 'media-internal' if internal else 'media'
-    return project_dir / base / media_type
+def get_media_path(self, project_dir: Path, media_type: str) -> Path:
+    return project_dir / 'media' / media_type

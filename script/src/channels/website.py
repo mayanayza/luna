@@ -21,7 +21,6 @@ class WebsiteHandler(Channel):
         init = {
             'name': __name__,
             'class_name':self.__class__.__name__,
-            'content_type': Files.CONTENT,
             'config': config
         }
             

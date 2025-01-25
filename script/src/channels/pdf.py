@@ -18,7 +18,6 @@ class PDFHandler(Channel):
         init = {
             'name': __name__,
             'class_name':self.__class__.__name__,
-            'content_type': None,
             'config': config
         }
             

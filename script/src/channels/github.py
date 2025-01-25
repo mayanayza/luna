@@ -17,7 +17,6 @@ class GithubHandler(Channel):
         init = {
             'name': __name__,
             'class_name':self.__class__.__name__,
-            'content_type': Files.CONTENT,
             'config': config
         }
             
@@ -83,8 +82,9 @@ class GithubHandler(Channel):
             context = {
                 'images': self.tp.get_media_files(name, Extensions.IMAGE),
             }
+            readme = self.tp.process_template(name, template_path, context)
             self.logger.info(f"Generated GitHub readme for {name}")
-            return self.tp.process_template(name, template_path, context)
+            return readme
 
         except Exception as e:
             self.logger.error(f"Failed to generate GitHub readme for {name}: {e}")

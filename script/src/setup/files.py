@@ -4,9 +4,8 @@ from datetime import datetime
 import yaml
 
 from script.src.config import Config
-from script.src.constants import BASE_DIRS, MEDIA_TYPES, Files
+from script.src.constants import MEDIA_TYPES, Files
 from script.src.utils import (
-    get_media_path,
     get_project_metadata,
     get_project_path,
     load_template,
@@ -24,14 +23,15 @@ class FileHandler:
         """Create the project directory structure and initialize files"""
         try:
             project_dir = get_project_path(self, name)
-
-            for base_dir in BASE_DIRS:
-                (project_dir / base_dir).mkdir(parents=True, exist_ok=True)
+            (project_dir / 'src').mkdir(parents=True, exist_ok=True)
+            (project_dir / 'content').mkdir(parents=True, exist_ok=True)
+            (project_dir / 'media').mkdir(parents=True, exist_ok=True)
+            (project_dir / 'media-internal').mkdir(parents=True, exist_ok=True)
 
             # Create media directory structure
             for media_type in MEDIA_TYPES:
-                get_media_path(self, project_dir, media_type).mkdir(parents=True, exist_ok=True)
-                get_media_path(self, project_dir, media_type, internal=True).mkdir(parents=True, exist_ok=True)
+                (project_dir / 'media' / media_type).mkdir(parents=True, exist_ok=True)
+                (project_dir / 'media-internal' / media_type).mkdir(parents=True, exist_ok=True)
 
             # Load and process templates
             date = datetime.now().strftime('%Y-%m-%d')
@@ -44,12 +44,12 @@ class FileHandler:
 
             # Create content.md from template
             content_template = load_template(self, Files.CONTENT)
-            with open(project_dir / Files.CONTENT, 'w') as f:
+            with open(project_dir / 'content' / Files.CONTENT, 'w') as f:
                 f.write(content_template)
 
             # Create content.md from template
             readme_remplate = load_template(self, Files.README)
-            with open(project_dir / Files.README, 'w') as f:
+            with open(project_dir / 'content' / Files.README, 'w') as f:
                 f.write(readme_remplate)
 
             # Create metadata.yml from template

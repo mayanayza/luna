@@ -53,7 +53,7 @@ def parse_arguments():
     parser.add_argument('--collate-images', action='store_true', help='Collate images for PDF publication')
     parser.add_argument('--filename-prepend', default='', help='Prepend string for PDF filename')
 
-    parser.add_argument('--commit-message', default='', help='Commit message for publishing to github')
+    parser.add_argument('--commit-message','-m', default='', help='Commit message for publishing to github')
     
     return parser.parse_args()
 

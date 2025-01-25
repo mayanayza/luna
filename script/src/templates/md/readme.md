@@ -2,7 +2,11 @@
 
 {{ content }}
 
+{{ readme }}
+
+{% if images or videos or models%}
 ## Media
+{% endif %}
 
 {% if images %}
 ### Images
