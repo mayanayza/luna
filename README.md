@@ -1,9 +1,5 @@
 # ⚙️ Project Automation
 
-# ⚙️ Project Automation
-
-# ⚙️ Project Automation
-
 This is a tool to automate the creation and management of art and personal projects. It creates local project directories to store work-in-progress files and media, GitHub repositories, and Things 3 projects with consistent organization and metadata. Once ready, it also facilitates publication to a Jekyll website in the form of project-specific posts and an overall roadmap.
 
 (Almost) all content on this website is published and maintaned using this script.
@@ -151,18 +147,6 @@ Projects use two types of names:
 - Canonical Name: URL-safe, lowercase name (e.g., "project-name")
 
 The script automatically handles conversion between these formats.
-
-## Media
-
-
-
-
-
-## Media
-
-
-
-
 
 ## Media
 
