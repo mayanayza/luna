@@ -48,9 +48,9 @@ def get_project_metadata(self, name: str) -> yaml:
     with open(project_dir / Files.METADATA, 'r') as f:
         return yaml.safe_load(f)
 
-def get_project_content(self, name: str) -> str:
+def get_project_content(self, name: str, content_type) -> str:
     project_dir = get_project_path(self, name)
-    with open(project_dir / Files.CONTENT, 'r') as f:
+    with open(project_dir / content_type, 'r') as f:
         return f.read()
 
 def get_project_path(self, name: str) -> Path:

@@ -8,8 +8,11 @@ class Config:
     website_domain: str
     github_username: str
     github_token: str
-    jekyll_dir: Path
+    website_dir: Path
     enable_things3: bool
+    website_posts: str
+    website_media: str
+    website_pages: str
 
     @property
     def github_url_path(self) -> str:
@@ -17,12 +20,12 @@ class Config:
 
     @property
     def website_posts_dir(self) -> Path:
-        return self.jekyll_dir / '_posts'
+        return self.website_dir / self.website_posts
 
     @property
     def website_media_dir(self) -> Path:
-        return self.jekyll_dir / 'media'
+        return self.website_dir / self.website_media
 
     @property
     def website_pages_dir(self) -> Path:
-        return self.jekyll_dir / '_pages'
+        return self.website_dir / self.website_pages

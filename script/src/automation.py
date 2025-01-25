@@ -46,9 +46,9 @@ class Automation:
             self.pdf.stage(name, collate_images, filename_prepend)
         self.pdf.publish()                    
 
-    def create_project(self, name: str, display_name: str) -> None:
+    def create_project(self) -> None:
 
-        name, display_name, title = self.prompt_for_name()
+        name, display_name, title = self.prompt_for_display_name()
 
         self.setup.create(name, display_name, title)
         self.github.create(name)
@@ -75,15 +75,15 @@ class Automation:
         """Rename a project locally and on GitHub"""                    
         try:
             
-            old_name, new_name, new_display_name, new_title = self.prompt_for_new_name()
+            old_name, new_name, new_display_name, new_title = self.prompt_for_new_display_name()
 
             metadata = get_project_metadata(self, old_name)
             old_display_name = metadata['project']['display_name']
 
-            self.setup.rename(old_name, new_name, new_title, new_display_name)
+            self.setup.rename(old_name, new_name, new_display_name, new_title)
             self.things.rename(old_display_name, new_display_name)
 
-            self.website.rename(old_name, new_name, new_display_name)
+            self.website.rename(old_name, new_name)
             self.website.stage(new_name)
             self.github.rename(old_name, new_name)
             self.github.stage(new_name)
@@ -92,6 +92,17 @@ class Automation:
             
         except Exception as e:
             self.logger.error(f"Failed to rename project: {e}")
+
+    def delete_project(self) -> None:
+        try:
+            name = self.prompt_for_name()
+            self.things.delete(name)
+            self.setup.delete(name)
+            self.github.delete(name)
+            self.website.delete(name)
+        except Exception as e:
+            self.logger.error(f"Failed to rename project: {e}")
+
 
     def get_formatted_name(self, display_name: str) -> str:
         # Remove emoji and other special characters, convert to lowercase
@@ -102,15 +113,23 @@ class Automation:
         name = title.strip().lower().replace(' ', '-')
         name = re.sub(r'-+', '-', name)
         
-        return title, name
+        return name, title
 
-    def prompt_for_name(self) -> tuple[str, str]:
+    def prompt_for_name(self) -> str:
+        name = input("Enter project name:").strip()
+        project_dir = get_project_path(self, name)
+        if not project_dir:
+            raise ValueError(f"Project {name} not found")
+        else:
+            return name
+
+    def prompt_for_display_name(self) -> tuple[str, str]:
         """Prompt user for project name and return (name, formatted_name)"""
         display_name = input("Enter project display name (e.g. '🌱 Project Name; a canonical name will be generated like project-name.'): ").strip()
         if not display_name:
             raise ValueError("Project name cannot be empty")
         
-        title, name = self.get_formatted_name(display_name)
+        name, title = self.get_formatted_name(display_name)
         
         print("\nProject details:")
         print(f"Name: {name}")
@@ -123,14 +142,14 @@ class Automation:
         
         return name, display_name, title
 
-    def prompt_for_new_name(self) -> tuple[str, str]:
+    def prompt_for_new_display_name(self) -> tuple[str, str]:
         """Prompt user for new project name and return (name, formatted_name)"""
         old_name = input("Enter name of project you would like to rename")
         new_display_name = input("Enter project display name (e.g. '🌱 Project Name; a canonical name will be generated like project-name.'): ").strip()
         if not new_display_name:
             raise ValueError("New project name cannot be empty")
 
-        new_name, new_display_name, new_title = self.get_formatted_name(new_display_name)
+        new_name, new_title = self.get_formatted_name(new_display_name)
 
         old_project_dir = get_project_path(self, old_name)
         new_project_dir = get_project_path(self, new_name)

@@ -1,6 +1,7 @@
 project:
   name: "{name}"
   display_name: "{display_name}"
+  title: "{title}"
   date_created: "{date}"
   status: "archive" # backlog, in_progress, complete, archive
   priority: 0

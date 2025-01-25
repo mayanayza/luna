@@ -1,3 +1,4 @@
+import shutil
 from datetime import datetime
 
 import yaml
@@ -19,55 +20,79 @@ class FileHandler:
         self.config = config
         self.logger = setup_logging(__name__)
 
-    def create(self, name: str, display_name: str) -> None:
+    def create(self, name: str, display_name: str, title: str) -> None:
         """Create the project directory structure and initialize files"""
-        
-        project_dir = get_project_path(self, name)
+        try:
+            project_dir = get_project_path(self, name)
 
-        for base_dir in BASE_DIRS:
-            (project_dir / base_dir).mkdir(parents=True, exist_ok=True)
+            for base_dir in BASE_DIRS:
+                (project_dir / base_dir).mkdir(parents=True, exist_ok=True)
 
-        # Create media directory structure
-        for media_type in MEDIA_TYPES:
-            get_media_path(self, project_dir, media_type).mkdir(parents=True, exist_ok=True)
-            get_media_path(self, project_dir, media_type, internal=True).mkdir(parents=True, exist_ok=True)
+            # Create media directory structure
+            for media_type in MEDIA_TYPES:
+                get_media_path(self, project_dir, media_type).mkdir(parents=True, exist_ok=True)
+                get_media_path(self, project_dir, media_type, internal=True).mkdir(parents=True, exist_ok=True)
 
-        # Load and process templates
-        date = datetime.now().strftime('%Y-%m-%d')
-        template_vars = {
-            'display_name': display_name,
-            'name': name,
-            'date': date
-        }
+            # Load and process templates
+            date = datetime.now().strftime('%Y-%m-%d')
+            template_vars = {
+                'display_name': display_name,
+                'name': name,
+                'title': title,
+                'date': date
+            }
 
-        # Create content.md from template
-        content_template = load_template(self, Files.CONTENT)
-        with open(project_dir / Files.CONTENT, 'w') as f:
-            f.write(content_template)
+            # Create content.md from template
+            content_template = load_template(self, Files.CONTENT)
+            with open(project_dir / Files.CONTENT, 'w') as f:
+                f.write(content_template)
 
-        # Create metadata.yml from template
-        metadata_content = load_template(self, Files.METADATA).format(**template_vars)
-        with open(project_dir / Files.METADATA, 'w') as f:
-            f.write(metadata_content)
+            # Create content.md from template
+            readme_remplate = load_template(self, Files.README)
+            with open(project_dir / Files.README, 'w') as f:
+                f.write(readme_remplate)
 
-        # Create .gitignore from template
-        gitignore_content = load_template(self, Files.GITIGNORE)
-        with open(project_dir / Files.GITIGNORE, 'w') as f:
-            f.write(gitignore_content)
+            # Create metadata.yml from template
+            metadata_content = load_template(self, Files.METADATA).format(**template_vars)
+            with open(project_dir / Files.METADATA, 'w') as f:
+                f.write(metadata_content)
 
-    def rename(self, old_name: str, new_name: str, new_title: str, new_display_name: str) -> None:
+            # Create .gitignore from template
+            gitignore_content = load_template(self, Files.GITIGNORE)
+            with open(project_dir / Files.GITIGNORE, 'w') as f:
+                f.write(gitignore_content)
+
+            self.logger.error(f"Created project files for {name}")
+        except Exception as e:
+            self.logger.error(f"Failed to create project files for {name}: {e}")
+
+    def rename(self, old_name: str, new_name: str, new_display_name: str, new_title: str) -> None:
         # Update metadata
-        metadata = get_project_metadata(self, old_name)
-        metadata['project']['name'] = new_name
-        metadata['project']['display_name'] = new_display_name
-        metadata['project']['title'] = new_title
+        try:
+            self.logger.error(f"Renaming project files for {old_name}")
+            metadata = get_project_metadata(self, old_name)
+            metadata['project']['name'] = new_name
+            metadata['project']['display_name'] = new_display_name
+            metadata['project']['title'] = new_title
 
-        old_project_dir = get_project_path(self, old_name)
-        new_project_dir = get_project_path(self, new_name)
-        
-        # Save updated metadata
-        with open(old_project_dir / Files.METADATA, 'w') as f:
-            yaml.safe_dump(metadata, f, sort_keys=False, allow_unicode=True)
-        
-        # Rename local directory
-        old_project_dir.rename(new_project_dir)
+            old_project_dir = get_project_path(self, old_name)
+            new_project_dir = get_project_path(self, new_name)
+            
+            # Save updated metadata
+            with open(old_project_dir / Files.METADATA, 'w') as f:
+                yaml.safe_dump(metadata, f, sort_keys=False, allow_unicode=True)
+            
+            # Rename local directory
+            old_project_dir.rename(new_project_dir)
+            self.logger.error(f"Renamed project files from {old_name} to {new_name}")
+        except Exception as e:
+            self.logger.error(f"Failed to rename project files for {old_name}: {e}")
+
+    def delete(self, name: str) -> None:
+        try:
+            
+            project_dir = get_project_path(self, name)
+            shutil.rmtree(project_dir)
+            self.logger.info(f"Deleted project files for {name}")
+        except Exception as e:
+            self.logger.error(f"Failed to delete project files for {name}: {e}")

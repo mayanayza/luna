@@ -43,3 +43,6 @@ class ThingsHandler:
             self.logger.info(f"Renamed Things 3 project from '{old_display_name}' to '{new_display_name}'")
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Failed to rename Things 3 project: {e}")
+
+    def delete(self, name: str) -> None:
+        print('TODO: Implement things delete functionality')

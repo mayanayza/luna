@@ -18,59 +18,59 @@ from script.src.utils import (
 class WebsiteHandler(Channel):
 
     def __init__(self, config: Config):
-        super().__init__(__name__, self.__class__.__name__, config)
+        init = {
+            'name': __name__,
+            'class_name':self.__class__.__name__,
+            'content_type': Files.CONTENT,
+            'config': config
+        }
+            
+        super().__init__(**init)
 
     def publish(self, commit_message) -> None:
-        os.chdir(self.config.jekyll_dir)
-        result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
-        
-        if result.stdout.strip():
-            subprocess.run(['git', 'add', '.'], check=True)
-            subprocess.run(['git', 'commit', '-m', commit_message], check=True)
-            subprocess.run(['git', 'push', 'origin', 'main'], check=True)
-            self.logger.info("Published website changes")
-        else:
-            self.logger.info("No changes to publish for website")
+        try:
+            os.chdir(self.config.website_dir)
+            result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
+            
+            if result.stdout.strip():
+                subprocess.run(['git', 'add', '.'], check=True)
+                subprocess.run(['git', 'commit', '-m', commit_message], check=True)
+                subprocess.run(['git', 'push', 'origin', 'main'], check=True)
+                self.logger.info("Published website changes")
+            else:
+                self.logger.info("No changes to publish for website")
+        except Exception as e:
+            self.logger.error(f"Failed to publish website: {e}")
+            raise
 
     def stage(self, name: str) -> str:
        
-        metadata = get_project_metadata(self, name)
-        status = metadata['project']['status']
-
-        if status != Status.COMPLETE:
-            self.logger.warning(f"{name} status is not complete. Skipping staging.")
-            return ''
-
-        # only stage to website if anything has changed in directory
         try:
-            project_dir = get_project_path(self, name)
-            os.chdir(project_dir)
-            result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
-            if not result.stdout.strip():
-                self.logger.info(f"No website changes to publish for project: {name}")
+            metadata = get_project_metadata(self, name)
+            status = metadata['project']['status']
+
+            if status != Status.COMPLETE:
+                self.logger.warning(f"{name} status is not complete. Skipping staging.")
                 return ''
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"Failed to publish github {name}: {e}")
-            raise
-
+                
+            self.stage_media(name)
             
-        self.logger.info(f"Staging website for {name}")
+            post = self.generate_post(name)
+            post_date = metadata['project']['date_created']
+            post_path = self.config.website_posts_dir / f"{post_date}-{name}.md"
+            with open(post_path, 'w') as f:
+                f.write(post)
 
-        self.stage_media(name)
-        
-        post = self.generate_post(name)
-        post_date = metadata['project']['date_created']
-        post_path = self.config.website_posts_dir / f"{post_date}-{name}.md"
-        with open(post_path, 'w') as f:
-            f.write(post)
+            roadmap = self.generate_roadmap()
+            with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
+                f.write(roadmap)
 
-        roadmap = self.generate_roadmap()
-        with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
-            f.write(roadmap)
+            self.logger.info(f"Successfully staged website content for {name}")
 
-        self.logger.info(f"Successfully website post for {name}")
-
-        return name
+            return name
+        except Exception as e:
+            self.logger.error(f"Failed to stage website content for {name}: {e}")
+            raise
 
     def generate_post(self, name) -> None:
         self.logger.info(f"Staging post for {name}")
@@ -94,7 +94,9 @@ class WebsiteHandler(Channel):
                 'tags': metadata['project']['tags'],
             } | self.determine_featured_content(name)
 
-            return f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
+            post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
+            self.logger.info(f"Successfully generated post for {name}")
+            return post
         except Exception as e:
             self.logger.error(f"Failed to generate post for {name}: {e}")
             raise
@@ -123,7 +125,6 @@ class WebsiteHandler(Channel):
             }
 
     def generate_roadmap(self) -> None:
-        self.logger.info("Staging roadmap")
         try:
             projects = []
             for item in self.config.base_dir.iterdir():
@@ -152,13 +153,15 @@ class WebsiteHandler(Channel):
                 'public_repos': public_repos
             }
 
-            return self.tp.process_template(name, 'md/roadmap.md', context)
+            roadmap = self.tp.process_template(name, 'md/roadmap.md', context)
+            self.logger.info("Generated roadmap")
+            return roadmap
         except Exception as e:
             self.logger.error(f"Failed to generate roadmap for {name}: {e}")
             raise
 
     def stage_media(self, name: str) -> None:
-        self.logger.info(f"Staging media for {name}")
+        self.logger.info(f"Staging website media for {name}")
 
         try:
             source_dir = get_project_path(self, name) / 'media'
@@ -178,28 +181,40 @@ class WebsiteHandler(Channel):
                         if file.is_file():
                             shutil.copy2(file, dest_dir / media_type / file.name)
 
-            self.logger.info("Successfully staged media files")
+            self.logger.info(f"Successfully staged website media files for {name}")
         except Exception as e:
             self.logger.error(f"Failed to stage media for {name}: {e}")
             raise
 
     def rename(self, old_name: str, new_name: str) -> None:
-        """Update all Jekyll-related files when renaming a project"""
+        """Update all website-related files when renaming a project"""
         try:
             # Remove post file in _posts directory (will be recreated)
-            jekyll_posts_dir = self.jekyll_posts_dir
-            for post_file in jekyll_posts_dir.glob(f'*-{old_name}.md'):
-                post_file.unlink()
+            self.delete(old_name)
 
             # Rename media directory
-            old_media_dir = self.jekyll_media_dir / old_name
+            old_media_dir = self.config.website_media_dir / old_name
             if old_media_dir.exists():
-                new_media_dir = self.jekyll_media_dir / new_name
+                new_media_dir = self.config.website_media_dir / new_name
                 # Create parent directories if they don't exist
                 new_media_dir.parent.mkdir(parents=True, exist_ok=True)
                 old_media_dir.rename(new_media_dir)
-                self.logger.info(f"Renamed media directory from {old_name} to {new_name}")
+                self.logger.info(f"Renamed website files from {old_name} to {new_name}")
 
         except Exception as e:
-            self.logger.error(f"Failed to rename Jekyll files: {e}")
+            self.logger.error(f"Failed to rename website files for {old_name}: {e}")
             raise
+
+    def delete(self, name: str) -> None:
+        try:
+            website_posts_dir = self.config.website_posts_dir
+            for post_file in website_posts_dir.glob(f'*-{name}.md'):
+                post_file.unlink()
+            media_dir = self.config.website_media_dir / name
+            if media_dir.exists():
+                shutil.rmtree(self.config.website_media_dir / name)
+            self.logger.info(f"Deleted website files for {name}")
+        except Exception as e:
+            self.logger.error(f"Failed to delete website files for {name}: {e}")
+            raise
+

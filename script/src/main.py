@@ -42,7 +42,7 @@ def setup_channel_registry(automation, config):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Project Publication Tool')
-    parser.add_argument('--command', '-c', help='Command to execute. Create, list, rename, or publish.')
+    parser.add_argument('--command', '-c', help='Command to execute. Create, list, rename, publish, delete.')
     
     parser.add_argument('--all-projects', default=False, action='store_true', help='Publish for all projects')
     parser.add_argument('--projects', '-p', nargs='+', help='Specific projects to publish.')
@@ -66,7 +66,10 @@ def main():
         website_domain=os.environ.get('WEBSITE_DOMAIN'),
         github_username=os.environ.get('GITHUB_USERNAME'),
         github_token=os.environ.get('GITHUB_TOKEN'),
-        jekyll_dir=Path(os.environ.get('JEKYLL_DIR')),
+        website_dir=Path(os.environ.get('WEBSITE_DIR')),
+        website_posts=(os.environ.get('WEBSITE_POSTS')),
+        website_media=(os.environ.get('WEBSITE_MEDIA')),
+        website_pages=(os.environ.get('WEBSITE_PAGES')),
         enable_things3=os.environ.get('ENABLE_THINGS3', 'true').lower() == 'true'
     )
     automation = Automation(config)
@@ -80,6 +83,8 @@ def main():
             automation.list_projects()
         elif args.command == 'rename':
             automation.rename_project()
+        elif args.command == 'delete':
+            automation.delete_project()
         elif args.command == 'publish':
 
             try:

@@ -15,10 +15,14 @@ from script.src.utils import (
 
 class PDFHandler(Channel):
     def __init__(self, config: Config):
-        super().__init__(__name__, self.__class__.__name__, config)
-                
-        # Initialize Markdown converter
-        # self.md = markdown.Markdown(extensions=['extra', 'codehilite'])
+        init = {
+            'name': __name__,
+            'class_name':self.__class__.__name__,
+            'content_type': None,
+            'config': config
+        }
+            
+        super().__init__(**init)
 
     def publish(self) -> None:
         # Search recursively for temp_pdf folders
@@ -61,10 +65,9 @@ class PDFHandler(Channel):
                 for pdf in pdf_files:
                     pdf.unlink()
                 
-                self.logger.info(f"Combined PDFs created at {combined_path}")
-                    
+                self.logger.info(f"Published PDF at {combined_path}")
         except Exception as e:
-            self.logger.error(f"Error processing temp folders: {e}")
+            self.logger.error(f"Error publishing PDF: {e}")
             raise
 
     def stage(self, name, collate_images, filename_prepend) -> None:
@@ -72,7 +75,6 @@ class PDFHandler(Channel):
 
     def generate_pdf(self, name, filename_prepend, collate_images):
         """Generate PDF with optional image collation."""
-        self.logger.info(f"Generating PDF for {name}")
 
         try:
             project_dir = get_project_path(self, name)
@@ -97,7 +99,7 @@ class PDFHandler(Channel):
             output_path = temp_dir / f"{name}.pdf"
             output_pdf.write_pdf(output_path)
             
-            self.logger.info(f"Successfully generated PDF for {name}")
+            self.logger.info(f"Generated PDF for {name}")
             
         except Exception as e:
             self.logger.error(f"Failed to generate PDF for {name}: {e}")
@@ -119,6 +121,7 @@ class PDFHandler(Channel):
                 image_pdf = HTML(string=rendered_html).render(stylesheets=[css])
                 image_pdfs.extend(image_pdf.pages)
 
+            self.logger.info(f"Generated image PDFs for {name}")
             return image_pdfs
         except Exception as e:
             self.logger.error(f"Failed to generate image PDF for {name}: {e}")
@@ -141,6 +144,7 @@ class PDFHandler(Channel):
                 new_names.append(new_name)
                 shutil.copy(str(file), str(temp_dir / new_name))
                 counter += 1
+            self.logger.info(f"Staged images for {name}")
             return ", ".join(new_names)
         except Exception as e:
             self.logger.error(f"Failed stage images for {name}: {e}")

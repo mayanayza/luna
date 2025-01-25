@@ -19,6 +19,11 @@
         </div>
     </header>
     <main>
+        {% if content %}
+        <section class="content">
+            {{ content }}
+        </section>
+        {% endif %}
         <section class="specifications">
             <h2>Specifications</h2>
             {% if materials %}<p><span class="label">Materials:</span> {{ materials }}</p>{% endif %}
@@ -53,11 +58,6 @@
             </div>
             {% endif %}
         </section>
-        {% if content %}
-        <section class="content">
-            {{ content }}
-        </section>
-        {% endif %}
     </main>
 </body>
 </html>

@@ -13,13 +13,15 @@ from script.src.utils import (
 class GithubHandler(Channel):
 
     def __init__(self, config: Config):
-        
-        super().__init__(__name__, self.__class__.__name__, config)
 
-        if self.config.github_token:
-            os.environ['GH_TOKEN'] = self.config.github_token
-        else:
-            self.logger.warning("No GitHub token found in environment")
+        init = {
+            'name': __name__,
+            'class_name':self.__class__.__name__,
+            'content_type': Files.README,
+            'config': config
+        }
+            
+        super().__init__(**init)
 
     def create(self, name: str) -> None:
         
@@ -35,7 +37,57 @@ class GithubHandler(Channel):
             subprocess.run(['git', 'push', '-u', 'origin', 'main'], check=True)
             self.logger.info(f"Successfully created GitHub repo for {name}")
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Git initialization failed: {e}")
+            self.logger.error(f"GitHub initialization failed: {e}")
+            raise
+
+    def publish(self, name: str, commit_message: str) -> None:
+
+        project_dir = get_project_path(self, name)
+        metadata = get_project_metadata(self, name)
+        status = metadata['project']['status']
+        description = metadata['project']['description']
+        os.chdir(project_dir)
+        result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
+
+        try:
+            if result.stdout.strip():
+                
+                if status == Status.COMPLETE:
+                    subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
+
+                if description:
+                    subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
+
+                subprocess.run(['git', 'add', '.'], check=True)
+                subprocess.run(['git', 'commit', '-m', f"{commit_message}"], check=True)
+                subprocess.run(['git', 'push', 'origin', 'main'], check=True)
+                self.logger.info(f"Git changes synced for project: {name}")
+            else:
+                self.logger.info(f"No changes to publish for project: {name}")
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to publish GitHub {name}: {e}")
+            raise
+
+    def stage(self, name: str) -> None:
+        project_dir = get_project_path(self, name)
+        readme = self.generate_readme(name)
+        with open(project_dir / Files.README, 'w') as f:
+            f.write(readme)  
+
+    def generate_readme(self, name):
+
+        try:
+        
+            template_path = "md/readme.md"
+
+            context = {
+                'images': self.tp.get_media_files(name, Extensions.IMAGE),
+            }
+            self.logger.info(f"Generated GitHub readme for {name}")
+            return self.tp.process_template(name, template_path, context)
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate GitHub readme for {name}: {e}")
             raise
 
     def rename(self, old_name: str, new_name: str) -> None:
@@ -62,60 +114,13 @@ class GithubHandler(Channel):
             # Push changes
             subprocess.run(['git', 'push', 'origin', 'main'], check=True)
             
-            self.logger.info(f"Successfully renamed GitHub repository to {new_name}")
+            self.logger.info(f"Successfully renamed GitHub repo to {new_name}")
         except subprocess.CalledProcessError as e:
-            self.logger.warning(f"Failed to update GitHub repository: {e}")
+            self.logger.warning(f"Failed to update GitHub repo: {e}")
 
-    def publish(self, name: str, commit_message: str) -> None:
-
-        project_dir = get_project_path(self, name)
-        metadata = get_project_metadata(self, name)
-        status = metadata['project']['status']
-        description = metadata['project']['description']
-        os.chdir(project_dir)
-        result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
-
+    def delete(self, name: str) -> None:
         try:
-            if result.stdout.strip():
-                
-                if status == Status.COMPLETE:
-                    subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
-
-                if description:
-                    subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
-
-                subprocess.run(['git', 'add', '.'], check=True)
-                subprocess.run(['git', 'commit', '-m', f"{commit_message}"], check=True)
-                subprocess.run(['git', 'push', 'origin', 'main'], check=True)
-                self.logger.info(f"Git changes synced for project: {name}")
-            else:
-                self.logger.info(f"No git changes to publish for project: {name}")
+            subprocess.run(['gh', 'repo', 'delete', name], check=True)
+            self.logger.info(f"Deleted GitHub repo for {name}")
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Failed to publish github {name}: {e}")
-            raise
-
-    def stage(self, name: str) -> None:
-        project_dir = get_project_path(self, name)
-        readme = self.generate_readme(name)
-        with open(project_dir / Files.README, 'w') as f:
-            f.write(readme)  
-
-    def generate_readme(self, name):
-
-        try:
-        
-            template_path = "md/readme.md"
-
-            context = {
-                'images': self.tp.get_media_files(name, Extensions.IMAGE),
-            }
-            return self.tp.process_template(name, template_path, context)
-
-        except Exception as e:
-            self.logger.error(f"Failed to generate readme for {name}: {e}")
-            raise
-
-        
-        
-
-              
+            self.logger.warning(f"Failed to update GitHub repo for {name}: {e}")

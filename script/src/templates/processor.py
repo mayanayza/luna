@@ -13,8 +13,9 @@ from script.src.utils import (
 
 
 class TemplateProcessor:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, content_type):
         self.config = config
+        self.content_type = content_type
         current_dir = Path(__file__).parent
         self.env = Environment(
             loader=FileSystemLoader(current_dir),
@@ -34,7 +35,8 @@ class TemplateProcessor:
     def process_template(self, name: str, template_name: str, context: Dict={}):
         """Process template with given context."""
         context = context | self.process_project_metadata(name)
-        context['content'] = get_project_content(self, name)
+        if self.content_type:
+            context['content'] = get_project_content(self, name, self.content_type)
         template = self.env.get_template(template_name)
         return template.render(context)
         
