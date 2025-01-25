@@ -33,9 +33,13 @@ class Automation:
             self.github.publish(name, commit_message)
 
     def publish_web(self, projects: list) -> None:
+        staged_projects = []
         for name in projects:
-            self.website.stage(name)                    
-        self.website.publish()
+            staged_projects.append( self.website.stage(name) )
+
+        staged_projects = [p for p in staged_projects if p.strip()]
+        
+        self.website.publish( "Updating content for " + ", ".join(staged_projects) )
 
     def publish_pdf(self, projects: list, collate_images: bool, filename_prepend: str) -> None:
         for name in projects:

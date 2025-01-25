@@ -21,27 +21,40 @@ class WebsiteHandler(Channel):
     def __init__(self, config: Config):
         super().__init__(__name__, self.__class__.__name__, config)
 
-    def publish(self) -> None:
+    def publish(self, commit_message) -> None:
         os.chdir(self.config.jekyll_dir)
         result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
         
         if result.stdout.strip():
             subprocess.run(['git', 'add', '.'], check=True)
-            subprocess.run(['git', 'commit', '-m', 'Publishing staged files'], check=True)
+            subprocess.run(['git', 'commit', '-m', commit_message], check=True)
             subprocess.run(['git', 'push', 'origin', 'main'], check=True)
-            self.logger.info("Published Jekyll site changes")
+            self.logger.info("Published website changes")
         else:
             self.logger.info("No changes to publish for website")
 
-    def stage(self, name: str) -> None:
+    def stage(self, name: str) -> str:
        
         metadata = get_project_metadata(self, name)
         status = metadata['project']['status']
 
         if status != Status.COMPLETE:
             self.logger.warning(f"{name} status is not complete. Skipping staging.")
-            return
+            return ''
 
+        # only stage to website if anything has changed in directory
+        try:
+            project_dir = get_project_path(self, name)
+            os.chdir(project_dir)
+            result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
+            if not result.stdout.strip():
+                self.logger.info(f"No website changes to publish for project: {name}")
+                return ''
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to publish github {name}: {e}")
+            raise
+
+            
         self.logger.info(f"Staging website for {name}")
 
         self.stage_media(name)
@@ -55,8 +68,10 @@ class WebsiteHandler(Channel):
         roadmap = self.generate_roadmap()
         with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
             f.write(roadmap)
-        
+
         self.logger.info(f"Successfully website post for {name}")
+
+        return name
 
     def generate_post(self, name) -> None:
         self.logger.info(f"Staging post for {name}")

@@ -8,7 +8,7 @@ project:
   description: "Why is it so hard for me to work on anything without having an overly elaborate system in place first?"
   featured_content: 
     type: 'code' 
-    source: "script/src/jekyll.py"
+    source: "script/src/channels/website.py"
     language: ""
     start_line: 25
     end_line: 50
