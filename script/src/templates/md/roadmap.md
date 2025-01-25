@@ -5,7 +5,6 @@ permalink: /roadmap/
 ---
 
 ## In Progress
-
 {% if in_progress %}
 | Project | Description |
 |---------|-------------|
@@ -15,21 +14,18 @@ permalink: /roadmap/
 {%- else %}
 | {{ project.display_name }} | {{ project.description | default('') }} |
 {%- endif %}
-{%- endfor %}
-
+{%- endfor -%}
 {% else %}
 Nothing currently in progress
 {% endif %}
 
 ## Backlog
-
 {% if backlog %}
 | Project | Description |
 |---------|-------------|
 {%- for project in backlog %}
 | {{ project.display_name }} | {{ project.description }} |
-{%- endfor %}
-
+{%- endfor -%}
 {% else %}
 Nothing currently in backlog
 {% endif %}
