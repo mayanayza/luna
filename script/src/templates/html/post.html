@@ -1,0 +1,31 @@
+{% if is_public_github_repo %}
+  [View on GitHub]({{ project.github }})
+{% endif %}
+
+{{ content }}
+
+{% if images %}
+<div class="gallery-box">
+  <div class="gallery">
+    {% for image in images %}
+    {% if image.name != project.featured_image %}
+    <img src="/media/{{ project.name }}/images/{{ image.name }}">
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if videos %}
+{% for video in videos %}
+<video controls>
+  <source src="/media/{{ project.name }}/videos/{{ video.name }}" type="video/webm">
+</video>
+{% endfor %}
+{% endif %}
+
+{% if models %}
+{% for model in models %}
+<model-viewer src="/media/{{ project.name }}/models/{{ model.name }}" auto-rotate camera-controls></model-viewer>
+{% endfor %}
+{% endif %}

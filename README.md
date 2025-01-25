@@ -147,5 +147,16 @@ Projects use two types of names:
 - Canonical Name: URL-safe, lowercase name (e.g., "project-name")
 
 The script automatically handles conversion between these formats.
+
 ## Media
 
+
+
+### 3D Models
+- [images](media/models/images)
+- [models](media/models/models)
+- [videos](media/models/videos)
+- [media](media/models/media)
+- [images](media/models/images)
+- [models](media/models/models)
+- [videos](media/models/videos)

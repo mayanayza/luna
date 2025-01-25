@@ -3,10 +3,8 @@ import subprocess
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import Files, Status
+from script.src.constants import Extensions, Files, Status
 from script.src.utils import (
-    get_media_path,
-    get_project_content,
     get_project_metadata,
     get_project_path,
 )
@@ -16,21 +14,15 @@ class GithubHandler(Channel):
 
     def __init__(self, config: Config):
         
-        super().__init__('Github', config)
+        super().__init__(__name__, self.__class__.__name__, config)
 
         if self.config.github_token:
             os.environ['GH_TOKEN'] = self.config.github_token
         else:
             self.logger.warning("No GitHub token found in environment")
 
-    @property
-    def url_path(self) -> str:
-        return f"https://github.com/{self.config.github_username}"
-
     def create(self, name: str) -> None:
         
-        super().create()
-
         project_dir = get_project_path(self, name)
 
         try:
@@ -48,8 +40,6 @@ class GithubHandler(Channel):
 
     def rename(self, old_name: str, new_name: str, new_path: str) -> None:
         
-        super().rename(old_name, new_name)
-
         try:
             os.chdir(new_path)
             
@@ -76,8 +66,6 @@ class GithubHandler(Channel):
             self.logger.warning(f"Failed to update GitHub repository: {e}")
 
     def publish(self, name: str) -> None:
-
-        super().publish(name)
 
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
@@ -106,46 +94,32 @@ class GithubHandler(Channel):
             raise
 
     def stage(self, name: str) -> None:
-
-        super().stage()
-
-    def stage_readme(self, name: str) -> None:
-        """Generate README.md content from project metadata and content.md"""
         project_dir = get_project_path(self, name)
-        metadata = get_project_metadata(self, name)
-        project = metadata['project']
-        
-        content = get_project_content(self, name)
-
-         # Build README content
-        readme = f"# {project['display_name']}\n\n"
-        readme += f"{content}\n## Media\n\n"
-                
-        # Add images section if images exist
-        extensions = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
-        images = []
-        for extension in extensions:
-            images.extend( get_media_path(self, project_dir, 'images').glob(extension) )
-        if images:
-            readme += "\n### Images\n"
-            for img in images:
-                readme += f"![{img.stem}](media/images/{img.name})\n"
-        
-        # Add videos section if videos exist
-        videos = list( get_media_path(self, project_dir, 'videos').glob('*.webm') )
-        if videos:
-            readme += "\n### Videos\n"
-            for video in videos:
-                readme += f"- [{video.stem}](media/videos/{video.name})\n"
-        
-        # Add models section if models exist
-        models = list( get_media_path(self, project_dir, 'models').glob('*.glb'))
-        if models:
-            readme += "\n### 3D Models\n"
-            for model in models:
-                readme += f"- [{model.stem}](media/models/{model.name})\n"
-        
-        self.logger.info(f"Successfully staged README.md for {name}")
-
+        readme = self.generate_readme(name)
+        print(2)
         with open(project_dir / Files.README, 'w') as f:
-            f.write(readme)        
+            f.write(readme)  
+
+    def generate_readme(self, name):
+
+        try:
+        
+            template_path = "md/readme.md"
+
+            context = {
+                'images': self.tp.get_media_files(name, Extensions.IMAGE),
+                'videos': self.tp.get_media_files(name, Extensions.VIDEO),
+                'models': self.tp.get_media_files(name, Extensions.MODEL),
+                'audio': self.tp.get_media_files(name, Extensions.AUDIO),
+            }
+            print(0)
+            return self.tp.process_template(name, template_path, context)
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate readme for {name}: {e}")
+            raise
+
+        
+        
+
+              

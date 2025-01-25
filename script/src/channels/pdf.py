@@ -1,31 +1,24 @@
 import shutil
 from pathlib import Path
 
-import markdown
-from jinja2 import Template
+# import markdown
 from PyPDF2 import PdfMerger
 from weasyprint import CSS, HTML
 
+from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import MEDIA_TYPES, Extensions, Files
+from script.src.constants import Extensions
 from script.src.utils import (
-    get_media_path,
-    get_project_content,
-    get_project_metadata,
     get_project_path,
-    load_template,
-    setup_logging,
-    strip_emoji,
 )
 
 
-class PDFHandler:
+class PDFHandler(Channel):
     def __init__(self, config: Config):
-        self.config = config
-        self.logger = setup_logging(__name__)
+        super().__init__(__name__, self.__class__.__name__, config)
                 
         # Initialize Markdown converter
-        self.md = markdown.Markdown(extensions=['extra', 'codehilite'])
+        # self.md = markdown.Markdown(extensions=['extra', 'codehilite'])
 
     def publish(self) -> None:
         # Search recursively for temp_pdf folders
@@ -74,147 +67,78 @@ class PDFHandler:
             self.logger.error(f"Error processing temp folders: {e}")
             raise
 
+    def stage(self, name, collate_images, filename_prepend) -> None:
+        self.stage_media(name, filename_prepend)
+        self.stage_pdf(name, collate_images)
 
-    def stage_pdf(self, name: str, collate_images: bool) -> None:
-        """Generate a PDF for a project"""
-
-        project_dir = get_project_path(self, name)
-        metadata = get_project_metadata(self, name)
-        project = metadata['project']
-
+    def generate_pdf(self, name, filename_prepend=False, collate_images=True):
+        """Generate PDF with optional image collation."""
         self.logger.info(f"Generating PDF for {name}")
 
         try:
-            
-            temp_dir = Path(project_dir / 'temp_pdf')
-            temp_dir.mkdir(exist_ok=True)
-
-            # Read content file
-            content = get_project_content(self, name)
-            # Convert markdown to HTML
-            html_content = self.md.convert(content)
-
-            specs = metadata['physical_specifications']
-            
-            dimensions = f"{specs['dimensions']['width']}{specs['dimensions']['unit']} w x {specs['dimensions']['height']}{specs['dimensions']['unit']} h x {specs['dimensions']['depth']}{specs['dimensions']['unit']} d"
-            weight = f"{specs['weight']['value']} {specs['weight']['unit']}"
-            materials = ", ".join(specs['materials'])
-
-            reqs = metadata['technical_requirements']
-
-            lighting = reqs['lighting']
-            mounting = reqs['mounting']
-            temperature_range = reqs['environmental']['temperature_range']
-            humidity_range = reqs['environmental']['humidity_range']
-            ventilation_needs = reqs['environmental']['ventilation_needs']
-
-            ex = metadata['exhibition']
-
-            setup_instructions = ex['setup']['instructions']
-            setup_time = ex['setup']['time_required']
-            setup_people = ex['setup']['people_required']
-            setup_tools = ", ".join(ex['setup']['tools_required'])
-
-            maintenance_supplies = ", ".join(ex['maintenance']['supplies_needed'])
-            maintenance_instructions = ex['maintenance']['tasks']
-
-            # Prepare template data
-            template_data = {
-                'title': strip_emoji(project['display_name']).strip(),
-                'description': project.get('description', ''),
-                'date': project['date_created'],
-                'website': f"{self.config.website_domain}/{name}",
-                'dimensions': dimensions,
-                'weight': weight,
-                'materials': materials,
-                'lighting': lighting,
-                'mounting': mounting,
-                'temperature_range': temperature_range,
-                'humidity_range': humidity_range,
-                'ventilation_needs': ventilation_needs,
-                'setup_instructions': setup_instructions,
-                'setup_time': setup_time,
-                'setup_tools': setup_tools,
-                'setup_people': setup_people,
-                'maintenance_supplies': maintenance_supplies,
-                'maintenance_instructions': maintenance_instructions,
-                'content': html_content,
-            }
-
-            css = CSS(string=load_template(self, Files.PDF_STYLE))
-
-            # Get list of images and create PDFs for each
-            images = []
-            for extension in Extensions.IMAGE:
-                images.extend(temp_dir.glob(extension))
+            project_dir = get_project_path(self, name)
+            temp_dir = Path(project_dir / 'temp_pdf').mkdir(exist_ok=True)
+            css = CSS(string=self.tp.env.get_template('pdf/style.css').render())
 
             image_pdfs = []
+            context = {}
             if collate_images:
-                
-                image_groups = [images[i:i + 2] for i in range(0, len(images), 2)]
-
-                for group in image_groups:
-                    image_template_data = {
-                        'title': strip_emoji(project['display_name']).strip(),
-                        'images': [f"{image.absolute()}" for image in group]
-                    }
-                    template = Template(load_template(self, Files.PDF_IMAGE_LAYOUT))
-                    rendered_html = template.render(**image_template_data)
-                    image_pdf = HTML(string=rendered_html, base_url=str(temp_dir)).render(stylesheets=[css])
-                    image_pdfs.extend(image_pdf.pages)
-
-                    [Path(image).unlink() for image in group]
+                image_pdfs = self.generate_image_pdf(name, Extensions.IMAGE)
             else:
-                template_data['image_file_names'] = ", ".join(f.name for f in images)
-
+                context['image_file_names'] = self.stage_images(name, Extensions.IMAGE, filename_prepend)
+            
             # Generate main content PDF
-            template = Template(load_template(self, Files.PDF_LAYOUT))
-            html_string = template.render(**template_data)
+            html_string = self.process_template('pdf/project_cover.html', context)
             main_pdf = HTML(string=html_string).render(stylesheets=[css])
-
+            
             # Combine main content with image pages
             all_pages = main_pdf.pages + image_pdfs
             output_pdf = main_pdf.copy(all_pages)
             output_path = temp_dir / f"{name}.pdf"
             output_pdf.write_pdf(output_path)
-
+            
             self.logger.info(f"Successfully generated PDF for {name}")
             
         except Exception as e:
             self.logger.error(f"Failed to generate PDF for {name}: {e}")
             raise
 
-    def stage_media(self, name: str, filename_prepend: str='') -> None:
-        """Rename media files in-place with sequential naming."""
-        project_dir = get_project_path(self, name)
-
-        self.logger.info(f"Organizing media for {name}")
-
+    def generate_images_pdf(self, name):
         try:
-            temp_dir = project_dir / 'temp_pdf'
-            temp_dir.mkdir(exist_ok=True)
+            css = CSS(string=self.tp.env.get_template('pdf/style.css').render())
+            images = self.tp.get_media_files(name, Extensions.IMAGE)
 
-            for media_type in MEDIA_TYPES:
-                type_dir = get_media_path(self, project_dir, media_type)
-                if not type_dir.exists():
-                    continue
+            image_groups = [images[i:i + 2] for i in range(0, len(images), 2)]
+            image_pdfs = []
 
-                counter = 1
-                files = []
-                
-                # Get all files of supported types
-                if media_type == 'images':
-                    for ext in Extensions.IMAGE:
-                        files.extend(type_dir.glob(f'*{ext}'))
-                elif media_type == 'videos':
-                    for ext in Extensions.VIDEO:
-                        files.extend(type_dir.glob(f'*{ext}'))
-                
-                # Rename files in place
-                for file in sorted(files):
-                    new_name = f"{filename_prepend}_{name}_{counter}{file.suffix}"
-                    shutil.copy(str(file), str(temp_dir / new_name))
-                    counter += 1
+            for group in image_groups:
+                context = {
+                    'images': [str(image.absolute()) for image in group]
+                }
+                rendered_html = self.tp.process_template('pdf/project_images.html', context)
+                image_pdf = HTML(string=rendered_html).render(stylesheets=[css])
+                image_pdfs.extend(image_pdf.pages)
+
+            return image_pdfs
         except Exception as e:
-            self.logger.error(f"Failed to stage media for PDF for {name}: {e}")
+            self.logger.error(f"Failed to generate image PDF for {name}: {e}")
+            raise
+            
+    def stage_images(self, name, extensions, filename_prepend: str=''):
+        try:
+            project_dir = get_project_path(self, name)
+            temp_dir = Path(project_dir / 'temp_pdf').mkdir(exist_ok=True)
+            images = self.tp.get_media_files(name, Extensions.IMAGE)
+            
+            counter = 1
+            new_names = []
+            
+            for file in sorted(images):
+                new_name = f"{filename_prepend}_{name}_{counter}{file.suffix}"
+                new_names.extend(new_name)
+                shutil.copy(str(file), str(temp_dir / new_name))
+                counter += 1
+            return ", ".join(new_names)
+        except Exception as e:
+            self.logger.error(f"Failed stage images for {name}: {e}")
             raise

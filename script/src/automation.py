@@ -25,27 +25,23 @@ class Automation:
 
     def publish_github(self, projects: list) -> None:
         for name in projects:
-            self.github.stage_readme(name)
+            self.github.stage(name)
             self.github.publish(name)
 
     def publish_web(self, projects: list) -> None:
         for name in projects:
-            self.jekyll.stage_post(name)                    
-            self.jekyll.stage_media(name)
-        self.jekyll.stage_roadmap()
+            self.jekyll.stage(name)                    
         self.jekyll.publish()
 
     def publish_pdf(self, projects: list, collate_images: bool=False, filename_prepend: str=''):
         for name in projects:
-            self.pdf.stage_media(name, filename_prepend)
-            self.pdf.stage_pdf(name, collate_images)
+            self.pdf.stage(name, filename_prepend)
         self.pdf.publish()                    
 
     def create_project(self, name: str, display_name: str) -> None:
         self.setup.create(name, display_name)
         self.github.create(name)
         self.things.create(display_name)
-        self.publish_project(name)
     
     def list_projects(self) -> None:
         """List projects with their details"""

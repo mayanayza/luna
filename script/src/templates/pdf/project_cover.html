@@ -2,16 +2,16 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{{ title }}</title>
+    <title>{{ project.title }}</title>
 </head>
 <body>
     <header>
-        <h1>{{ title }}</h1>
+        <h1>{{ project.title }}</h1>
         <div class="subtitle">
-            <p class="description">{{ description }}</p>
-            <p class="date">{{ date }}</p>
+            <p class="description">{{ project.description }}</p>
+            <p class="date">{{ project.date_created }}</p>
             {% if website %}
-            <p class="website"><a href="{{ website }}">Website Link</a></p>
+            <p class="website"><a href="{{ project.website }}">Website Link</a></p>
             {% endif %}
             <p class="images">{{ image_file_names }}</p>
         </div>

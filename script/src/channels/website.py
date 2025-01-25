@@ -2,40 +2,23 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Dict
 
 import yaml
 
-from script.src.channels.github import GithubHandler
+from script.src.channels._channel import Channel
 from script.src.config import Config
 from script.src.constants import MEDIA_TYPES, Extensions, Files, Status
 from script.src.utils import (
-    get_media_path,
-    get_project_content,
     get_project_metadata,
     get_project_path,
-    setup_logging,
-    strip_emoji,
 )
 
 
-class WebsiteHandler:
+class WebsiteHandler(Channel):
 
     def __init__(self, config: Config):
-        self.config = config
-        self.github = GithubHandler(config)
-        self.logger = setup_logging(__name__)
-
-    @property
-    def posts_dir(self) -> Path:
-        return self.config.jekyll_dir / '_posts'
-
-    @property
-    def media_dir(self) -> Path:
-        return self.config.jekyll_dir / 'media'
-
-    @property
-    def pages_dir(self) -> Path:
-        return self.config.jekyll_dir / '_pages'
+        super().__init__(__name__, self.__class__.__name__, config)
 
     def publish(self) -> None:
         os.chdir(self.config.jekyll_dir)
@@ -47,31 +30,66 @@ class WebsiteHandler:
             subprocess.run(['git', 'push', 'origin', 'main'], check=True)
             self.logger.info("Published Jekyll site changes")
         else:
-            self.logger.info("No changes to publish for Jekyll site")
+            self.logger.info("No changes to publish for website")
 
-    def stage_post(self, name: str) -> None:
+    def stage(self, name: str) -> None:
        
-        project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
-        project = metadata['project']
         status = metadata['project']['status']
 
         if status != Status.COMPLETE:
+            self.logger.warning(f"{name} status is not complete. Skipping staging.")
             return
 
-        self.logger.info(f"Staging post for {name}")
-        
-        # Build front matter
-        front_matter = {
-            'layout': 'post',
-            'title': strip_emoji(project['display_name']).strip(),
-            'description': project.get('description', ''),
-            'date': f"{project['date_created']} 15:01:35 +0300",
-            'tags': project.get('tags', []),
-            'github': f"{self.github.url_path}/{name}"
-        }
+        self.logger.info(f"Staging website for {name}")
 
-        featured_content = project.get('featured_content')
+        self.stage_media(name)
+        
+        post = self.generate_post(name)
+        post_date = metadata['project']['date_created']
+        post_path = self.config.website_posts_dir / f"{post_date}-{name}.md"
+        with open(post_path, 'w') as f:
+            f.write(post)
+
+        roadmap = self.generate_roadmap()
+        with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
+            f.write(roadmap)
+        
+        self.logger.info(f"Successfully website post for {name}")
+
+    def generate_post(self, name) -> None:
+        self.logger.info(f"Staging post for {name}")
+        try:
+            project_dir = get_project_path(self, name)
+            metadata = get_project_metadata(self, name)
+            template_path = "html/post.html"
+
+            context = {
+                'is_public_github_repo': self.is_public_github_repo(name),
+                'images': self.tp.get_media_files(name, Extensions.IMAGE),
+                'videos': self.tp.get_media_files(name, Extensions.VIDEO),
+                'models': self.tp.get_media_files(name, Extensions.MODEL),
+                'audio': self.tp.get_media_files(name, Extensions.AUDIO),
+            }
+            
+            rendered_content = self.tp.process_template(template_path, context)
+
+            front_matter = {
+                'layout': 'post',
+                'title': metadata['title'],
+                'description': metadata['description'],
+                'date': metadata['date_created'],
+                'tags': metadata['tags'],
+                'github': metadata['github']
+            } | self.determine_featured_content(name, metadata, project_dir)
+
+            return f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
+        except Exception as e:
+            self.logger.error(f"Failed to generate post for {name}: {e}")
+            raise
+
+    def determine_featured_content(name, metadata, project_dir) -> Dict:
+        featured_content = metadata['featured_content']
         if featured_content.get('type') == 'code':            
             source_file = Path(project_dir) / Path(featured_content['source'])
             if source_file.exists():
@@ -80,152 +98,89 @@ class WebsiteHandler:
                     start = featured_content.get('start_line')
                     end = featured_content.get('end_line')
                     code_snippet = ''.join(lines[start:end])
-                    
-                front_matter['featured_code'] = code_snippet
-                front_matter['code_language'] = featured_content.get('language')
+
+                return {
+                    'featured_code': code_snippet,
+                    'code_language': featured_content.get('language')
+                }
         else:
-            front_matter['image'] = f"/media/{project['name']}/images/{featured_content['source']}"
-                
-        content = get_project_content(self, name)
-                
-        # Add image gallery if images exist
-        images = []
-        for extension in Extensions.IMAGE:
-            images.extend( get_media_path(self, project_dir, 'images').glob(extension) )
-        if images:
-            content += '\n\n<div class="gallery-box">\n  <div class="gallery">\n'
-            for img in images:
-                if img.name != project.get('featured_image', ''):  # Skip featured image
-                    content += f'    <img src="/media/{project["name"]}/images/{img.name}">\n'
-            content += '  </div>\n</div>\n'
+            return {
+                'image': f"/media/{name}/images/{featured_content['source']}"
+            }
 
-        # Add videos if they exist
-        videos = []
-        for extensions in Extensions.VIDEO:
-            videos.extend( get_media_path(self, project_dir, 'videos').glob("*.webm") )
-        if videos:
-            for video in videos:
-                content += f'\n\n<video controls>\n  <source src="/media/{project["name"]}/videos/{video.name}" type="video/webm">\n</video>\n'
-        
-        # Add models if they exist
-        models =  []
-        for extensions in Extensions.MODEL:
-            models.extend( get_media_path(self, project_dir, 'models').glob('*.glb'))
-        if models:
-            for model in models:
-                content += f'\n\n<model-viewer src="/media/{project["name"]}/models/{model.name}" auto-rotate camera-controls></model-viewer>\n'
-        
-        post = "---\n"
-        post += f"{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}\n"
-        post += "---\n"
-
+    def is_public_github_repo(self, name) -> str:
+        project_dir = get_project_path(self, name)
         os.chdir(project_dir)
         visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
         visibility = visibility.stdout.strip().upper()
         if visibility == 'PUBLIC':
-            post += f"[View on GitHub]({self.github.url_path}/{name})\n\n"
-        post += f"{content}\n"
+            return True
+        else:
+            return False
 
-        post_date = metadata['project']['date_created']
-        post_file = self.posts_dir / f"{post_date}-{name}.md"
-        with open(post_file, 'w') as f:
-            f.write(post)
-        
-        self.logger.info(f"Successfully staged post for {name}")
-
-    def stage_roadmap(self) -> None:
-        """Generate roadmap page from projects metadata"""
+    def generate_roadmap(self) -> None:
         self.logger.info("Staging roadmap")
-        
-        projects = []
-        for item in self.config.base_dir.iterdir():
-            if item.is_dir() and (item / Files.METADATA).exists():
-                projects.append(item.name)
-        in_progress = []
-        backlog = []
-        public_repos = []
-        
-        for name in projects:
+        try:
+            projects = []
+            for item in self.config.base_dir.iterdir():
+                if item.is_dir() and (item / Files.METADATA).exists():
+                    projects.append(item.name)
+            in_progress = []
+            backlog = []
+            public_repos = []
 
-            metadata = get_project_metadata(self, name)
-            project = metadata['project']
-            name = metadata['project']['name']
+            for name in projects:
 
-            os.chdir(get_project_path(self, name))
-            visibility = subprocess.run(['gh', 'repo', 'view', '--json', 'visibility', '-q', '.visibility'], capture_output=True, text=True)
-            visibility = visibility.stdout.strip().upper()
-            if visibility == 'PUBLIC':
-                public_repos.append(name)
+                metadata = get_project_metadata(self, name)
+                project = metadata['project']
+                name = metadata['project']['name']
 
-            if project['status'] == Status.IN_PROGRESS:
-                in_progress.append(project)
-            elif project['status'] == Status.BACKLOG:
-                backlog.append(project)
-        
-        # Sort by priority
-        #in_progress.sort(key=lambda x: x.get('priority', 0), reverse=True)
-        backlog.sort(key=lambda x: x.get('priority', 0), reverse=True)
+                if self.is_public_github_repo(name):
+                    public_repos.append(name)
 
-        content = "---\n"
-        content += "layout: page\n"
-        content += "title: Roadmap\n"
-        content += "permalink: /roadmap/\n"
-        content += "---\n"
+                if project['status'] == Status.IN_PROGRESS:
+                    in_progress.append(project)
+                elif project['status'] == Status.BACKLOG:
+                    backlog.append(project)
 
-        content += "\n## In Progress\n"
-        if in_progress:
-            content += "\n| Project | Description |\n|---------|-------------|\n"
-            for project in in_progress:
-                if project['name'] in public_repos:
-                    content += f"| <a href='{self.github.url_path}/{project['name']}' target='_blank'>{project['display_name']}</a> | {project.get('description', '')} | \n"
-                else:
-                    content += f"| {project['display_name']} | {project.get('description', '')} | \n"
-        else:
-            content += "Nothing currently in progress"
-        
-        content += "\n## Backlog\n"
-        if backlog:
-            content += "\n| Project | Description |\n|---------|-------------|\n"
-            for project in backlog:
-                content += f"| {project['display_name']} | {project.get('description', '')} |\n"
-        else:
-            content += "Nothing currently in backlog"
+            backlog.sort(key=lambda x: x.get('priority', 0), reverse=True)
 
-        # Publish roadmap
-        self.pages_dir.mkdir(exist_ok=True)
-        with open(self.pages_dir / 'roadmap.md', 'w') as f:
-            f.write(content)
+            context = {
+                'in_progress': in_progress,
+                'backlog': backlog,
+                'public_repos': public_repos
+            }
 
-        self.logger.info("Successfully staged roadmap")
+            return self.tp.process_template('markdown/roadmap.md', context)
+        except Exception as e:
+            self.logger.error(f"Failed to generate roadmap for {name}: {e}")
+            raise
 
     def stage_media(self, name: str) -> None:
-
-        source_dir = get_project_path(self, name) / 'media'
-        dest_dir = self.media_dir / name
-        metadata = get_project_metadata(self, name)
-        project = metadata['project']
-        status = project['status']
-
-        if status != Status.COMPLETE:
-            return
-
-        """Sync media files from project to Jekyll site"""
         self.logger.info(f"Staging media for {name}")
-        if not source_dir.exists():
-            return
-            
-        # Create destination directories
-        for media_type in MEDIA_TYPES:
-            (dest_dir / media_type).mkdir(parents=True, exist_ok=True)
-            
-            # Copy files
-            source_type_dir = source_dir / media_type
-            if source_type_dir.exists():
-                for file in source_type_dir.iterdir():
-                    if file.is_file():
-                        shutil.copy2(file, dest_dir / media_type / file.name)
 
-        self.logger.info("Successfully staged media files")
+        try:
+            source_dir = get_project_path(self, name) / 'media'
+            dest_dir = self.config.website_media_dir / name
+
+            if not source_dir.exists():
+                return
+                
+            # Create destination directories
+            for media_type in MEDIA_TYPES:
+                (dest_dir / media_type).mkdir(parents=True, exist_ok=True)
+                
+                # Copy files
+                source_type_dir = source_dir / media_type
+                if source_type_dir.exists():
+                    for file in source_type_dir.iterdir():
+                        if file.is_file():
+                            shutil.copy2(file, dest_dir / media_type / file.name)
+
+            self.logger.info("Successfully staged media files")
+        except Exception as e:
+            self.logger.error(f"Failed to stage media for {name}: {e}")
+            raise
 
     def rename(self, old_name: str, new_name: str, display_name: str) -> None:
         """Update all Jekyll-related files when renaming a project"""
