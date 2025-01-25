@@ -13,6 +13,8 @@ class Config:
     website_posts: str
     website_media: str
     website_pages: str
+    things3_area: str
+    enable_roadmap: bool
 
     @property
     def github_url_path(self) -> str:

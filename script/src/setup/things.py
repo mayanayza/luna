@@ -18,7 +18,7 @@ class ThingsHandler:
             applescript = f'''
             tell application "Things3"
                 set newProject to make new project with properties {{{{name:"{display_name}"}}}}
-                set newProject's area to area "🎨 Art"
+                set newProject's area to area "{self.config.things3_area}"
             end tell
             '''
             try:

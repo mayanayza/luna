@@ -8,11 +8,8 @@ import yaml
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import MEDIA_TYPES, Extensions, Files, Status
-from script.src.utils import (
-    get_project_metadata,
-    get_project_path,
-)
+from script.src.constants import MEDIA, Files, Status
+from script.src.utils import get_media_files, get_project_metadata, get_project_path
 
 
 class WebsiteHandler(Channel):
@@ -25,6 +22,14 @@ class WebsiteHandler(Channel):
         }
             
         super().__init__(**init)
+
+        self.media = {
+           'images': MEDIA['images'],
+           'videos': ("*.webm",),
+           'models': ("*.glb",),
+           # 'audio': ("*.mp3", "*.wav"),
+           # 'docs': ("*.pdf",)
+        }
 
     def publish(self, commit_message) -> None:
         try:
@@ -60,9 +65,10 @@ class WebsiteHandler(Channel):
             with open(post_path, 'w') as f:
                 f.write(post)
 
-            roadmap = self.generate_roadmap()
-            with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
-                f.write(roadmap)
+            if self.config.enable_roadmap:
+                roadmap = self.generate_roadmap()
+                with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
+                    f.write(roadmap)
 
             self.logger.info(f"Successfully staged website content for {name}")
 
@@ -76,11 +82,9 @@ class WebsiteHandler(Channel):
             metadata = get_project_metadata(self, name)
             template_path = "html/post.html"
 
-            context = {
-                'images': self.tp.get_media_files(name, Extensions.IMAGE),
-                'videos': self.tp.get_media_files(name, Extensions.VIDEO),
-                'models': self.tp.get_media_files(name, Extensions.MODEL)
-            }
+            context = {}
+            for media_type in self.media:
+                context[media_type] = get_media_files(self, name, media_type, self.media[media_type])
             
             rendered_content = self.tp.process_template(name, template_path, context)
 
@@ -160,22 +164,15 @@ class WebsiteHandler(Channel):
 
     def stage_media(self, name: str) -> None:
         try:
-            source_dir = get_project_path(self, name) / 'media'
-            dest_dir = self.config.website_media_dir / name
+            output_dir = self.config.website_media_dir / name
+                
+            for media_type in self.media:
+                media_files = get_media_files(self, name, media_type, self.media[media_type])
+                output_type_dir = output_dir / media_type
+                output_type_dir.mkdir(parents=True, exist_ok=True)
 
-            if not source_dir.exists():
-                return
-                
-            # Create destination directories
-            for media_type in MEDIA_TYPES:
-                (dest_dir / media_type).mkdir(parents=True, exist_ok=True)
-                
-                # Copy files
-                source_type_dir = source_dir / media_type
-                if source_type_dir.exists():
-                    for file in source_type_dir.iterdir():
-                        if file.is_file():
-                            shutil.copy2(file, dest_dir / media_type / file.name)
+                for file in media_files:
+                    shutil.copy2(file, str(output_dir / media_type / file.name))
 
             self.logger.info(f"Successfully staged website media files for {name}")
         except Exception as e:

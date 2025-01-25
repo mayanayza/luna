@@ -1,12 +1,13 @@
 from enum import Enum
 
-# Directory structure
-MEDIA_TYPES = ['images', 'videos', 'models']
-
-class Extensions:
-   IMAGE = ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG")
-   VIDEO = ("*.mp4", "*.webm")
-   MODEL = ("*.glb",)
+#Default values for media folders + extensions
+MEDIA = {
+   'images': ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG"),
+   'videos': ("*.mp4", "*.webm"),
+   'models': ("*.glb", "*.mp4"),
+   'audio': ("*.mp3", "*.wav"),
+   'docs': ("*.pdf",)
+}
       
 # Template file names
 class Files:

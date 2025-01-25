@@ -3,6 +3,7 @@ import re
 
 from script.src.channels.github import GithubHandler
 from script.src.channels.pdf import PDFHandler
+from script.src.channels.raw import RawHandler
 from script.src.channels.website import WebsiteHandler
 from script.src.config import Config
 from script.src.constants import Files
@@ -25,6 +26,7 @@ class Automation:
         self.things = ThingsHandler(config)
         self.setup = FileHandler(config)
         self.pdf = PDFHandler(config)
+        self.raw = RawHandler(config)
         self.logger = setup_logging(__name__)
 
     def publish_github(self, projects: list, commit_message: str) -> None:
@@ -45,6 +47,10 @@ class Automation:
         for name in projects:
             self.pdf.stage(name, collate_images, filename_prepend)
         self.pdf.publish()                    
+
+    def publish_raw(self, projects) -> None:
+        for name in projects:
+            self.raw.publish(name)
 
     def create_project(self) -> None:
 
@@ -100,6 +106,7 @@ class Automation:
             self.setup.delete(name)
             self.github.delete(name)
             self.website.delete(name)
+            self.raw.delete(name)
         except Exception as e:
             self.logger.error(f"Failed to rename project: {e}")
 

@@ -37,6 +37,12 @@ def setup_channel_registry(automation, config):
             commit_message=kwargs.get('commit_message', ''), 
         )
     )
+
+    registry.register('raw', lambda **kwargs: 
+        automation.publish_raw(
+            kwargs.get('projects', []),
+        )
+    )
     
     return registry
 
@@ -70,7 +76,9 @@ def main():
         website_posts=(os.environ.get('WEBSITE_POSTS')),
         website_media=(os.environ.get('WEBSITE_MEDIA')),
         website_pages=(os.environ.get('WEBSITE_PAGES')),
-        enable_things3=os.environ.get('ENABLE_THINGS3', 'true').lower() == 'true'
+        enable_roadmap=os.environ.get('ENABLE_ROADMAP').lower() == 'true',
+        enable_things3=os.environ.get('ENABLE_THINGS3').lower() == 'true',
+        things3_area=os.environ.get('THINGS3_AREA')
     )
     automation = Automation(config)
     channels = setup_channel_registry(automation, config)

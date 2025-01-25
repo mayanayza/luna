@@ -1,15 +1,15 @@
 from pathlib import Path
 from typing import Dict
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, Template
 from script.src.config import Config
 from script.src.constants import Status
 from script.src.utils import (
     get_project_content,
     get_project_metadata,
-    get_project_path,
     get_project_readme,
     is_public_github_repo,
+    setup_logging,
 )
 
 
@@ -17,32 +17,39 @@ class TemplateProcessor:
     def __init__(self, config: Config):
         self.config = config
         current_dir = Path(__file__).parent
+        self.logger = setup_logging(__name__)
         self.env = Environment(
             loader=FileSystemLoader(current_dir),
             trim_blocks=True,
             lstrip_blocks=True
         )
 
-    def get_media_files(self, name, extensions):
-        """Get all media files of specified type and extensions."""
-        project_dir = get_project_path(self, name)
-        media_path = project_dir / 'media'
-        files = []
-        for ext in extensions:
-            files.extend(list(media_path.rglob(ext)))
-        return files
-
     def process_template(self, name: str, template_name: str, context: Dict={}):
-        """Process template with given context."""
         try:
+            context_cleaned = {}
+
             context = context | self.process_project_metadata(name)
-            context['content'] = get_project_content(self, name)
-            context['readme'] = get_project_readme(self, name)
+            # Remove empty values
+            for key, value in context.items():
+                if value not in ([], '', None):
+                    context_cleaned[key] = value
+
+            content = get_project_content(self, name)
+
+            if content:
+                content = Template( str(content) ).render(context)
+                context['content'] = content
+
+            readme = get_project_readme(self, name)
+            if readme:
+                readme = Template( str(readme) ).render(context)
+                context['readme'] = readme
+            
             template = self.env.get_template(template_name)
-            rendered = template.render(context)
+            rendered = template.render(context_cleaned)
             return rendered
         except Exception as e:
-            self.logger.error(f"Failed to generate GitHub readme for {name}: {e}")
+            self.logger.error(f"Failed to process template for {name}: {e}")
             raise
         
     def process_project_metadata(self, name: str) -> Dict:
@@ -108,7 +115,7 @@ class TemplateProcessor:
             return processed
 
         except Exception as e:
-            self.logger.error(f"Failed to generate GitHub readme for {name}: {e}")
+            self.logger.error(f"Failed to process metadata readme for {name}: {e}")
             raise
 
         

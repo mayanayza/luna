@@ -4,7 +4,7 @@ from datetime import datetime
 import yaml
 
 from script.src.config import Config
-from script.src.constants import MEDIA_TYPES, Files
+from script.src.constants import MEDIA, Files
 from script.src.utils import (
     get_project_metadata,
     get_project_path,
@@ -29,7 +29,7 @@ class FileHandler:
             (project_dir / 'media-internal').mkdir(parents=True, exist_ok=True)
 
             # Create media directory structure
-            for media_type in MEDIA_TYPES:
+            for media_type in MEDIA:
                 (project_dir / 'media' / media_type).mkdir(parents=True, exist_ok=True)
                 (project_dir / 'media-internal' / media_type).mkdir(parents=True, exist_ok=True)
 

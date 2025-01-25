@@ -7,10 +7,8 @@ from weasyprint import CSS, HTML
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import Extensions
-from script.src.utils import (
-    get_project_path,
-)
+from script.src.constants import MEDIA
+from script.src.utils import get_media_files, get_project_path
 
 
 class PDFHandler(Channel):
@@ -23,10 +21,18 @@ class PDFHandler(Channel):
             
         super().__init__(**init)
 
+        self.media = {
+           'image': MEDIA['images'],
+           # 'videos': ("*.mp4", "*.webm"),
+           # 'models': ("*.glb", "*.mp4"),
+           # 'audio': ("*.mp3", "*.wav"),
+           # 'docs': ("*.pdf",)
+        }
+
     def publish(self) -> None:
         # Search recursively for temp_pdf folders
         temp_pdf_folders = list(Path(self.config.base_dir).rglob('temp_pdf'))
-        output_folder = Path(self.config.base_dir / 'output_pdf')
+        output_folder = Path(self.config.base_dir / '_output')
         
         try:
             # Create output folder if it doesn't exist
@@ -38,7 +44,7 @@ class PDFHandler(Channel):
                     shutil.move(str(pdf_file), str(output_folder / pdf_file.name))
                 
                 # Move images
-                for extension in Extensions.IMAGE:
+                for extension in self.media['image']:
                     for image_file in temp_folder.glob(extension):
                         shutil.move(str(image_file), str(output_folder / image_file.name))
                 
@@ -84,9 +90,9 @@ class PDFHandler(Channel):
             image_pdfs = []
             context = {}
             if collate_images:
-                image_pdfs = self.generate_image_pdf(name, Extensions.IMAGE)
+                image_pdfs = self.generate_images_pdf(name)
             else:
-                context['image_file_names'] = self.stage_images(name, Extensions.IMAGE, filename_prepend)
+                context['image_file_names'] = self.stage_images(name, filename_prepend)
             
             # Generate main content PDF
             html_string = self.tp.process_template(name, 'pdf/project_cover.html', context)
@@ -107,7 +113,7 @@ class PDFHandler(Channel):
     def generate_images_pdf(self, name):
         try:
             css = CSS(string=self.tp.env.get_template('pdf/style.css').render())
-            images = self.tp.get_media_files(name, Extensions.IMAGE)
+            images = get_media_files(self, name, 'image', self.media['image'])
 
             image_groups = [images[i:i + 2] for i in range(0, len(images), 2)]
             image_pdfs = []
@@ -126,12 +132,12 @@ class PDFHandler(Channel):
             self.logger.error(f"Failed to generate image PDF for {name}: {e}")
             raise
             
-    def stage_images(self, name, extensions, filename_prepend):
+    def stage_images(self, name, filename_prepend):
         try:
             project_dir = get_project_path(self, name)
             temp_dir = project_dir / 'temp_pdf'
             Path(temp_dir).mkdir(exist_ok=True)
-            images = self.tp.get_media_files(name, Extensions.IMAGE)
+            images = get_media_files(self, name, self.media['image'])
             
             counter = 1
             new_names = []

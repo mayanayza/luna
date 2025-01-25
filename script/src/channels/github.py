@@ -3,11 +3,8 @@ import subprocess
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import Extensions, Files, Status
-from script.src.utils import (
-    get_project_metadata,
-    get_project_path,
-)
+from script.src.constants import MEDIA, Files, Status
+from script.src.utils import get_media_files, get_project_metadata, get_project_path
 
 
 class GithubHandler(Channel):
@@ -21,6 +18,14 @@ class GithubHandler(Channel):
         }
             
         super().__init__(**init)
+
+        self.media = {
+           'images': MEDIA['images'],
+           # 'videos': ("*.mp4", "*.webm"),
+           # 'models': ("*.glb", "*.mp4"),
+           # 'audio': ("*.mp3", "*.wav"),
+           # 'docs': ("*.pdf",)
+        }
 
     def create(self, name: str) -> None:
         
@@ -79,9 +84,10 @@ class GithubHandler(Channel):
         
             template_path = "md/readme.md"
 
-            context = {
-                'images': self.tp.get_media_files(name, Extensions.IMAGE),
-            }
+            context = {}
+            for media_type in self.media:
+                context[media_type] = get_media_files(self, name, media_type, self.media[media_type])
+
             readme = self.tp.process_template(name, template_path, context)
             self.logger.info(f"Generated GitHub readme for {name}")
             return readme

@@ -9,3 +9,4 @@ class Channel:
         self.class_name = class_name
         self.tp = TemplateProcessor(config)
         self.logger = setup_logging(name)
+        self.media = {}
