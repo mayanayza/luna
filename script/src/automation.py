@@ -27,17 +27,17 @@ class Automation:
         self.pdf = PDFHandler(config)
         self.logger = setup_logging(__name__)
 
-    def publish_github(self, projects: list) -> None:
+    def publish_github(self, projects: list, commit_message: str) -> None:
         for name in projects:
             self.github.stage(name)
-            self.github.publish(name)
+            self.github.publish(name, commit_message)
 
     def publish_web(self, projects: list) -> None:
         for name in projects:
             self.website.stage(name)                    
         self.website.publish()
 
-    def publish_pdf(self, projects: list, collate_images: bool=False, filename_prepend: str='') -> None:
+    def publish_pdf(self, projects: list, collate_images: bool, filename_prepend: str) -> None:
         for name in projects:
             self.pdf.stage(name, collate_images, filename_prepend)
         self.pdf.publish()                    

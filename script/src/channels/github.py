@@ -66,7 +66,7 @@ class GithubHandler(Channel):
         except subprocess.CalledProcessError as e:
             self.logger.warning(f"Failed to update GitHub repository: {e}")
 
-    def publish(self, name: str) -> None:
+    def publish(self, name: str, commit_message: str) -> None:
 
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
@@ -85,7 +85,7 @@ class GithubHandler(Channel):
                     subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
 
                 subprocess.run(['git', 'add', '.'], check=True)
-                subprocess.run(['git', 'commit', '-m', 'Publishing new files and updating readme'], check=True)
+                subprocess.run(['git', 'commit', '-m', f"{commit_message}"], check=True)
                 subprocess.run(['git', 'push', 'origin', 'main'], check=True)
                 self.logger.info(f"Git changes synced for project: {name}")
             else:

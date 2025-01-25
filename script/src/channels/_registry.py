@@ -50,6 +50,9 @@ class ChannelRegistry:
             **kwargs,
             'projects': projects
         }
+
+        for k, val in publish_context.items():
+            print("%s == %s" % (k, val))
         
         # Publish to specified channels
         for channel in channels:

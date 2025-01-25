@@ -34,6 +34,7 @@ def setup_channel_registry(automation, config):
     registry.register('github', lambda **kwargs: 
         automation.publish_github(
             kwargs.get('projects', []),
+            commit_message=kwargs.get('commit_message', ''), 
         )
     )
     
@@ -42,12 +43,17 @@ def setup_channel_registry(automation, config):
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Project Publication Tool')
     parser.add_argument('--command', '-c', help='Command to execute. Create, list, rename, or publish.')
+    
     parser.add_argument('--all-projects', default=False, action='store_true', help='Publish for all projects')
     parser.add_argument('--projects', '-p', nargs='+', help='Specific projects to publish.')
+    
     parser.add_argument('--all-channels', default=False, action='store_true', help='Publish across all channels')
     parser.add_argument('--channels', '-ch', nargs='+', help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
+    
     parser.add_argument('--collate-images', action='store_true', help='Collate images for PDF publication')
     parser.add_argument('--filename-prepend', default='', help='Prepend string for PDF filename')
+
+    parser.add_argument('--commit-message', default='', help='Commit message for publishing to github')
     
     return parser.parse_args()
 
