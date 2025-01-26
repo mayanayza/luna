@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 from PIL import Image
 
-from script.src.constants import Files
+from src.script.constants import Files
 
 
 def setup_logging(name: str):

@@ -6,9 +6,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from script.src.automation import Automation
-from script.src.channels._registry import ChannelRegistry
-from script.src.config import Config
+from src.script.automation import Automation
+from src.script.channels._registry import ChannelRegistry
+from src.script.config import Config
 
 load_dotenv()
 

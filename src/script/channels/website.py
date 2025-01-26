@@ -6,10 +6,10 @@ from typing import Dict
 
 import yaml
 
-from script.src.channels._channel import Channel
-from script.src.config import Config
-from script.src.constants import Media, Status
-from script.src.utils import (
+from src.script.channels._channel import Channel
+from src.script.config import Config
+from src.script.constants import Media, Status
+from src.script.utils import (
     get_media_files,
     get_project_metadata,
     get_project_path,

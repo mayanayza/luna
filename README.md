@@ -72,41 +72,41 @@ cd ..
 
 ### Create a new project:
 ```bash
-python -m script.src.main --command create
-python -m script.src.main --c create
+python -m src.script.main --command create
+python -m src.script.main --c create
 ```
 
 ### List all projects:
 ```bash
-python -m script.src.main --command list
-python -m script.src.main --c list
+python -m src.script.main --command list
+python -m src.script.main --c list
 ```
 This will show all projects with their names, creation dates, and status.
 
 ### Rename project:
 ```bash
-python -m script.src.main --command rename
-python -m script.src.main --c rename
+python -m src.script.main --command rename
+python -m src.script.main --c rename
 ```
 
 ### Delete project:
 ```bash
-python -m script.src.main --command delete
-python -m script.src.main --c delete
+python -m src.script.main --command delete
+python -m src.script.main --c delete
 ```
 
 ### Publish project updates:
 ```bash
 # Publish all projects to all channels
-python -m script.src.main --command publish --all-projects --all-channels
+python -m src.script.main --command publish --all-projects --all-channels
 
 # Publish specific projects to all channels
-python -m script.src.main --command publish --projects project1 project2 --all-channels
-python -m script.src.main --command publish --p project1 project2 --all-channels
+python -m src.script.main --command publish --projects project1 project2 --all-channels
+python -m src.script.main --command publish --p project1 project2 --all-channels
 
 # Publish specific projects to specific channels
-python -m script.src.main --command publish --p project1 project2 --channels channel1 channel2
-python -m script.src.main --command publish --p project1 project2 --ch channel1 channel2
+python -m src.script.main --command publish --p project1 project2 --channels channel1 channel2
+python -m src.script.main --command publish --p project1 project2 --ch channel1 channel2
 ```
 
 ### Channel-specific publishing options and information
@@ -118,18 +118,18 @@ Outputs PDF to \_output folder in base directory
 
 ```bash
 # Publish (generate PDF with images collated into same document).
-python -m script.src.main --c publish --p project1 --ch pdf --collate-images
-python -m script.src.main --c publish --p project1 --ch pdf -ci
+python -m src.script.main --c publish --p project1 --ch pdf --collate-images
+python -m src.script.main --c publish --p project1 --ch pdf -ci
 
 # Publish (generate PDF with separate image files)
 
 ## Prepend optional text to image files
-python -m script.src.main --c publish --p project1 --ch pdf --filename-prepend
-python -m script.src.main --c publish --p project1 --ch pdf -fp
+python -m src.script.main --c publish --p project1 --ch pdf --filename-prepend
+python -m src.script.main --c publish --p project1 --ch pdf -fp
 
 ## Set max image dimensions
-python -m script.src.main --c publish --p project1 --ch pdf --max-width 1200 --max-height 800
-python -m script.src.main --c publish --p project1 --ch pdf -mw 1200 -mh 800
+python -m src.script.main --c publish --p project1 --ch pdf --max-width 1200 --max-height 800
+python -m src.script.main --c publish --p project1 --ch pdf -mw 1200 -mh 800
 ```
 
 #### Github
@@ -138,11 +138,11 @@ Uses files in media/ directory, metadata.yml, content.md
 
 ```bash
 # Stage (generate README.md)
-python -m script.src.main --c stage --p project1 --ch github
+python -m src.script.main --c stage --p project1 --ch github
 
 # Publish (commit and pushing to Github). Commit message required.
-python -m script.src.main --c publish --p project1 --ch github --commit-message 'message'
-python -m script.src.main --c publish --p project1 --ch github -cm 'message'
+python -m src.script.main --c publish --p project1 --ch github --commit-message 'message'
+python -m src.script.main --c publish --p project1 --ch github -cm 'message'
 ```
 
 ### Web
@@ -152,10 +152,10 @@ Project status must be set to `complete` for this publication option to work
 
 ```bash
 # Stage (generate posts, roadmap, links page)
-python -m script.src.main --c stage --p project1 --ch github
+python -m src.script.main --c stage --p project1 --ch github
 
 # Publish (commit and push change to Github). Commit message auto-generated.
-python -m script.src.main --c publish --p project1 --ch web
+python -m src.script.main --c publish --p project1 --ch web
 ```
 
 ### Raw
@@ -165,7 +165,7 @@ Outputs to \_output/project_name folder in base directory
 
 ```bash
 # Publish (flattens content and media files and puts into one folder)
-python -m script.src.main --c publish --p project1 --ch raw
+python -m src.script.main --c publish --p project1 --ch raw
 ```
 
 ## Project Structure

@@ -1,9 +1,9 @@
 import shutil
 
-from script.src.channels._channel import Channel
-from script.src.config import Config
-from script.src.constants import Media
-from script.src.utils import get_media_files, get_project_path
+from src.script.channels._channel import Channel
+from src.script.config import Config
+from src.script.constants import Media
+from src.script.utils import get_media_files, get_project_path
 
 
 class RawHandler(Channel):

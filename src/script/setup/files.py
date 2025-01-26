@@ -3,9 +3,9 @@ from datetime import datetime
 
 import yaml
 
-from script.src.config import Config
-from script.src.constants import Files, Media
-from script.src.utils import (
+from src.script.config import Config
+from src.script.constants import Files, Media
+from src.script.utils import (
     get_project_metadata,
     get_project_path,
     load_template,

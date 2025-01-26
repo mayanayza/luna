@@ -1,6 +1,6 @@
-from script.src.config import Config
-from script.src.templates.processor import TemplateProcessor
-from script.src.utils import setup_logging
+from src.script.config import Config
+from src.script.templates.processor import TemplateProcessor
+from src.script.utils import setup_logging
 
 
 class Channel:

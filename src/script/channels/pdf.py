@@ -5,10 +5,10 @@ from pathlib import Path
 from PyPDF2 import PdfMerger
 from weasyprint import HTML
 
-from script.src.channels._channel import Channel
-from script.src.config import Config
-from script.src.constants import Media
-from script.src.utils import (
+from src.script.channels._channel import Channel
+from src.script.config import Config
+from src.script.constants import Media
+from src.script.utils import (
     get_media_files,
     get_project_metadata,
     get_project_path,

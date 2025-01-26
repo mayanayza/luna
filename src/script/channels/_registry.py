@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List, Optional
 
-from script.src.config import Config
-from script.src.utils import is_project, setup_logging
+from src.script.config import Config
+from src.script.utils import is_project, setup_logging
 
 
 class ChannelRegistry:

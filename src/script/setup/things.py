@@ -1,7 +1,7 @@
 import subprocess
 
-from script.src.config import Config
-from script.src.utils import setup_logging
+from src.script.config import Config
+from src.script.utils import setup_logging
 
 
 class ThingsHandler:

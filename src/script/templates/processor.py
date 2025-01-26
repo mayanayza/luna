@@ -2,9 +2,9 @@ from pathlib import Path
 from typing import Dict
 
 from jinja2 import Environment, FileSystemLoader, Template
-from script.src.config import Config
-from script.src.constants import Status
-from script.src.utils import (
+from src.script.config import Config
+from src.script.constants import Status
+from src.script.utils import (
     get_project_content,
     get_project_metadata,
     get_project_readme,

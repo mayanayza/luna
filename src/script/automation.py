@@ -1,14 +1,14 @@
 
 import re
 
-from script.src.channels.github import GithubHandler
-from script.src.channels.pdf import PDFHandler
-from script.src.channels.raw import RawHandler
-from script.src.channels.website import WebsiteHandler
-from script.src.config import Config
-from script.src.setup.files import FileHandler
-from script.src.setup.things import ThingsHandler
-from script.src.utils import (
+from src.script.channels.github import GithubHandler
+from src.script.channels.pdf import PDFHandler
+from src.script.channels.raw import RawHandler
+from src.script.channels.website import WebsiteHandler
+from src.script.config import Config
+from src.script.setup.files import FileHandler
+from src.script.setup.things import ThingsHandler
+from src.script.utils import (
     get_project_metadata,
     get_project_path,
     is_project,
