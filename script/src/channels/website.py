@@ -141,11 +141,11 @@ class WebsiteHandler(Channel):
                     projects.append(item.name)
             in_progress = []
             backlog = []
-            public_repos = []
+            complete = []
 
             for name in projects:
 
-                metadata = get_project_metadata(self, name)
+                metadata = self.tp.process_project_metadata(name)
                 project = metadata['project']
                 name = metadata['project']['name']
 
@@ -153,13 +153,15 @@ class WebsiteHandler(Channel):
                     in_progress.append(project)
                 elif project['status'] == Status.BACKLOG:
                     backlog.append(project)
+                elif project['status'] == Status.COMPLETE:
+                    complete.append(project)
 
             backlog.sort(key=lambda x: x.get('priority', 0), reverse=True)
 
             context = {
                 'in_progress': in_progress,
                 'backlog': backlog,
-                'public_repos': public_repos
+                'complete': complete,
             }
 
             roadmap = self.tp.process_template(name, 'md/roadmap.md', context)

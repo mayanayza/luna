@@ -100,19 +100,17 @@ Uses files in media/ directory, metadata.yml, content.md, README.md
 Outputs PDF to \_output folder in base directory
 
 ```bash
-## Options for combined image files with PDF
-
-# Generate PDF with images collated into same document (only if not using --filename-prepend). **Optional, default is false.**
+# Publish (generate PDF with images collated into same document).
 python -m script.src.main --c publish --p project1 --ch pdf --collate-images
 python -m script.src.main --c publish --p project1 --ch pdf -ci
 
-## Options for separate image files from PDF
+# Publish (generate PDF with separate image files)
 
-# Generate PDF with a filename prepended to generated image files (only if not using --collate-images). **Optional, default is ''**
+## Prepend optional text to image files
 python -m script.src.main --c publish --p project1 --ch pdf --filename-prepend
 python -m script.src.main --c publish --p project1 --ch pdf -fp
 
-# Set max image width and height
+## Set max image dimensions
 python -m script.src.main --c publish --p project1 --ch pdf --max-width 1200 --max-height 800
 python -m script.src.main --c publish --p project1 --ch pdf -mw 1200 -mh 800
 ```
@@ -122,7 +120,10 @@ python -m script.src.main --c publish --p project1 --ch pdf -mw 1200 -mh 800
 Uses files in media/ directory, metadata.yml, content.md
 
 ```bash
-# Commit message when publishing to Github. **Required**
+# Stage (generate README.md)
+python -m script.src.main --c stage --p project1 --ch github
+
+# Publish (commit and pushing to Github). Commit message required.
 python -m script.src.main --c publish --p project1 --ch github --commit-message 'message'
 python -m script.src.main --c publish --p project1 --ch github -cm 'message'
 ```
@@ -133,6 +134,10 @@ Uses files in media/ directory, metadata.yml, content.md
 Project status must be set to `complete` for this publication option to work
 
 ```bash
+# Stage (generate posts, roadmap, links page)
+python -m script.src.main --c stage --p project1 --ch github
+
+# Publish (commit and push change to Github). Commit message auto-generated.
 python -m script.src.main --c publish --p project1 --ch web
 ```
 
@@ -142,7 +147,7 @@ Uses files in media/ directory, metadata.yml, content.md, README.md
 Outputs to \_output/project_name folder in base directory
 
 ```bash
-# Commit message when publishing to Github. **Required**
+# Publish (flattens content and media files and puts into one folder)
 python -m script.src.main --c publish --p project1 --ch raw
 ```
 

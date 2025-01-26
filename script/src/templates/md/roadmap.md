@@ -31,3 +31,19 @@ Nothing currently in progress
 {% else %}
 Nothing currently in backlog
 {% endif %}
+
+## Complete
+
+{% if in_progress %}
+| Project | Description |
+|---------|-------------|
+{% for project in complete %}
+{% if project.website %}
+| <a href='{{ project.website }}' target='_blank'>{{ project.display_name }}</a> | {{ project.description }} |
+{% else %}
+| {{ project.display_name }} | {{ project.description | default('') }} |
+{% endif %}
+{% endfor %}
+{% else %}
+Nothing completed
+{% endif %}

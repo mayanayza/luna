@@ -1,5 +1,5 @@
 ---
-layout: headless
+layout: page
 title: Links
 permalink: /links/
 ---
@@ -19,5 +19,7 @@ permalink: /links/
 <br />
 <h2>Links</h2>
 <div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ website }}', '_blank')">Portfolio</div>
-<div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ github }}', '_blank')">Github</div>
+<div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ website }}/roadmap', '_blank')">Roadmap</div>
+<div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ github }}', '_blank')">
+Github</div>
 </div>
