@@ -69,10 +69,14 @@ class WebsiteHandler(Channel):
                 f.write(post)
 
             if self.config.enable_roadmap:
-                roadmap = self.generate_roadmap()
+                roadmap = self.generate_roadmap_page()
                 with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
                     f.write(roadmap)
             self.logger.info(f"Successfully staged website content for {name}")
+
+            links = self.generate_links_page()
+            with open(self.config.website_pages_dir / 'links.md', 'w') as f:
+                    f.write(links)
 
             return name
         except Exception as e:
@@ -96,6 +100,7 @@ class WebsiteHandler(Channel):
                 'description': metadata['project']['description'],
                 'date': metadata['project']['date_created'],
                 'tags': metadata['project']['tags'],
+                'featured': metadata['project']['feature_post']
             } | self.determine_featured_content(name)
 
             post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
@@ -128,7 +133,7 @@ class WebsiteHandler(Channel):
                 'image': f"/media/{name}/images/{featured_content['source']}"
             }
 
-    def generate_roadmap(self) -> None:
+    def generate_roadmap_page(self) -> None:
         try:
             projects = []
             for item in self.config.base_dir.iterdir():
@@ -161,7 +166,32 @@ class WebsiteHandler(Channel):
             self.logger.info("Generated roadmap")
             return roadmap
         except Exception as e:
-            self.logger.error(f"Failed to generate roadmap for {name}: {e}")
+            self.logger.error(f"Failed to generate roadmap page: {e}")
+            raise
+
+    def generate_links_page(self) -> None:
+        try:
+            context = {}
+            context['featured_posts'] = []
+
+            for item in self.config.base_dir.iterdir():
+                if is_project(self, item):
+                    metadata = get_project_metadata(self, item)
+                    name = metadata['project']['name']
+                    if metadata['project']['feature_post'] and metadata['project']['status'] == Status.COMPLETE:
+
+                        context['featured_posts'].append({
+                            'title': metadata['project']['title'],
+                            'description': metadata['project']['description'],
+                            'url': f"{self.config.website_domain}/{name}"
+                        })
+
+                        if metadata['project']['featured_content']['type'] == 'image':
+                            context['image']: str(self.config.website_media_dir / name / Media.IMAGES.TYPE / metadata['project']['featured_content']['source'])
+            links = self.tp.process_template(name, 'md/links.md', context)
+            return links
+        except Exception as e:
+            self.logger.error(f"Failed to generate links page: {e}")
             raise
 
     def stage_media(self, name: str) -> None:

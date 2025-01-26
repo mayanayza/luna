@@ -29,18 +29,25 @@ class Automation:
         self.raw = RawHandler(config)
         self.logger = setup_logging(__name__)
 
-    def publish_github(self, projects: list, commit_message: str) -> None:
+    def stage_github(self, projects, commit_message) -> None:
         for name in projects:
             self.github.stage(name)
+
+    def publish_github(self, projects: list, commit_message: str) -> None:
+        self.stage_github(projects, commit_message)
+
+        for name in projects:
             self.github.publish(name, commit_message)
 
-    def publish_web(self, projects: list) -> None:
+    def stage_web(self, projects: list) -> None:
         staged_projects = []
         for name in projects:
             staged_projects.append( self.website.stage(name) )
 
-        staged_projects = [p for p in staged_projects if p.strip()]
-        
+        return [p for p in staged_projects if p.strip()]
+
+    def publish_web(self, projects: list) -> None:
+        staged_projects = self.stage_web(projects)
         self.website.publish( "Updating content for " + ", ".join(staged_projects) )
 
     def publish_pdf(self, projects: list, collate_images: bool, max_width: int, max_height: int, filename_prepend: str) -> None:

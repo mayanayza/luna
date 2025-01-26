@@ -6,6 +6,7 @@ project:
   status: complete
   priority: 0
   description: A content syndication tool for artists and creative technologists
+  feature_post: false
   featured_content:
     type: code
     source: script/src/channels/website.py

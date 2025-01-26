@@ -8,12 +8,16 @@ class ChannelRegistry:
     def __init__(self, config: Config):
         self.config = config
         self.logger = setup_logging(__name__)
-        self._channels: Dict[str, Callable] = {}
+        self._channels = {}
 
-    def register(self, output_name: str, publish_func: Callable):
-        self._channels[output_name] = publish_func
+    def register(self, channel: str, funcs: Dict[str, Callable]):
+       self._channels[channel] = {}
+       for command, func in funcs.items():
+           self._channels[channel][command] = func
+
     
-    def publish(self, 
+    def command(self, 
+                command: str,
                 channels: Optional[List[str]] = None, 
                 projects: Optional[List[str]] = None, 
                 all_projects: Optional[bool] = False,
@@ -52,4 +56,7 @@ class ChannelRegistry:
         
         # Publish to specified channels
         for channel in channels:
-            self._channels[channel](**publish_context)
+            if self._channels[channel][command]:
+                self._channels[channel][command](**publish_context)
+            else:
+                self.logger.info(f"{channel} does not support comand '{command}'")

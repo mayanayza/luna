@@ -58,6 +58,9 @@ class TemplateProcessor:
             metadata = get_project_metadata(self, name)
             project = metadata['project']
 
+            processed['website'] = self.config.website_domain
+            processed['github'] = self.config.github_url_path
+
             if (project['status'] == Status.COMPLETE):
                 project['website'] = f"{self.config.website_domain}/{name}"
             if is_public_github_repo(self, name):

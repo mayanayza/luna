@@ -17,46 +17,56 @@ def setup_channel_registry(automation, config):
     registry = ChannelRegistry(config)
     
     # Register publication channels
-    registry.register('web', lambda **kwargs: 
-        automation.publish_web(
-            kwargs.get('projects', []), 
+    registry.register('web', {
+        'stage': lambda **kwargs: automation.stage_web(
+            kwargs.get('projects', [])
+        ),
+        'publish': lambda **kwargs: automation.publish_web(
+            kwargs.get('projects', [])
         )
-    )
+    })
     
-    registry.register('pdf', lambda **kwargs: 
-        automation.publish_pdf(
+    registry.register('pdf', {
+        'publish': lambda **kwargs: automation.publish_pdf(
             kwargs.get('projects', []),
             collate_images=kwargs.get('collate_images', False), 
             filename_prepend=kwargs.get('filename_prepend', ''),
             max_width=kwargs.get('max_width', ''),
             max_height=kwargs.get('max_height', '')
         )
-    )
-    
-    registry.register('github', lambda **kwargs: 
-        automation.publish_github(
-            kwargs.get('projects', []),
-            commit_message=kwargs.get('commit_message', ''), 
-        )
-    )
+    })
 
-    registry.register('raw', lambda **kwargs: 
-        automation.publish_raw(
+    registry.register('github', {
+        'stage': lambda **kwargs: automation.stage_github(
+            kwargs.get('projects', []),
+            commit_message=kwargs.get('commit_message', '')
+        ),
+        'publish': lambda **kwargs: automation.publish_github(
+            kwargs.get('projects', []),
+            commit_message=kwargs.get('commit_message', '')
+        ),
+    })
+    
+
+    registry.register('raw', {
+        'publish': lambda **kwargs: automation.publish_raw(
             kwargs.get('projects', []),
         )
-    )
+    })
+
+    
     
     return registry
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Project Publication Tool')
-    parser.add_argument('--command', '-c', help='Command to execute. Create, list, rename, publish, delete.')
+    parser.add_argument('--command', '-c', help='Command to execute. Create, list, rename, publish, stage, delete.')
     
-    parser.add_argument('--all-projects', default=False, action='store_true', help='Publish for all projects')
-    parser.add_argument('--projects', '-p', nargs='+', help='Specific projects to publish.')
+    parser.add_argument('--all-projects', default=False, action='store_true', help='Stage or publish for all projects')
+    parser.add_argument('--projects', '-p', nargs='+', help='One or more projects to stage or publish.')
     
-    parser.add_argument('--all-channels', default=False, action='store_true', help='Publish across all channels')
-    parser.add_argument('--channels', '-ch', nargs='+', help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
+    parser.add_argument('--all-channels', default=False, action='store_true', help='Stage or publish across all channels')
+    parser.add_argument('--channels', '-ch', nargs='+', help='One more channels to publish to (web, pdf, github).')
     
     parser.add_argument('--collate-images', '-ci', action='store_true', help='Collate images for PDF publication')
     parser.add_argument('--max-width', '-mw', help='Max width for images when generating separate image files for PDF publication')
@@ -97,11 +107,11 @@ def main():
             automation.rename_project()
         elif args.command == 'delete':
             automation.delete_project()
-        elif args.command == 'publish':
+        elif args.command == 'publish' or args.command == 'stage':
 
             try:
                 # Publish based on command-line arguments
-                channels.publish(**vars(args))
+                channels.command(**vars(args))
             except ValueError as e:
                 print(f"Publication error: {e}")
                 sys.exit(1)

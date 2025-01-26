@@ -6,6 +6,7 @@ project:
   status: "archive" # backlog, in_progress, complete, archive
   priority: 0
   description: ""
+  feature_post: false
   featured_content: 
     type: "image" # image or code
     source: ""  # Image - Just the filename, e.g. "hero.jpg". Code - path from project directory
