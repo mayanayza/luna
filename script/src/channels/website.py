@@ -8,7 +8,7 @@ import yaml
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import MEDIA, Status
+from script.src.constants import Media, Status
 from script.src.utils import (
     get_media_files,
     get_project_metadata,
@@ -29,11 +29,9 @@ class WebsiteHandler(Channel):
         super().__init__(**init)
 
         self.media = {
-           'images': MEDIA['images'],
-           'videos': ("*.webm",),
-           'models': ("*.glb",),
-           # 'audio': ("*.mp3", "*.wav"),
-           # 'docs': ("*.pdf",)
+           Media.IMAGES.TYPE: Media.IMAGES.EXT,
+           Media.VIDEOS.TYPE: Media.VIDEOS.EXT,
+           Media.MODELS.TYPE: Media.MODELS.EXT,
         }
 
     def publish(self, commit_message) -> None:
@@ -88,7 +86,7 @@ class WebsiteHandler(Channel):
 
             context = {}
             for media_type in self.media:
-                context[media_type] = get_media_files(self, name, media_type, self.media[media_type])
+                context[media_type] = get_media_files(self, name, media_type)
             
             rendered_content = self.tp.process_template(name, template_path, context)
 
@@ -134,8 +132,6 @@ class WebsiteHandler(Channel):
         try:
             projects = []
             for item in self.config.base_dir.iterdir():
-                print(1)
-                print(item)
                 if is_project(self, item):
                     projects.append(item.name)
             in_progress = []
@@ -173,8 +169,8 @@ class WebsiteHandler(Channel):
             output_dir = self.config.website_media_dir / name
                 
             for media_type in self.media:
-                media_files = get_media_files(self, name, media_type, self.media[media_type])
-                output_type_dir = output_dir / media_type
+                media_files = get_media_files(self, name, media_type)
+                output_type_dir = output_dir / str(media_type)
                 output_type_dir.mkdir(parents=True, exist_ok=True)
 
                 for file in media_files:

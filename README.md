@@ -15,6 +15,17 @@ Once ready, Luna also facilitates syndication of project content through various
 
 Almost all of the content on my website is managed using Luna.
 
+## Features
+Provides a single source-of-truth for all project information to eliminate toil in managing across various channels
+- Creates standardized project structure on local machine to more easily manage project content and media files
+- Initializes git repository
+- Generates and publishes content for various channels based on project info
+	- Website post content and a roadmap of active work (designed for Jekyll websites)
+	- PDFs for submitting to open calls with a variety of formatting options
+	- Github for technical content and documentation / readme information
+	- Raw files to local output folder for other uses
+- Optionally integrates with Things 3 on MacOS
+
 ## Setup
 1. Clone the repository:
 ```bash
@@ -98,32 +109,58 @@ python -m script.src.main --command publish --p project1 project2 --channels cha
 python -m script.src.main --command publish --p project1 project2 --ch channel1 channel2
 ```
 
-### Available channels:
-```bash
-web
-pdf
-raw
-github
-```
-
-### Channel-specific publishing options
+### Channel-specific publishing options and information
 
 #### PDF
+
+Uses files in media/ directory, metadata.yml, content.md, README.md
+Outputs PDF to \_output folder in base directory
+
 ```bash
+## Options for combined image files with PDF
+
 # Generate PDF with images collated into same document (only if not using --filename-prepend). **Optional, default is false.**
 python -m script.src.main --c publish --p project1 --ch pdf --collate-images
 python -m script.src.main --c publish --p project1 --ch pdf -ci
 
+## Options for separate image files from PDF
+
 # Generate PDF with a filename prepended to generated image files (only if not using --collate-images). **Optional, default is ''**
 python -m script.src.main --c publish --p project1 --ch pdf --filename-prepend
 python -m script.src.main --c publish --p project1 --ch pdf -fp
+
+# Set max image width and height
+python -m script.src.main --c publish --p project1 --ch pdf --max-width 1200 --max-height 800
+python -m script.src.main --c publish --p project1 --ch pdf -mw 1200 -mh 800
 ```
 
 #### Github
+
+Uses files in media/ directory, metadata.yml, content.md
+
 ```bash
 # Commit message when publishing to Github. **Required**
 python -m script.src.main --c publish --p project1 --ch github --commit-message 'message'
 python -m script.src.main --c publish --p project1 --ch github -cm 'message'
+```
+
+### Web
+
+Uses files in media/ directory, metadata.yml, content.md
+Project status must be set to `complete` for this publication option to work
+
+```bash
+python -m script.src.main --c publish --p project1 --ch web
+```
+
+### Raw
+
+Uses files in media/ directory, metadata.yml, content.md, README.md
+Outputs to \_output/project_name folder in base directory
+
+```bash
+# Commit message when publishing to Github. **Required**
+python -m script.src.main --c publish --p project1 --ch raw
 ```
 
 ## Project Structure
@@ -145,25 +182,11 @@ project-name/
 │   └── models/
 ├── content/ 
 │   ├── content.md
+│   ├── metadata.yml
 │   └── README.md
-└── metadata.yml
 ```
 
 media-internal is for organizing WIP assets which wil not be committed to Github. Final media files which are ready to be syndicated in different channels, media files should be moved to the corresponding media/ subfolder.
-
-The script combines assets from the media/ and content/ folders to generate the output for different channels as follows:
-
-- Github: Combines README.md + content.md into a final README.md which is generated in the project-name/folder
-- PDF: Combines content.md and metadata.yml into a PDF summary of the project. If multiple projects are chosen, will merge all project PDF summaries into a single file.
-- Website: Combines content.md, metadata.yml into website post content. Also optionally generates a roadmap page based on project status.
-- Raw: Outputs all publication files (media + content folders).
-
-## Features
-- Provides a single source-of-truth for all project information to eliminate toil in managing across various channels
-- Creates standardized project structure on local machine
-- Initializes git repository
-- Provides structure for managing media files
-- Syndicates content across various channels
 
 ## Development
 To add a channel
@@ -174,8 +197,6 @@ To add a channel
 
 ## Things 3 Integration
 The script provides a simple integration with Things 3 on macOS, and will create a project in the area specified in the .env file upon project creation.
-
-## Media
 
 
 

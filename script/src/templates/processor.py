@@ -69,13 +69,14 @@ class TemplateProcessor:
                 
             if (specs['dimensions']['width'] and specs['dimensions']['height'] and specs['dimensions']['depth']):
                 processed['dimensions'] = f"{specs['dimensions']['width']}{specs['dimensions']['unit']} w x {specs['dimensions']['height']}{specs['dimensions']['unit']} h x {specs['dimensions']['depth']}{specs['dimensions']['unit']} d"
-            
+
             if specs['weight']['value']:
                 processed['weight'] = f"{specs['weight']['value']} {specs['weight']['unit']}"
             
             if specs['materials']:
-                processed['materials'] = ", ".join(specs['materials']['primary'])
+                processed['materials'] = ", ".join(specs['materials'])
 
+            
             reqs = metadata['technical_requirements']
             for key in reqs:
                 if reqs[key]:
@@ -101,10 +102,11 @@ class TemplateProcessor:
             if ex['maintenance']['tasks']:
                 processed['maintenance_instructions'] = ex['maintenance']['tasks']
 
+            self.logger.info(f"Processed metadata for {name}")
             return processed
 
         except Exception as e:
-            self.logger.error(f"Failed to process metadata readme for {name}: {e}")
+            self.logger.error(f"Failed to process metadata for {name}: {e}")
             raise
 
         

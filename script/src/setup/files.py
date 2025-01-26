@@ -4,7 +4,7 @@ from datetime import datetime
 import yaml
 
 from script.src.config import Config
-from script.src.constants import MEDIA, Files
+from script.src.constants import Files, Media
 from script.src.utils import (
     get_project_metadata,
     get_project_path,
@@ -29,9 +29,10 @@ class FileHandler:
             (project_dir / 'media-internal').mkdir(parents=True, exist_ok=True)
 
             # Create media directory structure
-            for media_type in MEDIA:
-                (project_dir / 'media' / media_type).mkdir(parents=True, exist_ok=True)
-                (project_dir / 'media-internal' / media_type).mkdir(parents=True, exist_ok=True)
+            for media, media_props in vars(Media):
+
+                (project_dir / 'media' / media_props.TYPE).mkdir(parents=True, exist_ok=True)
+                (project_dir / 'media-internal' / media_props.TYPE).mkdir(parents=True, exist_ok=True)
 
             # Load and process templates
             date = datetime.now().strftime('%Y-%m-%d')
@@ -54,7 +55,7 @@ class FileHandler:
 
             # Create metadata.yml from template
             metadata_content = load_template(self, Files.METADATA).format(**template_vars)
-            with open(project_dir / Files.METADATA, 'w') as f:
+            with open(project_dir / 'content' / Files.METADATA, 'w') as f:
                 f.write(metadata_content)
 
             # Create .gitignore from template

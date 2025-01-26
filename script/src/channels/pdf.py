@@ -3,12 +3,17 @@ from pathlib import Path
 
 # import markdown
 from PyPDF2 import PdfMerger
-from weasyprint import CSS, HTML
+from weasyprint import HTML
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import MEDIA
-from script.src.utils import get_media_files, get_project_path
+from script.src.constants import Media
+from script.src.utils import (
+    get_media_files,
+    get_project_metadata,
+    get_project_path,
+    resize_image_file,
+)
 
 
 class PDFHandler(Channel):
@@ -22,11 +27,7 @@ class PDFHandler(Channel):
         super().__init__(**init)
 
         self.media = {
-           'image': MEDIA['images'],
-           # 'videos': ("*.mp4", "*.webm"),
-           # 'models': ("*.glb", "*.mp4"),
-           # 'audio': ("*.mp3", "*.wav"),
-           # 'docs': ("*.pdf",)
+           Media.IMAGES.TYPE: Media.IMAGES.EXT
         }
 
     def publish(self) -> None:
@@ -44,7 +45,7 @@ class PDFHandler(Channel):
                     shutil.move(str(pdf_file), str(output_folder / pdf_file.name))
                 
                 # Move images
-                for extension in self.media['image']:
+                for extension in self.media[Media.IMAGES.TYPE]:
                     for image_file in temp_folder.glob(extension):
                         shutil.move(str(image_file), str(output_folder / image_file.name))
                 
@@ -75,28 +76,32 @@ class PDFHandler(Channel):
             self.logger.error(f"Error publishing PDF: {e}")
             raise
 
-    def stage(self, name, collate_images, filename_prepend) -> None:
-        self.generate_pdf(name, filename_prepend, collate_images)
+    def stage(self, name, collate_images, max_width, max_height, filename_prepend) -> None:
+        self.generate_pdf(name, max_width, max_height,filename_prepend, collate_images)
 
-    def generate_pdf(self, name, filename_prepend, collate_images):
+    def generate_pdf(self, name, max_width, max_height, filename_prepend, collate_images):
         """Generate PDF with optional image collation."""
 
         try:
             project_dir = get_project_path(self, name)
+            metadata = get_project_metadata(self, name)
             temp_dir = project_dir / 'temp_pdf'
             Path(temp_dir).mkdir(exist_ok=True)
-            css = CSS(string=self.tp.env.get_template('pdf/style.css').render())
 
             image_pdfs = []
             context = {}
+            images = get_media_files(self, name, Media.IMAGES.TYPE)
             if collate_images:
-                image_pdfs = self.generate_images_pdf(name)
+                image_pdfs = self.generate_images_pdf(name, images)
             else:
-                context['image_file_names'] = self.stage_images(name, filename_prepend)
+                context['image_file_names'] = self.stage_images(name, images, max_width, max_height, filename_prepend)
+
+            if metadata['project']['featured_content']['type'] == 'image':
+                context['featured_image'] = str((project_dir / 'media' / Media.IMAGES.TYPE / metadata['project']['featured_content']['source']).absolute())
             
             # Generate main content PDF
             html_string = self.tp.process_template(name, 'pdf/project_cover.html', context)
-            main_pdf = HTML(string=html_string).render(stylesheets=[css])
+            main_pdf = HTML(string=html_string, base_url=project_dir).render()
             
             # Combine main content with image pages
             all_pages = main_pdf.pages + image_pdfs
@@ -110,20 +115,19 @@ class PDFHandler(Channel):
             self.logger.error(f"Failed to generate PDF for {name}: {e}")
             raise
 
-    def generate_images_pdf(self, name):
+    def generate_images_pdf(self, name, images):
         try:
-            css = CSS(string=self.tp.env.get_template('pdf/style.css').render())
-            images = get_media_files(self, name, 'image', self.media['image'])
+            project_dir = get_project_path(self, name)
 
             image_groups = [images[i:i + 2] for i in range(0, len(images), 2)]
             image_pdfs = []
 
             for group in image_groups:
                 context = {
-                    'images': [str(image.absolute()) for image in group]
+                    'images': [image.resolve() for image in group]
                 }
-                rendered_html = self.tp.process_template(name, 'pdf/project_images.html', context)
-                image_pdf = HTML(string=rendered_html).render(stylesheets=[css])
+                html_string = self.tp.process_template(name, 'pdf/project_images.html', context)
+                image_pdf = HTML(string=html_string, base_url=project_dir).render()
                 image_pdfs.extend(image_pdf.pages)
 
             self.logger.info(f"Generated image PDFs for {name}")
@@ -132,17 +136,17 @@ class PDFHandler(Channel):
             self.logger.error(f"Failed to generate image PDF for {name}: {e}")
             raise
             
-    def stage_images(self, name, filename_prepend):
+    def stage_images(self, name, images, max_width, max_height, filename_prepend):
         try:
             project_dir = get_project_path(self, name)
             temp_dir = project_dir / 'temp_pdf'
             Path(temp_dir).mkdir(exist_ok=True)
-            images = get_media_files(self, name, self.media['image'])
             
             counter = 1
             new_names = []
             
             for file in sorted(images):
+                file = resize_image_file(file, max_width, max_height)
                 new_name = f"{name}_{counter}{file.suffix}"
                 if filename_prepend:
                     new_name = f"{filename_prepend}_{new_name}"

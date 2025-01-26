@@ -1,13 +1,18 @@
 from enum import Enum
 
 #Default values for media folders + extensions
-MEDIA = {
-   'images': ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG"),
-   'videos': ("*.mp4", "*.webm"),
-   'models': ("*.glb", "*.mp4"),
-   'audio': ("*.mp3", "*.wav"),
-   'docs': ("*.pdf",)
-}
+
+class MediaProperties:
+   def __init__(self, TYPE, EXTENSIONS):
+      self.TYPE = TYPE
+      self.EXT = EXTENSIONS
+
+class Media:
+   IMAGES = MediaProperties('images', ("*.png","*.jpg","*.jpeg", "*.JPG", "*.JPEG"))
+   VIDEOS = MediaProperties('videos', ("*.mp4", "*.webm"))
+   MODELS = MediaProperties('models', ("*.glb",))
+   AUDIO = MediaProperties('audio', ("*.mp3", "*.wav"))
+   DOCS = MediaProperties('docs', ("*.pdf",))
       
 # Template file names
 class Files:

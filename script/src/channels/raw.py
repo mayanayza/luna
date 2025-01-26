@@ -2,7 +2,7 @@ import shutil
 
 from script.src.channels._channel import Channel
 from script.src.config import Config
-from script.src.constants import MEDIA
+from script.src.constants import Media
 from script.src.utils import get_media_files, get_project_path
 
 
@@ -16,7 +16,13 @@ class RawHandler(Channel):
             
         super().__init__(**init)
 
-        self.media = MEDIA
+        self.media = {
+            Media.IMAGES.TYPE: Media.IMAGES.EXT,
+            Media.VIDEOS.TYPE: Media.VIDEOS.EXT,
+            Media.AUDIO.TYPE: Media.AUDIO.EXT,
+            Media.MODELS.TYPE: Media.MODELS.EXT,
+            Media.DOCS.TYPE: Media.DOCS.EXT,
+        }
 
     def publish(self, name: str) -> None:        
         try:
@@ -31,7 +37,7 @@ class RawHandler(Channel):
             shutil.copy2(project_dir / 'content/content.md', output_dir / 'content.md')
 
             for media_type in self.media:
-                media_files = get_media_files(self, name, media_type, self.media[media_type])
+                media_files = get_media_files(self, name, media_type)
                 for file in media_files:
                     shutil.copy2(file, str(output_dir / file.name))
                 

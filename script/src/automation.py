@@ -6,12 +6,12 @@ from script.src.channels.pdf import PDFHandler
 from script.src.channels.raw import RawHandler
 from script.src.channels.website import WebsiteHandler
 from script.src.config import Config
-from script.src.constants import Files
 from script.src.setup.files import FileHandler
 from script.src.setup.things import ThingsHandler
 from script.src.utils import (
     get_project_metadata,
     get_project_path,
+    is_project,
     setup_logging,
     strip_emoji,
 )
@@ -43,9 +43,9 @@ class Automation:
         
         self.website.publish( "Updating content for " + ", ".join(staged_projects) )
 
-    def publish_pdf(self, projects: list, collate_images: bool, filename_prepend: str) -> None:
+    def publish_pdf(self, projects: list, collate_images: bool, max_width: int, max_height: int, filename_prepend: str) -> None:
         for name in projects:
-            self.pdf.stage(name, collate_images, filename_prepend)
+            self.pdf.stage(name, collate_images, max_width, max_height, filename_prepend)
         self.pdf.publish()                    
 
     def publish_raw(self, projects) -> None:
@@ -64,7 +64,7 @@ class Automation:
         """List projects with their details"""
         projects = []
         for item in self.config.base_dir.iterdir():
-            if item.is_dir() and (item / 'content' / Files.METADATA).exists():
+            if is_project(self, item):
                 projects.append(item.name)                
         self.logger.info(f"\n -- Listing {len(projects)} projects: --")
         for name in sorted(projects):

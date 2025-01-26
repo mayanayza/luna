@@ -8,7 +8,7 @@ project:
   description: ""
   featured_content: 
     type: "image" # image or code
-    source: ""  # Just the filename, e.g. "hero.jpg"
+    source: ""  # Image - Just the filename, e.g. "hero.jpg". Code - path from project directory
     language: ""
     start_line: 0
     end_line: 0

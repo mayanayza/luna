@@ -27,7 +27,9 @@ def setup_channel_registry(automation, config):
         automation.publish_pdf(
             kwargs.get('projects', []),
             collate_images=kwargs.get('collate_images', False), 
-            filename_prepend=kwargs.get('filename_prepend', '')
+            filename_prepend=kwargs.get('filename_prepend', ''),
+            max_width=kwargs.get('max_width', ''),
+            max_height=kwargs.get('max_height', '')
         )
     )
     
@@ -57,6 +59,8 @@ def parse_arguments():
     parser.add_argument('--channels', '-ch', nargs='+', help='Channels to publish to (web, pdf, github). Use "all" to publish to all channels.')
     
     parser.add_argument('--collate-images', '-ci', action='store_true', help='Collate images for PDF publication')
+    parser.add_argument('--max-width', '-mw', help='Max width for images when generating separate image files for PDF publication')
+    parser.add_argument('--max-height', '-mh', help='Max height for images when generating separate image files for PDF publication')
     parser.add_argument('--filename-prepend', '-fp', default='', help='Prepend string for PDF filename')
 
     parser.add_argument('--commit-message','-cm', default='', help='Commit message for publishing to github')

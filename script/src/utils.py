@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+from PIL import Image
 
 from script.src.constants import Files
 
@@ -44,14 +45,13 @@ def is_public_github_repo(self, name) -> str:
         return False
 
 def is_project(self, item) -> bool:
-    print(2)
     return item.is_dir() and (item / 'content' / Files.METADATA).exists()
 
-def get_media_files(self, name, type, extensions):
+def get_media_files(self, name, type):
     project_dir = get_project_path(self, name)
     media_path = project_dir / 'media' / type
     files = []
-    for ext in extensions:
+    for ext in self.media[type]:
         files.extend(list(media_path.glob(ext)))
     return files
 
@@ -72,3 +72,22 @@ def get_project_readme(self, name: str) -> str:
 
 def get_project_path(self, name: str) -> Path:
     return self.config.base_dir / name
+
+def resize_image_file(image_path, max_width: int=-1, max_height: int=-1):
+    with Image.open(image_path) as img:
+        # Get original dimensions
+        width, height = img.size
+
+        width_ratio = 1 if max_width == -1 else max_width / width
+        height_ratio = 1 if max_height == -1 else max_height / height
+        
+        # Use the smaller ratio to ensure both dimensions fit within maximums
+        scale_ratio = min(width_ratio, height_ratio)
+        
+        # Calculate new dimensions
+        new_width = int(width * scale_ratio)
+        new_height = int(height * scale_ratio)
+                    
+        # Resize the image
+        resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        return resized_img

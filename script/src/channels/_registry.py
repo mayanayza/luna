@@ -1,8 +1,7 @@
 from typing import Callable, Dict, List, Optional
 
 from script.src.config import Config
-from script.src.constants import Files
-from script.src.utils import setup_logging
+from script.src.utils import is_project, setup_logging
 
 
 class ChannelRegistry:
@@ -34,7 +33,7 @@ class ChannelRegistry:
 
         all_p = []
         for item in self.config.base_dir.iterdir():
-            if item.is_dir() and (item / 'content' / Files.METADATA).exists():
+            if is_project(self, item):
                 all_p.append(item.name)
         if all_projects:
             projects = all_p

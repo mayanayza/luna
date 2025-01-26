@@ -1,63 +1,255 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ project.title }}</title>
+    <title>{% if project.title %}{{ project.title }}{% else %}Art Piece Summary{% endif %}</title>
+    <style>
+        @page {
+            margin: 2cm;
+            size: letter;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            font-size: 10pt;
+            margin: 0;
+            padding: 0;
+        }
+
+        .document {
+            width: 100%;
+            position: relative;
+        }
+
+        .content-column {
+            width: 100%;
+            padding-right: 32%;
+        }
+
+        .image-column {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 30%;
+        }
+
+                    header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+        }
+
+        h1 {
+            font-size: 20pt;
+            font-weight: 400;
+            margin: 0 0 0.5rem 0;
+            color: #000;
+        }
+
+        h2 {
+            font-size: 12pt;
+            font-weight: 500;
+            margin: 1rem 0 0.75rem;
+            color: #000;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 0.25rem;
+        }
+
+        h3 {
+            font-size: 10pt;
+            font-weight: 600;
+            margin: 0 0 0.25rem 0;
+            color: #444;
+        }
+
+        .description {
+            font-size: 11pt;
+            color: #666;
+            margin: 0 0 0.75rem 0;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .specs-list {
+            margin: 0.75rem 0;
+            color: #444;
+        }
+
+        .specs-list p {
+            margin: 0.25rem 0;
+        }
+
+        .tech-grid {
+            display: table;
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0.4rem;
+            margin-top: 0.75rem;
+        }
+
+        .tech-row {
+            display: table-row;
+        }
+
+        .tech-item {
+            display: table-cell;
+            background-color: #f8f8f8;
+            padding: 0.6rem;
+            border: 1px solid #eee;
+            width: 50%;
+        }
+
+        .setup-maintenance {
+            display: table;
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0.4rem;
+            margin-top: 0.75rem;
+        }
+
+        .setup-row {
+            display: table-row;
+        }
+
+        .setup, .maintenance {
+            display: table-cell;
+            background-color: #f8f8f8;
+            padding: 0.75rem;
+            border: 1px solid #eee;
+            width: 50%;
+            vertical-align: top;
+        }
+
+        .instruction-list {
+            margin: 0.4rem 0;
+            padding-left: 1.2rem;
+        }
+
+        .instruction-list li {
+            margin-bottom: 0.4rem;
+        }
+
+        .meta-info {
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 9pt;
+        }
+
+        .content-text {
+            margin: 0.75rem 0;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>{{ project.title }}</h1>
-        <div class="subtitle">
-            <p class="description">{{ project.description }}</p>
-            <p class="date">{{ project.date_created }}</p>
-            {% if project.website %}
-            <p class="website"><a href="{{ project.website }}">Website Link</a></p>
+    <div class="document">
+        <div class="content-column">
+            <header>
+                {% if project.title %}<h1>{{ project.title }}</h1>{% endif %}
+                {% if project.description %}<p class="description">{{ project.description }}</p>{% endif %}
+                
+                <div class="specs-list">
+                    {% if project.website %}<p><strong>Website:</strong> <a href="{{ project.website }}">View on Website</a></p>{% endif %}
+                    {% if materials %}<p><strong>Materials:</strong> {{ materials }}</p>{% endif %}
+                    {% if dimensions %}<p><strong>Dimensions:</strong> {{ dimensions }}</p>{% endif %}
+                    {% if weight %}<p><strong>Weight:</strong> {{ weight }}</p>{% endif %}
+                    {% if image_file_names %}<p><strong>Images:</strong> {{ image_file_names }}</p>{% endif %}
+                    {% if video_links %}<p><strong>Videos:</strong> {{ video_links }}</p>{% endif %}
+                </div>
+            </header>
+
+            {% if content %}
+            <div class="content-text">
+                <p>{{ content }}</p>
+            </div>
             {% endif %}
-            {% if image_file_names %}
-            <p class="images">{{ image_file_names }}</p>
-            {% endif %}
+
+            <div class="tech-section">
+                <h2>Technical Requirements</h2>
+                <div class="tech-grid">
+                    <div class="tech-row">
+                        {% if power %}
+                        <div class="tech-item">
+                            <h3>Power</h3>
+                            <p>{{ power }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if space %}
+                        <div class="tech-item">
+                            <h3>Space</h3>
+                            <p>{{ space }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="tech-row">
+                        {% if lighting %}
+                        <div class="tech-item">
+                            <h3>Lighting</h3>
+                            <p>{{ lighting }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if mounting %}
+                        <div class="tech-item">
+                            <h3>Mounting</h3>
+                            <p>{{ mounting }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="setup-maintenance">
+                <div class="setup-row">
+                    {% if setup_instructions %}
+                    <div class="setup">
+                        <h3>Setup</h3>
+                        <ul class="instruction-list">
+                        {% for instruction in setup_instructions %}
+                            <li>{{ instruction }}</li>
+                        {% endfor %}
+                        </ul>
+                        <div class="meta-info">
+                            {% if setup_time %}Setup time: {{ setup_time }}<br>{% endif %}
+                            {% if setup_tools %}Tools needed: {{ setup_tools }}<br>{% endif %}
+                            {% if setup_people %}Personnel: {{ setup_people }}{% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if maintenance_instructions %}
+                    <div class="maintenance">
+                        <h3>Maintenance</h3>
+                        <ul class="instruction-list">
+                        {% for instruction in maintenance_instructions %}
+                            <li>{{ instruction }}</li>
+                        {% endfor %}
+                        </ul>
+                        {% if maintenance_supplies %}
+                        <div class="meta-info">
+                            Required supplies: {{ maintenance_supplies }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
-    </header>
-    <main>
-        {% if content %}
-        <section class="content">
-            {{ content }}
-        </section>
+
+        {% if featured_image %}
+        <div class="image-column">
+            <div class="image-container">
+                <img src="{{ featured_image }}" alt="{{ project.title }}">
+            </div>
+        </div>
         {% endif %}
-        <section class="specifications">
-            <h2>Specifications</h2>
-            {% if materials %}<p><span class="label">Materials:</span> {{ materials }}</p>{% endif %}
-            {% if dimensions %}<p><span class="label">Dimensions:</span> {{ dimensions }}</p>{% endif %}
-            {% if weight %}<p><span class="label">Weight:</span> {{ weight }}</p>{% endif %}
-        </section>
-        <section class="requirements">
-            <h2>Requirements</h2>
-            {% if lighting %}<p><span class="label">Lighting:</span> {{ lighting }}</p>{% endif %}
-            {% if mounting %}<p><span class="label">Mounting:</span> {{ mounting }}</p>{% endif %}
-            {% if temperature_range %}<p><span class="label">Temperature:</span> {{ temperature_range }}</p>{% endif %}
-            {% if humidity_range %}<p><span class="label">Humidity:</span> {{ humidity_range }}</p>{% endif %}
-            {% if ventilation_needs %}<p><span class="label">Ventilation:</span> {{ ventilation_needs }}</p>{% endif %}
-        </section>
-        <section class="exhibition">
-            <h2>Setup & Maintenance</h2>
-            {% if setup_time and setup_people and setup_instructions %}
-            <div class="setup">
-                <h3>Setup ({{ setup_time }}, {{ setup_people }})</h3>
-                {% for instruction in setup_instructions %}
-                <p>{{ instruction }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-            {% if maintenance_supplies and maintenance_instructions %}
-            <div class="maintenance">
-                <h3>Maintenance</h3>
-                <p><span class="label">Supplies:</span> {{ maintenance_supplies }}</p>
-                {% for instruction in maintenance_instructions %}
-                <p>{{ instruction }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </section>
-    </main>
+    </div>
 </body>
 </html>
