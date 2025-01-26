@@ -1,6 +1,6 @@
 media-internal/
 content/
-script/.env
-script/.venv/
+src/.env
+src/.venv/
 **/__pycache__
 .DS_Store
