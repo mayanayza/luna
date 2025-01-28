@@ -139,6 +139,8 @@ class WebsiteHandler(Channel):
             for item in self.config.base_dir.iterdir():
                 if is_project(self, item):
                     projects.append(item.name)
+
+            print(f"projects: {projects}")
             in_progress = []
             backlog = []
             complete = []
