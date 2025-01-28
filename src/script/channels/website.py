@@ -147,6 +147,8 @@ class WebsiteHandler(Channel):
 
             for name in projects:
 
+                print(f"processing {name}")
+
                 metadata = self.tp.process_project_metadata(name)
                 project = metadata['project']
                 name = metadata['project']['name']
@@ -165,6 +167,8 @@ class WebsiteHandler(Channel):
                 'backlog': backlog,
                 'complete': complete,
             }
+
+            print(f"context: {context}")
 
             roadmap = self.tp.process_template(name, 'md/roadmap.md', context)
             self.logger.info("Generated roadmap")
