@@ -51,6 +51,14 @@ class TemplateProcessor:
             self.logger.error(f"Failed to process template for {name}: {e}")
             raise
         
+    def process_roadmap_template(self, context: Dict={}):
+        template = self.env.get_template('md/roadmap.md')
+        return template.render(context)
+
+    def process_links_template(self, context: Dict={}):
+        template = self.env.get_template('md/links.md')
+        return template.render(context)
+
     def process_project_metadata(self, name: str) -> Dict:
         
         try:

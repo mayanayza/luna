@@ -140,14 +140,11 @@ class WebsiteHandler(Channel):
                 if is_project(self, item):
                     projects.append(item.name)
 
-            print(f"projects: {projects}")
             in_progress = []
             backlog = []
             complete = []
 
             for name in projects:
-
-                print(f"processing {name}")
 
                 metadata = self.tp.process_project_metadata(name)
                 project = metadata['project']
@@ -168,9 +165,7 @@ class WebsiteHandler(Channel):
                 'complete': complete,
             }
 
-            print(f"context: {context}")
-
-            roadmap = self.tp.process_template(name, 'md/roadmap.md', context)
+            roadmap = self.tp.process_roadmap_template(context)
             self.logger.info("Generated roadmap")
             return roadmap
         except Exception as e:
@@ -196,7 +191,7 @@ class WebsiteHandler(Channel):
 
                         if metadata['project']['featured_content']['type'] == 'image':
                             context['image']: str(self.config.website_media_dir / name / Media.IMAGES.TYPE / metadata['project']['featured_content']['source'])
-            links = self.tp.process_template(name, 'md/links.md', context)
+            links = self.tp.process_links_template(context)
             return links
         except Exception as e:
             self.logger.error(f"Failed to generate links page: {e}")
