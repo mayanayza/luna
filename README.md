@@ -30,7 +30,7 @@ Provides a single source-of-truth for all project information to eliminate toil 
 1. Clone the repository:
 ```bash
 git clone git@github.com:yourusername/project-automation.git
-cd script
+cd src
 ```
 
 2. Create and activate a virtual environment:

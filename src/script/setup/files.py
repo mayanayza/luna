@@ -1,5 +1,7 @@
 import shutil
 from datetime import datetime
+from pathlib import Path
+import os
 
 import yaml
 
@@ -23,16 +25,18 @@ class FileHandler:
         """Create the project directory structure and initialize files"""
         try:
             project_dir = get_project_path(self, name)
+            templates_dir = Path(os.getcwd()) / 'src' / 'templates'
+            project_dir.mkdir()
+
             (project_dir / 'src').mkdir(parents=True, exist_ok=True)
             (project_dir / 'content').mkdir(parents=True, exist_ok=True)
             (project_dir / 'media').mkdir(parents=True, exist_ok=True)
             (project_dir / 'media-internal').mkdir(parents=True, exist_ok=True)
-
             # Create media directory structure
-            for media, media_props in vars(Media):
-
-                (project_dir / 'media' / media_props.TYPE).mkdir(parents=True, exist_ok=True)
-                (project_dir / 'media-internal' / media_props.TYPE).mkdir(parents=True, exist_ok=True)
+            types = [Media.IMAGES, Media.VIDEOS, Media.AUDIO, Media.DOCS]
+            for media in types:
+                (project_dir / 'media' / media.TYPE).mkdir(parents=True, exist_ok=True)
+                (project_dir / 'media-internal' / media.TYPE).mkdir(parents=True, exist_ok=True)
 
             # Load and process templates
             date = datetime.now().strftime('%Y-%m-%d')
@@ -43,25 +47,14 @@ class FileHandler:
                 'date': date
             }
 
-            # Create content.md from template
-            content_template = load_template(self, Files.CONTENT)
-            with open(project_dir / 'content' / Files.CONTENT, 'w') as f:
-                f.write(content_template)
-
-            # Create readme.md from template
-            readme_remplate = load_template(self, Files.README)
-            with open(project_dir / 'content' / Files.README, 'w') as f:
-                f.write(readme_remplate)
-
             # Create metadata.yml from template
-            metadata_content = load_template(self, Files.METADATA).format(**template_vars)
+            metadata = open(templates_dir / Files.METADATA).read().format(**template_vars)
             with open(project_dir / 'content' / Files.METADATA, 'w') as f:
-                f.write(metadata_content)
+                f.write(metadata)
 
-            # Create .gitignore from template
-            gitignore_content = load_template(self, Files.GITIGNORE)
-            with open(project_dir / Files.GITIGNORE, 'w') as f:
-                f.write(gitignore_content)
+            shutil.copy(templates_dir / Files.CONTENT, project_dir / 'content' / Files.CONTENT)
+            shutil.copy(templates_dir / Files.README, project_dir / 'content' / Files.README)
+            shutil.copy(templates_dir / Files.GITIGNORE, project_dir / Files.GITIGNORE)
 
             self.logger.info(f"Created project files for {name}")
         except Exception as e:

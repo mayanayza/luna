@@ -30,7 +30,7 @@ class GithubHandler(Channel):
         try:
             os.chdir(project_dir)
             subprocess.run(['git', 'init'], check=True)
-            subprocess.run(['git', 'add', Files.GITIGNORE, Files.METADATA], check=True)
+            subprocess.run(['git', 'add', Files.GITIGNORE], check=True)
             subprocess.run(['git', 'commit', '-m', 'Initial commit with metadata, and .gitignore'], check=True)
             subprocess.run(['gh', 'repo', 'create', name, '--private', '--source=.'], check=True)
             subprocess.run(['git', 'branch', '-M', 'main'], check=True)

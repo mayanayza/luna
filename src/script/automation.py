@@ -1,6 +1,6 @@
 
 import re
-
+import os
 from src.script.channels.github import GithubHandler
 from src.script.channels.pdf import PDFHandler
 from src.script.channels.raw import RawHandler
@@ -24,7 +24,7 @@ class Automation:
         self.github = GithubHandler(config)
         self.website = WebsiteHandler(config)
         self.things = ThingsHandler(config)
-        self.setup = FileHandler(config)
+        self.files = FileHandler(config)
         self.pdf = PDFHandler(config)
         self.raw = RawHandler(config)
         self.logger = setup_logging(__name__)
@@ -63,7 +63,7 @@ class Automation:
 
         name, display_name, title = self.prompt_for_display_name()
 
-        self.setup.create(name, display_name, title)
+        self.files.create(name, display_name, title)
         self.github.create(name)
         self.things.create(display_name)
     
@@ -93,7 +93,7 @@ class Automation:
             metadata = get_project_metadata(self, old_name)
             old_display_name = metadata['project']['display_name']
 
-            self.setup.rename(old_name, new_name, new_display_name, new_title)
+            self.files.rename(old_name, new_name, new_display_name, new_title)
             self.things.rename(old_display_name, new_display_name)
 
             self.website.rename(old_name, new_name)
@@ -110,7 +110,7 @@ class Automation:
         try:
             name = self.prompt_for_name()
             self.things.delete(name)
-            self.setup.delete(name)
+            self.files.delete(name)
             self.github.delete(name)
             self.website.delete(name)
             self.raw.delete(name)
