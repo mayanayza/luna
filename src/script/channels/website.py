@@ -30,8 +30,8 @@ class WebsiteHandler(Channel):
 
         self.media = {
            Media.IMAGES.TYPE: Media.IMAGES.EXT,
-           Media.VIDEOS.TYPE: Media.VIDEOS.EXT,
-           Media.MODELS.TYPE: Media.MODELS.EXT,
+           Media.VIDEOS.TYPE: ('*.mp4',),
+           Media.MODELS.TYPE: ('*.glb',),
         }
 
     def publish(self, commit_message) -> None:
@@ -97,7 +97,7 @@ class WebsiteHandler(Channel):
             front_matter = {
                 'layout': 'post',
                 'title': metadata['project']['title'],
-                'description': metadata['project']['description'],
+                'tagline': metadata['project']['tagline'],
                 'date': metadata['project']['date_created'],
                 'tags': metadata['project']['tags'],
                 'featured': metadata['project']['feature_post']
@@ -185,7 +185,7 @@ class WebsiteHandler(Channel):
 
                         context['featured_posts'].append({
                             'title': metadata['project']['title'],
-                            'description': metadata['project']['description'],
+                            'tagline': metadata['project']['tagline'],
                             'url': f"{self.config.website_domain}/{name}"
                         })
 
