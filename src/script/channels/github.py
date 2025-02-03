@@ -45,7 +45,7 @@ class GithubHandler(Channel):
         project_dir = get_project_path(self, name)
         metadata = get_project_metadata(self, name)
         status = metadata['project']['status']
-        description = metadata['project']['description']
+        tagline = metadata['project']['tagline']
         os.chdir(project_dir)
         result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
 
@@ -55,8 +55,8 @@ class GithubHandler(Channel):
                 if status == Status.COMPLETE:
                     subprocess.run(['gh', 'repo', 'edit', '--homepage', f"{self.config.website_domain}/{name}"])
 
-                if description:
-                    subprocess.run(['gh', 'repo', 'edit', '--description', f"{description}"])
+                if tagline:
+                    subprocess.run(['gh', 'repo', 'edit', '--description', f"{tagline}"])
 
                 subprocess.run(['git', 'add', '.'], check=True)
                 subprocess.run(['git', 'commit', '-m', f"{commit_message}"], check=True)
