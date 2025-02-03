@@ -192,6 +192,7 @@ class WebsiteHandler(Channel):
                         if metadata['project']['featured_content']['type'] == 'image':
                             context['image']: str(self.config.website_media_dir / name / Media.IMAGES.TYPE / metadata['project']['featured_content']['source'])
             links = self.tp.process_links_template(context)
+            self.logger.info("Generated links")
             return links
         except Exception as e:
             self.logger.error(f"Failed to generate links page: {e}")

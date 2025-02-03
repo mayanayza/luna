@@ -2,6 +2,8 @@
 layout: page
 title: Links
 permalink: /links/
+hide_header: true
+hide_footer: true
 ---
 
 <div class="links-container" style="display: flex; flex-direction: column; align-items: center; gap: 1rem; width: 100%;">
