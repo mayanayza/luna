@@ -14,6 +14,7 @@ from src.script.utils import (
     get_project_metadata,
     get_project_path,
     is_project,
+    resize_image_file,
 )
 
 
@@ -30,7 +31,7 @@ class WebsiteHandler(Channel):
 
         self.media = {
            Media.IMAGES.TYPE: Media.IMAGES.EXT,
-           Media.VIDEOS.TYPE: ('*.mp4',),
+           Media.VIDEOS.TYPE: ('*.webm',),
            Media.MODELS.TYPE: ('*.glb',),
         }
 
@@ -204,13 +205,30 @@ class WebsiteHandler(Channel):
                 
             for media_type in self.media:
                 media_files = get_media_files(self, name, media_type)
+                
                 output_type_dir = output_dir / str(media_type)
+                if output_type_dir.exists():
+                    shutil.rmtree(output_type_dir)
                 output_type_dir.mkdir(parents=True, exist_ok=True)
-
+                
                 for file in media_files:
-                    shutil.copy2(file, str(output_dir / media_type / file.name))
-
-            self.logger.info(f"Successfully staged website media files for {name}")
+                    file_name = str(file.name)
+                    
+                    if media_type == Media.IMAGES.TYPE:
+                        resized_image = resize_image_file(file.absolute(), 1920, 1080)
+                        temp_path = file.parent / f"resized_{file_name}"
+                        resized_image.save(temp_path)
+                        source_file = temp_path
+                    else:
+                        source_file = file
+                    
+                    dest_path = output_type_dir / file_name
+                    shutil.copy2(source_file, dest_path)
+                    
+                    if media_type == Media.IMAGES.TYPE:
+                        temp_path.unlink()
+                
+            self.logger.info(f"Successfully staged all website media files for {name}")
         except Exception as e:
             self.logger.error(f"Failed to stage media for {name}: {e}")
             raise
