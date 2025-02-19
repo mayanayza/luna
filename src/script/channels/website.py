@@ -33,6 +33,7 @@ class WebsiteHandler(Channel):
            Media.IMAGES.TYPE: Media.IMAGES.EXT,
            Media.VIDEOS.TYPE: ('*.webm',),
            Media.MODELS.TYPE: ('*.glb',),
+           Media.EMBEDS.TYPE: Media.EMBEDS.EXT,
         }
 
     def publish(self, commit_message) -> None:
@@ -131,7 +132,7 @@ class WebsiteHandler(Channel):
                 }
         else:
             return {
-                'image': f"/media/{name}/images/{featured_content['source']}"
+                'image': f"/media/{name}/{featured_content['source']}"
             }
 
     def generate_roadmap_page(self) -> None:
@@ -202,31 +203,42 @@ class WebsiteHandler(Channel):
     def stage_media(self, name: str) -> None:
         try:
             output_dir = self.config.website_media_dir / name
+            metadata = get_project_metadata(self, name)
+            project_dir = get_project_path(self, name)
                 
             for media_type in self.media:
                 media_files = get_media_files(self, name, media_type)
-                
-                output_type_dir = output_dir / str(media_type)
-                if output_type_dir.exists():
-                    shutil.rmtree(output_type_dir)
-                output_type_dir.mkdir(parents=True, exist_ok=True)
-                
-                for file in media_files:
-                    file_name = str(file.name)
+
+                if media_files:
+                    output_type_dir = output_dir / str(media_type)
+                    if output_type_dir.exists():
+                        shutil.rmtree(output_type_dir)
+                    output_type_dir.mkdir(parents=True, exist_ok=True)
+
+                    if media_type == Media.EMBEDS.TYPE:
+                        for embed in metadata['project']['embeds']:
+                            source_file = Path(project_dir) / Path(embed['source'])
+                            embed_type_dir = output_type_dir / embed['type']
+                            embed_type_dir.mkdir(exist_ok=True)
+                            dest_path =  embed_type_dir / Path(embed['source']).name
+                            shutil.copy2(source_file, dest_path)
                     
-                    if media_type == Media.IMAGES.TYPE:
-                        resized_image = resize_image_file(file.absolute(), 1920, 1080)
-                        temp_path = file.parent / f"resized_{file_name}"
-                        resized_image.save(temp_path)
-                        source_file = temp_path
-                    else:
-                        source_file = file
-                    
-                    dest_path = output_type_dir / file_name
-                    shutil.copy2(source_file, dest_path)
-                    
-                    if media_type == Media.IMAGES.TYPE:
-                        temp_path.unlink()
+                    for file in media_files:
+                        file_name = str(file.name)
+                        
+                        if media_type == Media.IMAGES.TYPE:
+                            resized_image = resize_image_file(file.absolute(), 1920, 1080)
+                            temp_path = file.parent / f"resized_{file_name}"
+                            resized_image.save(temp_path)
+                            source_file = temp_path
+                        else:
+                            source_file = file
+                        
+                        dest_path = output_type_dir / file_name
+                        shutil.copy2(source_file, dest_path)
+                        
+                        if media_type == Media.IMAGES.TYPE:
+                            temp_path.unlink()
                 
             self.logger.info(f"Successfully staged all website media files for {name}")
         except Exception as e:

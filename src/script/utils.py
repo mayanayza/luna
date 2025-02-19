@@ -51,8 +51,9 @@ def get_media_files(self, name, type):
     project_dir = get_project_path(self, name)
     media_path = project_dir / 'media' / type
     files = []
-    for ext in self.media[type]:
-        files.extend(list(media_path.glob(ext)))
+    if media_path.exists():
+        for ext in self.media[type]:
+            files.extend(list(media_path.glob(ext)))
     return files
 
 def get_project_metadata(self, name: str) -> yaml:

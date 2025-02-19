@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -21,8 +22,13 @@ class TemplateProcessor:
         self.env = Environment(
             loader=FileSystemLoader(current_dir),
             trim_blocks=True,
-            lstrip_blocks=True
+            lstrip_blocks=True,
         )
+        
+        def basename(path):
+            return os.path.basename(path)
+
+        self.env.filters['basename'] = basename
 
     def process_template(self, name: str, template_name: str, context: Dict={}):
         try:
@@ -68,11 +74,16 @@ class TemplateProcessor:
 
             processed['website'] = self.config.website_domain
             processed['github'] = self.config.github_url_path
+            processed['github_username'] = self.config.github_username
 
             if (project['status'] == Status.COMPLETE):
                 project['website'] = f"{self.config.website_domain}/{name}"
             if is_public_github_repo(self, name):
                 project['github'] = f"{self.config.github_url_path}/{name}"
+
+            if project['embeds']:
+                processed['iframe_embeds'] = [embed for embed in project['embeds'] if embed['type'] == 'iframe']
+                processed['github_embeds'] = [embed for embed in project['embeds'] if embed['type'] == 'github']
 
             processed['project'] = project
 

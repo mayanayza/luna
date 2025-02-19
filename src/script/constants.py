@@ -13,6 +13,7 @@ class Media:
    MODELS = MediaProperties('models', ("*.glb",))
    AUDIO = MediaProperties('audio', ("*.mp3", "*.wav"))
    DOCS = MediaProperties('docs', ("*.pdf",))
+   EMBEDS = MediaProperties('embeds', ("*",))
       
 # Template file names
 class Files:

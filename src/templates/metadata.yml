@@ -10,11 +10,14 @@ project:
   feature_post: false
   featured_content: 
     type: "image" # image or code
-    source: ""  # Image - Just the filename, e.g. "hero.jpg". Code - path from project directory
+    source: ""  # Just the filename relative to /src/, e.g. "hero.jpg"
     language: ""
     start_line: 0
     end_line: 0
   tags: []
+  embed_content:
+  - name: # Just the filename relative to /src/, e.g. "hero.jpg"
+    type: # iframe or github_embed
 
 physical_specifications:
   dimensions:

@@ -4,6 +4,12 @@
 
 {{ content }}
 
+{% if iframe_embeds %}
+{% for embed in iframe_embeds %}
+  <iframe src="/media/{{project.name}}/embeds/iframe/{{embed.source | basename }}" frameborder="0" id="embed-{{project.name}}-{{loop.index}}"></iframe>
+{% endfor %}
+{% endif %}
+
 {% if images %}
 <div class="gallery-box">
   <div class="gallery">
@@ -29,3 +35,5 @@
 <model-viewer src="/media/{{ project.name }}/models/{{ model.name }}" auto-rotate camera-controls></model-viewer>
 {% endfor %}
 {% endif %}
+
+<iframe frameborder="0" src="/media/monster/embeds/no-embed/monster-food.html" id="food-{{project.name}}"></iframe>

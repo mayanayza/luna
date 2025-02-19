@@ -204,8 +204,3 @@ To add a channel
 The script provides a simple integration with Things 3 on macOS, and will create a project in the area specified in the .env file upon project creation.
 
 
-
-
-
-
-

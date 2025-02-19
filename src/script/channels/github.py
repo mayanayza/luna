@@ -78,7 +78,7 @@ class GithubHandler(Channel):
 
         try:
         
-            template_path = "md/readme.md"
+            template_path = "md/README.md"
 
             context = {}
             for media_type in self.media:
