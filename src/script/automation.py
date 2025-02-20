@@ -1,6 +1,6 @@
 
 import re
-import os
+
 from src.script.channels.github import GithubHandler
 from src.script.channels.pdf import PDFHandler
 from src.script.channels.raw import RawHandler
@@ -42,12 +42,14 @@ class Automation:
     def stage_web(self, projects: list) -> None:
         staged_projects = []
         for name in projects:
-            staged_projects.append( self.website.stage(name) )
+            staged_projects.append( self.website.stage_post(name) )
 
         return [p for p in staged_projects if p.strip()]
 
     def publish_web(self, projects: list) -> None:
         staged_projects = self.stage_web(projects)
+        self.website.stage_roadmap()
+        self.website.stage_links()
         self.website.publish( "Updating content for " + ", ".join(staged_projects) )
 
     def publish_pdf(self, projects: list, collate_images: bool, max_width: int, max_height: int, filename_prepend: str) -> None:

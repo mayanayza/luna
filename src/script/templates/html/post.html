@@ -11,15 +11,9 @@
 {% endif %}
 
 {% if images %}
-<div class="gallery-box">
-  <div class="gallery">
-    {% for image in images %}
-    {% if image.name != project.featured_image %}
-    <img src="/media/{{ project.name }}/images/{{ image.name }}">
-    {% endif %}
-    {% endfor %}
-  </div>
-</div>
+{% raw %}
+{% include gallery.html images=page.gallery_images %}
+{% endraw %}
 {% endif %}
 
 {% if videos %}

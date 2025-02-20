@@ -52,7 +52,7 @@ class WebsiteHandler(Channel):
             self.logger.error(f"Failed to publish website: {e}")
             raise
 
-    def stage(self, name: str) -> str:
+    def stage_post(self, name: str) -> str:
        
         try:
             metadata = get_project_metadata(self, name)
@@ -70,20 +70,23 @@ class WebsiteHandler(Channel):
             with open(post_path, 'w') as f:
                 f.write(post)
 
-            if self.config.enable_roadmap:
-                roadmap = self.generate_roadmap_page()
-                with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
-                    f.write(roadmap)
             self.logger.info(f"Successfully staged website content for {name}")
-
-            links = self.generate_links_page()
-            with open(self.config.website_pages_dir / 'links.md', 'w') as f:
-                    f.write(links)
 
             return name
         except Exception as e:
             self.logger.error(f"Failed to stage website content for {name}: {e}")
             raise
+
+    def stage_roadmap(self):
+        if self.config.enable_roadmap:
+            roadmap = self.generate_roadmap_page()
+            with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
+                f.write(roadmap)
+
+    def stage_links(self):
+        links = self.generate_links_page()
+        with open(self.config.website_pages_dir / 'links.md', 'w') as f:
+                f.write(links)
 
     def generate_post(self, name) -> None:
         try:
@@ -103,7 +106,9 @@ class WebsiteHandler(Channel):
                 'date': metadata['project']['date_created'],
                 'tags': metadata['project']['tags'],
                 'featured': metadata['project']['feature_post']
-            } | self.determine_featured_content(name)
+            } 
+            front_matter = front_matter | self.determine_featured_content(name)
+            front_matter = front_matter | self.generate_gallery(name)
 
             post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
             self.logger.info(f"Successfully generated post for {name}")
@@ -111,6 +116,17 @@ class WebsiteHandler(Channel):
         except Exception as e:
             self.logger.error(f"Failed to generate post for {name}: {e}")
             raise
+
+    def generate_gallery(self, name) -> Dict:
+        website_image_dir = self.config.website_media_dir / name / Media.IMAGES.TYPE
+        gallery_images = []
+
+        for image in website_image_dir.iterdir():
+            gallery_images.append(f"/media/{name}/{Media.IMAGES.TYPE}/{image.name}")
+
+        return {
+            'gallery_images':gallery_images
+        }
 
     def determine_featured_content(self, name) -> Dict:
         metadata = get_project_metadata(self, name)
@@ -150,7 +166,6 @@ class WebsiteHandler(Channel):
 
                 metadata = self.tp.process_project_metadata(name)
                 project = metadata['project']
-                name = metadata['project']['name']
 
                 if project['status'] == Status.IN_PROGRESS:
                     in_progress.append(project)
@@ -176,23 +191,36 @@ class WebsiteHandler(Channel):
 
     def generate_links_page(self) -> None:
         try:
-            context = {}
-            context['featured_posts'] = []
-
+            projects = []
             for item in self.config.base_dir.iterdir():
                 if is_project(self, item):
-                    metadata = get_project_metadata(self, item)
-                    name = metadata['project']['name']
-                    if metadata['project']['feature_post'] and metadata['project']['status'] == Status.COMPLETE:
+                    projects.append(item.name)
 
-                        context['featured_posts'].append({
-                            'title': metadata['project']['title'],
-                            'tagline': metadata['project']['tagline'],
-                            'url': f"{self.config.website_domain}/{name}"
-                        })
+            featured = []
+            in_progress = []
 
-                        if metadata['project']['featured_content']['type'] == 'image':
-                            context['image']: str(self.config.website_media_dir / name / Media.IMAGES.TYPE / metadata['project']['featured_content']['source'])
+            for name in projects:
+
+                metadata = self.tp.process_project_metadata(name)
+                project = metadata['project']
+
+                if project['status'] == Status.IN_PROGRESS:
+                    in_progress.append(project)
+
+                if project['feature_post'] and project['status'] == Status.COMPLETE:
+
+                    if project['featured_content']['type'] == 'image':
+                        project = project | self.determine_featured_content(name)
+
+                    self.logger.info(project)
+
+                    featured.append(project)
+
+            context = {
+                'featured': featured,
+                'in_progress': in_progress
+            }
+                        
             links = self.tp.process_links_template(context)
             self.logger.info("Generated links")
             return links
