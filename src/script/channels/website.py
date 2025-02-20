@@ -160,7 +160,8 @@ class WebsiteHandler(Channel):
 
             in_progress = []
             backlog = []
-            complete = []
+            complete_art = []
+            complete_other = []
 
             for name in projects:
 
@@ -172,14 +173,18 @@ class WebsiteHandler(Channel):
                 elif project['status'] == Status.BACKLOG:
                     backlog.append(project)
                 elif project['status'] == Status.COMPLETE:
-                    complete.append(project)
+                    if "Art" in project['tags']:
+                        complete_art.append(project)
+                    else:
+                        complete_other.append(project)
 
             backlog.sort(key=lambda x: x.get('priority', 0), reverse=True)
 
             context = {
                 'in_progress': in_progress,
                 'backlog': backlog,
-                'complete': complete,
+                'complete_art': complete_art,
+                'complete_other': complete_other
             }
 
             roadmap = self.tp.process_roadmap_template(context)

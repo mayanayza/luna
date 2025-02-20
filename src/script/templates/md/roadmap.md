@@ -18,7 +18,7 @@ permalink: /roadmap/
 Nothing currently in progress
 {% endif %}
 
-## Backlog
+## Starting Soon
 
 {% if backlog %}
 {% for project in backlog %}
@@ -30,14 +30,21 @@ Nothing currently in backlog
 
 ## Done
 
-{% if complete %}
-{% for project in complete %}
+### Art
+{% for project in complete_art %}
 {% if project.website %}
 | <a href='{{ project.website }}' target='_blank'>{{ project.display_name }}</a> | {{ project.tagline }} |
 {% else %}
 | {{ project.display_name }} | {{ project.tagline | default('') }} |
 {% endif %}
 {% endfor %}
+
+### Other Work
+{% for project in complete_other %}
+{% if project.website %}
+| <a href='{{ project.website }}' target='_blank'>{{ project.display_name }}</a> | {{ project.tagline }} |
 {% else %}
-Nothing completed
+| {{ project.display_name }} | {{ project.tagline | default('') }} |
 {% endif %}
+{% endfor %}
+
