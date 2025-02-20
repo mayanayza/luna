@@ -35,6 +35,9 @@ hide_header: true
 </div>
 {% endfor %}
 <br />
+<div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ website }}/', '_blank')">View Full Portfolio</div>
+
+<br />
 {% endif %}
 
 {% if in_progress %}
@@ -60,11 +63,7 @@ hide_header: true
 Nothing currently in progress
 {% endif %}
 
-<h2>Links</h2>
-
-<div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ website }}', '_blank')">Portfolio</div>
-
-<div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ website }}/roadmap', '_blank')">Roadmap</div>
+<div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('{{ website }}/roadmap', '_blank')">View Full Roadmap</div>
 
 <!-- <div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('https://dev.to/mayanayza', '_blank')">Dev.to</div>
 <div class="button button--primary" style="width: 100%; display: flex; justify-content: center; text-align: center;" onclick="window.open('https://cara.app/mayanayza/', '_blank')">Cara</div>

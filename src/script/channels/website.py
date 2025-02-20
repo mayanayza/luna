@@ -212,8 +212,6 @@ class WebsiteHandler(Channel):
                     if project['featured_content']['type'] == 'image':
                         project = project | self.determine_featured_content(name)
 
-                    self.logger.info(project)
-
                     featured.append(project)
 
             context = {
