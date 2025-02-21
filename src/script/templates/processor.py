@@ -65,6 +65,10 @@ class TemplateProcessor:
         template = self.env.get_template('md/links.md')
         return template.render(context)
 
+    def process_about_template(self):
+        template = self.env.get_template('md/about.md')
+        return template.render({})
+
     def process_project_metadata(self, name: str) -> Dict:
         
         try:

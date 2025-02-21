@@ -81,22 +81,23 @@ class WebsiteHandler(Channel):
 
     def stage_pages(self):
 
-        if self.config.enable_roadmap or self.config.enable_links:
-            metadatas = []
-            for item in self.config.base_dir.iterdir():
-                if is_project(self, item):
-                    metadata = self.tp.process_project_metadata(item.name)
-                    metadatas.append(metadata)
+        metadatas = []
+        for item in self.config.base_dir.iterdir():
+            if is_project(self, item):
+                metadata = self.tp.process_project_metadata(item.name)
+                metadatas.append(metadata)
 
-        if self.config.enable_roadmap:
-            roadmap = self.generate_roadmap_page(metadatas)
-            with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
-                f.write(roadmap)
+        roadmap = self.generate_roadmap_page(metadatas)
+        with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
+            f.write(roadmap)
 
-        if self.config.enable_links:
-            links = self.generate_links_page(metadatas)
-            with open(self.config.website_pages_dir / 'links.md', 'w') as f:
-                f.write(links)
+        links = self.generate_links_page(metadatas)
+        with open(self.config.website_pages_dir / 'links.md', 'w') as f:
+            f.write(links)
+
+        about = self.generate_about_page()
+        with open(self.config.website_pages_dir / 'about.md', 'w') as f:
+            f.write(about)
 
     def generate_post(self, name) -> None:
         try:
@@ -126,29 +127,6 @@ class WebsiteHandler(Channel):
         except Exception as e:
             self.logger.error(f"Failed to generate post for {name}: {e}")
             raise
-
-    def determine_featured_content(self, name) -> Dict:
-        metadata = get_project_metadata(self, name)
-        project_dir = get_project_path(self, name)
-
-        featured_content = metadata['project']['featured_content']
-        if featured_content.get('type') == 'code':            
-            source_file = Path(project_dir) / Path(featured_content['source'])
-            if source_file.exists():
-                with open(source_file, 'r') as f:
-                    lines = f.readlines()
-                    start = featured_content.get('start_line')
-                    end = featured_content.get('end_line')
-                    code_snippet = ''.join(lines[start:end])
-
-                return {
-                    'featured_code': code_snippet,
-                    'code_language': featured_content.get('language')
-                }
-        else:
-            return {
-                'image': f"/media/{name}/{featured_content['source']}"
-            }
 
     def generate_roadmap_page(self, metadatas) -> None:
         try:
@@ -180,7 +158,7 @@ class WebsiteHandler(Channel):
                 'complete_other': complete_other
             }
 
-            roadmap = self.tp.process_roadmap_template(context)
+            roadmap = self.tp.process_template(context)
             self.logger.info("Generated roadmap")
             return roadmap
         except Exception as e:
@@ -218,6 +196,9 @@ class WebsiteHandler(Channel):
         except Exception as e:
             self.logger.error(f"Failed to generate links page: {e}")
             raise
+
+    def generate_about_page(self):
+        return self.tp.process_about_template()
 
     def stage_media(self, name: str) -> None:
         try:
@@ -270,6 +251,29 @@ class WebsiteHandler(Channel):
         except Exception as e:
             self.logger.error(f"Failed to stage media for {name}: {e}")
             raise
+
+    def determine_featured_content(self, name) -> Dict:
+        metadata = get_project_metadata(self, name)
+        project_dir = get_project_path(self, name)
+
+        featured_content = metadata['project']['featured_content']
+        if featured_content.get('type') == 'code':            
+            source_file = Path(project_dir) / Path(featured_content['source'])
+            if source_file.exists():
+                with open(source_file, 'r') as f:
+                    lines = f.readlines()
+                    start = featured_content.get('start_line')
+                    end = featured_content.get('end_line')
+                    code_snippet = ''.join(lines[start:end])
+
+                return {
+                    'featured_code': code_snippet,
+                    'code_language': featured_content.get('language')
+                }
+        else:
+            return {
+                'image': f"/media/{name}/{featured_content['source']}"
+            }
 
     def get_website_media_files(self, name, type):
         website_media_dir = self.config.website_media_dir / name / type
