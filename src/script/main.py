@@ -92,6 +92,8 @@ def main():
     args = parse_arguments()
     config = Config(
         base_dir=Path(os.environ.get('PROJECT_BASE_DIR')),
+        first_name=Path(os.environ.get('FIRST_NAME')),
+        last_name=Path(os.environ.get('LAST_NAME')),
         website_domain=os.environ.get('WEBSITE_DOMAIN'),
         github_username=os.environ.get('GITHUB_USERNAME'),
         github_token=os.environ.get('GITHUB_TOKEN'),

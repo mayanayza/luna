@@ -57,16 +57,28 @@ class TemplateProcessor:
             self.logger.error(f"Failed to process template for {name}: {e}")
             raise
         
+    def process_github_readme_template(self, name, context):
+        return self.process_template(name, 'github/README.md', context)
+
+    def process_pdf_cover_template(self, name, context):
+        return self.process_template(name, 'pdf/project_cover.html', context)
+
+    def process_pdf_images_template(self, name, context):
+        return self.process_template(name, 'pdf/project_images.html', context)
+
+    def process_post_template(self, name, context):
+        return self.process_template(name, 'web/post.html', context)
+
     def process_roadmap_template(self, context: Dict={}):
-        template = self.env.get_template('md/roadmap.md')
+        template = self.env.get_template('web/roadmap.md')
         return template.render(context)
 
     def process_links_template(self, context: Dict={}):
-        template = self.env.get_template('md/links.md')
+        template = self.env.get_template('web/links.md')
         return template.render(context)
 
     def process_about_template(self):
-        template = self.env.get_template('md/about.md')
+        template = self.env.get_template('web/about.md')
         return template.render({})
 
     def process_project_metadata(self, name: str) -> Dict:

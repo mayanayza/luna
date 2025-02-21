@@ -5,6 +5,8 @@ from pathlib import Path
 @dataclass
 class Config:
     base_dir: Path
+    first_name: str
+    last_name: str
     website_domain: str
     github_username: str
     github_token: str

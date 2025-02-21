@@ -102,13 +102,12 @@ class WebsiteHandler(Channel):
     def generate_post(self, name) -> None:
         try:
             metadata = get_project_metadata(self, name)
-            template_path = "html/post.html"
 
             context = {}
             for media in self.media:
                 context[media.TYPE] = self.get_website_media_files(name, media.TYPE)
             
-            rendered_content = self.tp.process_template(name, template_path, context)
+            rendered_content = self.tp.process_post_template(name, context)
 
             front_matter = {
                 'layout': 'post',
@@ -158,7 +157,7 @@ class WebsiteHandler(Channel):
                 'complete_other': complete_other
             }
 
-            roadmap = self.tp.process_template(context)
+            roadmap = self.tp.process_roadmap_template(context)
             self.logger.info("Generated roadmap")
             return roadmap
         except Exception as e:

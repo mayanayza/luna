@@ -100,7 +100,7 @@ class PDFHandler(Channel):
                 context['featured_image'] = str((project_dir / 'media' / Media.IMAGES.TYPE / metadata['project']['featured_content']['source']).absolute())
             
             # Generate main content PDF
-            html_string = self.tp.process_template(name, 'pdf/project_cover.html', context)
+            html_string = self.tp.process_pdf_cover_template(name, context)
             main_pdf = HTML(string=html_string, base_url=project_dir).render()
             
             # Combine main content with image pages
@@ -126,7 +126,7 @@ class PDFHandler(Channel):
                 context = {
                     'images': [image.resolve() for image in group]
                 }
-                html_string = self.tp.process_template(name, 'pdf/project_images.html', context)
+                html_string = self.tp.process_pdf_images_template(name, context)
                 image_pdf = HTML(string=html_string, base_url=project_dir).render()
                 image_pdfs.extend(image_pdf.pages)
 

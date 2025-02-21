@@ -24,7 +24,7 @@ class FileHandler:
         """Create the project directory structure and initialize files"""
         try:
             project_dir = get_project_path(self, name)
-            templates_dir = Path(os.getcwd()) / 'src' / 'templates'
+            templates_dir = Path(os.getcwd()) / 'src' / 'script' / 'templates' / 'setup'
             project_dir.mkdir()
 
             (project_dir / 'src').mkdir(parents=True, exist_ok=True)
@@ -51,7 +51,9 @@ class FileHandler:
             with open(project_dir / 'content' / Files.METADATA, 'w') as f:
                 f.write(metadata)
 
-            shutil.copy(templates_dir / Files.CONTENT, project_dir / 'content' / Files.CONTENT)
+            open(project_dir / 'content/content.md', 'w').close()
+            open(project_dir / 'content/README.md', 'w').close()
+
             shutil.copy(templates_dir / Files.README, project_dir / 'content' / Files.README)
             shutil.copy(templates_dir / Files.GITIGNORE, project_dir / Files.GITIGNORE)
 

@@ -81,14 +81,11 @@ class GithubHandler(Channel):
     def generate_readme(self, name):
 
         try:
-        
-            template_path = "md/README.md"
-
             context = {}
             for media in self.media:
                 context[media.TYPE] = get_project_media_files(self, name, media.TYPE)
 
-            readme = self.tp.process_template(name, template_path, context)
+            readme = self.tp.process_github_readme_template(name, context)
             self.logger.info(f"Generated GitHub readme for {name}")
             return readme
 
