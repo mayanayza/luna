@@ -12,6 +12,7 @@ from src.script.utils import (
     get_project_media_files,
     get_project_metadata,
     get_project_path,
+    load_personal_info,
     resize_image_file,
 )
 
@@ -45,7 +46,7 @@ class PDFHandler(Channel):
                     shutil.move(str(pdf_file), str(output_folder / pdf_file.name))
                 
                 # Move images
-                for extension in self.media[Media.IMAGES.TYPE]:
+                for extension in Media.get_extensions(Media.IMAGES.TYPE):
                     for image_file in temp_folder.glob(extension):
                         shutil.move(str(image_file), str(output_folder / image_file.name))
                 
@@ -53,7 +54,6 @@ class PDFHandler(Channel):
                 shutil.rmtree(temp_folder)
                 self.logger.info(f"Processed and removed {temp_folder}")
 
-            # Combine PDFs
             pdf_files = list(output_folder.glob('*.pdf'))
             if pdf_files:
                 merger = PdfMerger()
@@ -76,10 +76,21 @@ class PDFHandler(Channel):
             self.logger.error(f"Error publishing PDF: {e}")
             raise
 
-    def stage(self, name, collate_images, max_width, max_height, filename_prepend) -> None:
-        self.generate_pdf(name, max_width, max_height,filename_prepend, collate_images)
-
-    def generate_pdf(self, name, max_width, max_height, filename_prepend, collate_images):
+    def stage_cover(self, projects, submission_name):
+        context = load_personal_info(self)
+        projects = [get_project_metadata(self, p)['project']['title'] for p in projects]
+        context = context | {
+            'projects': projects,
+            'website': self.config.website_domain,
+            'website_links': f"{self.config.website_domain}/links",
+            'submission_name': submission_name
+        }
+        html_string = self.tp.process_pdf_cover_template(context)
+        pdf = HTML(string=html_string).render()
+        output_path = Path(self.config.base_dir / '_output' / '_cover.pdf')
+        pdf.write_pdf(output_path)
+            
+    def stage_projects(self, name, max_width, max_height, filename_prepend, collate_images):
         """Generate PDF with optional image collation."""
 
         try:
@@ -97,10 +108,10 @@ class PDFHandler(Channel):
                 context['image_file_names'] = self.stage_images(name, images, max_width, max_height, filename_prepend)
 
             if metadata['project']['featured_content']['type'] == 'image':
-                context['featured_image'] = str((project_dir / 'media' / Media.IMAGES.TYPE / metadata['project']['featured_content']['source']).absolute())
+                context['featured_image'] = str((project_dir / 'media' / metadata['project']['featured_content']['source']).absolute())
             
             # Generate main content PDF
-            html_string = self.tp.process_pdf_cover_template(name, context)
+            html_string = self.tp.process_pdf_project_template(name, context)
             main_pdf = HTML(string=html_string, base_url=project_dir).render()
             
             # Combine main content with image pages

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ name.first }} {{ name.last }} Submission</title>
+    <style>
+        @page {
+            margin: 2cm;
+            size: letter;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            font-size: 10pt;
+            margin: 0;
+            padding: 0;
+        }
+
+        .document {
+            width: 100%;
+            position: relative;
+        }
+
+        .content-column {
+            width: 100%;
+            padding-right: 32%;
+        }
+
+        header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+        }
+
+        h1 {
+            font-size: 20pt;
+            font-weight: 400;
+            margin: 0 0 0.5rem 0;
+            color: #000;
+        }
+
+        h2 {
+            font-size: 12pt;
+            font-weight: 500;
+            margin: 1rem 0 0.75rem;
+            color: #000;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 0.25rem;
+        }
+
+        .contact-info {
+            margin: 0.75rem 0;
+            color: #444;
+        }
+
+        .contact-info p {
+            margin: 0.25rem 0;
+        }
+
+        .content {
+            margin: 1.5rem 0;
+            font-size: 11pt;
+            color: #444;
+            line-height: 1.6;
+        }
+
+        .content h2 {
+            color: #000;
+            font-size: 14pt;
+            margin-bottom: 1rem;
+        }
+
+        .meta-info {
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 9pt;
+        }
+
+        .submission-date {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            color: #666;
+            font-size: 9pt;
+        }
+    </style>
+</head>
+<body>
+    <div class="document">
+        <div class="content-column">
+            <header>
+                <h1>{{ name.first }} {{ name.last }}</h1>
+                {% if submission_name %}
+                <h2>Submission for {{ submission_name }}</h2>
+                {% endif %}
+                
+                <div class="contact-info">
+                    <p><strong>Email:</strong> {{ contact.email }}</p>
+                    <p><strong>Phone:</strong> {{ contact.phone }}</p>
+                    <p><strong>Location:</strong> {{ contact.location }}</p>
+                    <p><strong>Website:</strong> {{ website }}</p>
+                </div>
+            </header>
+
+            <div class="content">
+                <h2>Artist Statement</h2>
+                <p>{{ artist_statement }}</p>
+            </div>
+
+            <div class="content">
+                <h2>Included Works</h2>
+                {% for project in projects %}
+                    <ul>{{ project }}</ul>
+                {% endfor %}
+            </div>
+<!-- 
+            <div class="meta-info">
+                <p>Submission Date: {{ submission_date }}</p>
+            </div> -->
+        </div>
+    </div>
+</body>
+</html>

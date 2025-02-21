@@ -38,7 +38,7 @@ def load_template(self, template_name: str) -> str:
         raise
 
 def load_personal_info(self):
-    script_dir = Path(__file__).resolve().parent
+    script_dir = Path(__file__).resolve().parent.parent
     with open(script_dir / 'personal-info.yml', 'r') as f:
         return yaml.safe_load(f)
 
@@ -130,6 +130,7 @@ def convert_video_file(self, video_file, output_format: Literal['mp4', 'webm'] =
 
 
 def resize_image_file(self, image_file, max_width: int=-1, max_height: int=-1):
+        
     with Image.open(image_file) as img:
         # Get original dimensions
         width, height = img.size

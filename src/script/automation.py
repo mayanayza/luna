@@ -58,9 +58,10 @@ class Automation:
         staged_projects = self.stage_web(projects)
         self.website.publish( "Updating content for " + ", ".join(staged_projects) )
 
-    def publish_pdf(self, projects: list, collate_images: bool, max_width: int, max_height: int, filename_prepend: str) -> None:
+    def publish_pdf(self, projects: list, collate_images: bool, max_width: int, max_height: int, filename_prepend: str, submission_name:str) -> None:
         for name in projects:
-            self.pdf.stage(name, collate_images, max_width, max_height, filename_prepend)
+            self.pdf.stage_projects(name, max_width, max_height, filename_prepend, collate_images)
+        self.pdf.stage_cover(projects, submission_name)
         self.pdf.publish()                    
 
     def publish_raw(self, projects) -> None:

@@ -289,7 +289,7 @@ class WebsiteHandler(Channel):
         for file in website_media_dir.iterdir():
             media_files.append(f"/media/{name}/{type}/{file.name}")
 
-        return media_files
+        return sorted(media_files)
 
     def rename(self, old_name: str, new_name: str) -> None:
         """Update all website-related files when renaming a project"""

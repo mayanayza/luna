@@ -2,10 +2,10 @@
 layout: page
 title: About
 permalink: /about/
-hide_header: true
+hide_header: false
 ---
 
-# Hi, I'm {{ first_name }}!
+# Hi, I'm {{ name.first }}!
 
 {{ intro }}
 

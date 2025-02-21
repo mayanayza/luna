@@ -60,8 +60,12 @@ class TemplateProcessor:
     def process_github_readme_template(self, name, context):
         return self.process_template(name, 'github/README.md', context)
 
-    def process_pdf_cover_template(self, name, context):
-        return self.process_template(name, 'pdf/project_cover.html', context)
+    def process_pdf_cover_template(self, context):
+        template = self.env.get_template('pdf/cover.html')
+        return template.render(context)
+
+    def process_pdf_project_template(self, name, context):
+        return self.process_template(name, 'pdf/project.html', context)
 
     def process_pdf_images_template(self, name, context):
         return self.process_template(name, 'pdf/project_images.html', context)
@@ -77,9 +81,9 @@ class TemplateProcessor:
         template = self.env.get_template('web/links.md')
         return template.render(context)
 
-    def process_about_template(self):
+    def process_about_template(self, context):
         template = self.env.get_template('web/about.md')
-        return template.render({})
+        return template.render(context)
 
     def process_project_metadata(self, name: str) -> Dict:
         

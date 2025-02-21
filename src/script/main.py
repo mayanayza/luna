@@ -31,6 +31,7 @@ def setup_channel_registry(automation, config):
             kwargs.get('projects', []),
             collate_images=kwargs.get('collate_images', False), 
             filename_prepend=kwargs.get('filename_prepend', ''),
+            submission_name=kwargs.get('submission_name', ''),
             max_width=kwargs.get('max_width', ''),
             max_height=kwargs.get('max_height', '')
         )
@@ -76,6 +77,7 @@ def parse_arguments():
     parser.add_argument('--channels', '-ch', nargs='+', help='One more channels to publish to (web, pdf, github).')
     
     parser.add_argument('--collate-images', '-ci', action='store_true', help='Collate images for PDF publication')
+    parser.add_argument('--submission-name', '-sn', help='Name of what pdf is being submitted to')
     parser.add_argument('--max-width', '-mw', help='Max width for images when generating separate image files for PDF publication')
     parser.add_argument('--max-height', '-mh', help='Max height for images when generating separate image files for PDF publication')
     parser.add_argument('--filename-prepend', '-fp', default='', help='Prepend string for PDF filename')
