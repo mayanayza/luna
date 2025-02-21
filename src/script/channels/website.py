@@ -16,6 +16,7 @@ from src.script.utils import (
     get_project_metadata,
     get_project_path,
     is_project,
+    load_personal_info,
     resize_image_file,
 )
 
@@ -197,7 +198,14 @@ class WebsiteHandler(Channel):
             raise
 
     def generate_about_page(self):
-        return self.tp.process_about_template()
+        try:
+            context = load_personal_info(self)
+            about = self.tp.process_about_template(context) 
+            self.logger.info("Generated about")
+            return about
+        except Exception as e:
+            self.logger.error(f"Failed to generate about page: {e}")
+            raise
 
     def stage_media(self, name: str) -> None:
         try:

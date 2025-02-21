@@ -5,3 +5,4 @@ src/.venv/
 **/__pycache__
 .DS_Store
 src/script/channels/instagram_session.json
+src/personal-info.yml

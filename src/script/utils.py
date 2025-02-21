@@ -37,6 +37,12 @@ def load_template(self, template_name: str) -> str:
         self.logger.error(f"Template file not found: {template_path}")
         raise
 
+def load_personal_info(self):
+    script_dir = Path(__file__).resolve().parent
+    with open(script_dir / 'personal-info.yml', 'r') as f:
+        return yaml.safe_load(f)
+
+
 def is_public_github_repo(self, name) -> str:
     project_dir = get_project_path(self, name)
     os.chdir(project_dir)
@@ -86,36 +92,39 @@ def convert_model_file(self, model_file, output_format: Literal['glb']='glb'):
         # Create a scene with the mesh
         scene = trimesh.Scene(mesh)
         
-        # Export directly to bytes
-        temp_filename = model_file.with_suffix(f'.{output_format}')
-        scene.export(str(temp_filename), file_type=output_format)
+        # Create temp file in separate directory but keep original name
+        temp_path = Path('temp') / model_file.name
+        temp_path.parent.mkdir(exist_ok=True)  # Ensure temp directory exists
         
-        return temp_filename
+        # Export to temp file
+        scene.export(str(temp_path), file_type=output_format)
+        
+        return temp_path
         
     except Exception as e:
         raise self.logger.error(f"Failed to convert model: {str(e)}")
-
 def convert_video_file(self, video_file, output_format: Literal['mp4', 'webm'] = 'mp4'):
     try:
         video = VideoFileClip(video_file)
-        temp_filename = video_file.with_suffix(f'.{output_format}')
-
+        # Create temp file in separate directory but keep original name
+        temp_path = Path('temp') / video_file.name
+        temp_path.parent.mkdir(exist_ok=True)  # Ensure temp directory exists
+        
         if output_format == 'mp4':
             video.write_videofile(
-                str(temp_filename),
+                str(temp_path),
                 codec='libx264',
                 audio_codec='aac'
             )
         else:  # webm
             video.write_videofile(
-                str(temp_filename),
+                str(temp_path),
                 codec='libvpx',
                 audio_codec='libvorbis'
             )
         
         video.close()
-        
-        return temp_filename
+        return temp_path
     except Exception as e:
         raise self.logger.error(f"Failed to convert video: {str(e)}")
 
