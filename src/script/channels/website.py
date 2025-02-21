@@ -12,6 +12,7 @@ from src.script.constants import Media, Status
 from src.script.utils import (
     convert_model_file,
     convert_video_file,
+    get_project_content,
     get_project_media_files,
     get_project_metadata,
     get_project_path,
@@ -103,13 +104,7 @@ class WebsiteHandler(Channel):
 
     def generate_post(self, name, embed_content) -> None:
         try:
-            metadata = get_project_metadata(self, name)
-
-            context = {}
-            for media in self.media:
-                context[media.TYPE] = self.get_website_media_files(name, media.TYPE)
-            
-            rendered_content = self.tp.process_post_template(name, context)
+            metadata = get_project_metadata(self, name)            
 
             front_matter = {
                 'layout': 'post',
@@ -119,6 +114,7 @@ class WebsiteHandler(Channel):
                 'date': metadata['project']['date_created'],
                 'tags': metadata['project']['tags'],
                 'featured': metadata['project']['feature_post'],
+                'written_content': get_project_content(self, name),
                 'images':self.get_website_media_files(name, Media.IMAGES.TYPE),
                 'videos':self.get_website_media_files(name, Media.VIDEOS.TYPE),
                 'models':self.get_website_media_files(name, Media.MODELS.TYPE),
@@ -126,7 +122,9 @@ class WebsiteHandler(Channel):
             front_matter = front_matter | embed_content 
             front_matter = front_matter | self.determine_featured_content(name)
 
-            post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
+            content = self.tp.get_post_template()
+
+            post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{content}"
             self.logger.info(f"Successfully generated post for {name}")
             return post
         except Exception as e:
@@ -156,14 +154,22 @@ class WebsiteHandler(Channel):
 
             backlog.sort(key=lambda x: x.get('priority', 0), reverse=True)
 
-            context = {
+            front_matter = {
                 'in_progress': in_progress,
                 'backlog': backlog,
                 'complete_art': complete_art,
-                'complete_other': complete_other
+                'complete_other': complete_other,
+                'title': "Roadmap",
+                'permalink': '/roadmap/',
+                'hide_header': False,
+                'layout': 'page',
+                'website': self.config.website_domain
             }
 
-            roadmap = self.tp.process_roadmap_template(context)
+            content = self.tp.get_roadmap_template()
+
+            roadmap = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{content}"
+
             self.logger.info("Generated roadmap")
             return roadmap
         except Exception as e:
@@ -190,12 +196,21 @@ class WebsiteHandler(Channel):
 
                     featured.append(project)
 
-            context = {
-                'featured': featured,
-                'in_progress': in_progress
+
+            front_matter = {
+                'in_progress': in_progress,
+                'featured_projects': featured,
+                'title': "Maya's Links",
+                'permalink': '/links/',
+                'hide_header': True,
+                'layout': 'links',
+                'website': self.config.website_domain
             }
-                        
-            links = self.tp.process_links_template(context)
+                                    
+            content = self.tp.get_links_template()
+
+            links = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{content}"
+
             self.logger.info("Generated links")
             return links
         except Exception as e:
@@ -266,7 +281,7 @@ class WebsiteHandler(Channel):
             for embed in metadata['project']['embeds']:
                 source_file = Path(project_dir) / Path(embed['source'])
                 dest_path =  output_embed_dir / Path(embed['source']).name
-                embed_key = f"{embed['type']}_embed"
+                embed_key = f"{embed['type']}_embeds"
 
                 if embed_key not in embeds:
                     embeds[embed_key] = []

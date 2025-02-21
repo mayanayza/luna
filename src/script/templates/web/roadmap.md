@@ -1,52 +1,17 @@
----
-layout: page
-title: Roadmap
-permalink: /roadmap/
----
-
 ## In the Works
 
-{% if in_progress %}
-{% for project in in_progress %}
-{% if project.github %}
-| <a href='{{ project.github }}' target='_blank'>{{ project.display_name }}</a> | {{ project.tagline }} |
-{% else %}
-| {{ project.display_name }} | {{ project.tagline | default('') }} |
-{% endif %}
-{% endfor %}
-{% else %}
-Nothing currently in progress
-{% endif %}
+{% include roadmap-entries.html entries=page.in_progress empty_message="Nothing currently in progress" %}
 
 ## Starting Soon
 
-{% if backlog %}
-{% for project in backlog %}
-| {{ project.display_name }} | {{ project.tagline }} |
-{% endfor %}
-{% else %}
-Nothing currently in backlog
-{% endif %}
+{% include roadmap-entries.html entries=page.backlog empty_message="Nothing currently in backlog" %}
 
 ## Done
 
 ### Art
 
-{% for project in complete_art %}
-{% if project.website %}
-| <a href='{{ project.website }}' target='_blank'>{{ project.display_name }}</a> | {{ project.tagline }} |
-{% else %}
-| {{ project.display_name }} | {{ project.tagline | default('') }} |
-{% endif %}
-{% endfor %}
+{% include roadmap-entries.html entries=page.complete_art empty_message="Nothing completed" %}
 
 ### Other Work
 
-{% for project in complete_other %}
-{% if project.website %}
-| <a href='{{ project.website }}' target='_blank'>{{ project.display_name }}</a> | {{ project.tagline }} |
-{% else %}
-| {{ project.display_name }} | {{ project.tagline | default('') }} |
-{% endif %}
-{% endfor %}
-
+{% include roadmap-entries.html entries=page.complete_other empty_message="Nothing completed" %}

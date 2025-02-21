@@ -70,16 +70,17 @@ class TemplateProcessor:
     def process_pdf_images_template(self, name, context):
         return self.process_template(name, 'pdf/project_images.html', context)
 
-    def process_post_template(self, name, context):
-        return self.process_template(name, 'web/post.md', context)
+    def get_post_template(self):
+        with open(f'{Path(__file__).parent}/web/post.md', 'r') as file:
+            return file.read()
 
-    def process_roadmap_template(self, context: Dict={}):
-        template = self.env.get_template('web/roadmap.md')
-        return template.render(context)
+    def get_roadmap_template(self):
+        with open(f'{Path(__file__).parent}/web/roadmap.md', 'r') as file:
+            return file.read()
 
-    def process_links_template(self, context: Dict={}):
-        template = self.env.get_template('web/links.md')
-        return template.render(context)
+    def get_links_template(self):
+        with open(f'{Path(__file__).parent}/web/links.md', 'r') as file:
+            return file.read()
 
     def process_about_template(self, context):
         template = self.env.get_template('web/about.md')
