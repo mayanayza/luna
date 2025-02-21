@@ -88,12 +88,13 @@ def convert_model_file(self, model_file, output_format: Literal['glb']='glb'):
     try:
         # Load the STL file
         mesh = trimesh.load(model_file)
+        mesh.visual.face_colors = [255,128,171]
         
         # Create a scene with the mesh
         scene = trimesh.Scene(mesh)
         
-        # Create temp file in separate directory but keep original name
-        temp_path = Path('temp') / model_file.name
+        # Create temp file with new extension
+        temp_path = Path('temp') / f"{model_file.stem}.{output_format}"
         temp_path.parent.mkdir(exist_ok=True)  # Ensure temp directory exists
         
         # Export to temp file
@@ -103,18 +104,25 @@ def convert_model_file(self, model_file, output_format: Literal['glb']='glb'):
         
     except Exception as e:
         raise self.logger.error(f"Failed to convert model: {str(e)}")
+
 def convert_video_file(self, video_file, output_format: Literal['mp4', 'webm'] = 'mp4'):
     try:
         video = VideoFileClip(video_file)
-        # Create temp file in separate directory but keep original name
-        temp_path = Path('temp') / video_file.name
+        # Create temp file with new extension
+        temp_path = Path('temp') / f"{video_file.stem}.{output_format}"
         temp_path.parent.mkdir(exist_ok=True)  # Ensure temp directory exists
         
         if output_format == 'mp4':
             video.write_videofile(
                 str(temp_path),
                 codec='libx264',
-                audio_codec='aac'
+                audio_codec='aac',
+                ffmpeg_params=[
+                    '-profile:v', 'baseline',
+                    '-level', '3.0',
+                    '-movflags', '+faststart',
+                    '-pix_fmt', 'yuv420p'
+                ]
             )
         else:  # webm
             video.write_videofile(

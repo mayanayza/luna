@@ -66,8 +66,9 @@ class WebsiteHandler(Channel):
                 return ''
                 
             self.stage_media(name)
+            embed_content = self.stage_embed_content(name)
             
-            post = self.generate_post(name)
+            post = self.generate_post(name, embed_content)
             post_date = metadata['project']['date_created']
             post_path = self.config.website_posts_dir / f"{post_date}-{name}.md"
             with open(post_path, 'w') as f:
@@ -100,7 +101,7 @@ class WebsiteHandler(Channel):
         with open(self.config.website_pages_dir / 'about.md', 'w') as f:
             f.write(about)
 
-    def generate_post(self, name) -> None:
+    def generate_post(self, name, embed_content) -> None:
         try:
             metadata = get_project_metadata(self, name)
 
@@ -113,12 +114,16 @@ class WebsiteHandler(Channel):
             front_matter = {
                 'layout': 'post',
                 'title': metadata['project']['title'],
+                'name' : metadata['project']['name'],
                 'tagline': metadata['project']['tagline'],
                 'date': metadata['project']['date_created'],
                 'tags': metadata['project']['tags'],
                 'featured': metadata['project']['feature_post'],
-                'gallery_images':self.get_website_media_files(name, Media.IMAGES.TYPE)
-            } 
+                'images':self.get_website_media_files(name, Media.IMAGES.TYPE),
+                'videos':self.get_website_media_files(name, Media.VIDEOS.TYPE),
+                'models':self.get_website_media_files(name, Media.MODELS.TYPE),
+            }
+            front_matter = front_matter | embed_content 
             front_matter = front_matter | self.determine_featured_content(name)
 
             post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
@@ -210,8 +215,6 @@ class WebsiteHandler(Channel):
     def stage_media(self, name: str) -> None:
         try:
             output_dir = self.config.website_media_dir / name
-            metadata = get_project_metadata(self, name)
-            project_dir = get_project_path(self, name)
                 
             for media in self.media:
                 media_files = get_project_media_files(self, name, media.TYPE)
@@ -221,15 +224,7 @@ class WebsiteHandler(Channel):
                     shutil.rmtree(output_type_dir)
                 output_type_dir.mkdir(parents=True, exist_ok=True)
 
-                if media_files:
-                    if media.TYPE == Media.EMBEDS.TYPE:
-                        for embed in metadata['project']['embeds']:
-                            source_file = Path(project_dir) / Path(embed['source'])
-                            embed_type_dir = output_type_dir / embed['type']
-                            embed_type_dir.mkdir(exist_ok=True)
-                            dest_path =  embed_type_dir / Path(embed['source']).name
-                            shutil.copy2(source_file, dest_path)
-                    
+                if media_files:                    
                     for file in media_files:
                         file_name = str(file.name)
 
@@ -259,6 +254,34 @@ class WebsiteHandler(Channel):
             self.logger.error(f"Failed to stage media for {name}: {e}")
             raise
 
+    def stage_embed_content(self, name):
+        try:
+            metadata = get_project_metadata(self, name)
+            project_dir = get_project_path(self, name)
+
+            output_embed_dir = self.config.website_media_dir / name / Media.EMBEDS.TYPE
+
+            embeds = {}
+
+            for embed in metadata['project']['embeds']:
+                source_file = Path(project_dir) / Path(embed['source'])
+                dest_path =  output_embed_dir / Path(embed['source']).name
+                embed_key = f"{embed['type']}_embed"
+
+                if embed_key not in embeds:
+                    embeds[embed_key] = []
+
+                embeds[embed_key].append(f"/media/name/{Media.EMBEDS.TYPE}/{Path(embed['source']).name}")
+
+                shutil.copy2(source_file, dest_path)
+
+            self.logger.info(f"Successfully staged all embed files for {name}")
+
+            return embeds
+        except Exception as e:
+            self.logger.error(f"Failed to stage embed files for {name}: {e}")
+            raise
+
     def determine_featured_content(self, name) -> Dict:
         metadata = get_project_metadata(self, name)
         project_dir = get_project_path(self, name)
@@ -279,7 +302,7 @@ class WebsiteHandler(Channel):
                 }
         else:
             return {
-                'image': f"/media/{name}/{featured_content['source']}"
+                'featured_image': f"/media/{name}/{featured_content['source']}"
             }
 
     def get_website_media_files(self, name, type):

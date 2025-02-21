@@ -71,7 +71,7 @@ class TemplateProcessor:
         return self.process_template(name, 'pdf/project_images.html', context)
 
     def process_post_template(self, name, context):
-        return self.process_template(name, 'web/post.html', context)
+        return self.process_template(name, 'web/post.md', context)
 
     def process_roadmap_template(self, context: Dict={}):
         template = self.env.get_template('web/roadmap.md')
