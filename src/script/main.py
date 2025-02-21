@@ -46,6 +46,13 @@ def setup_channel_registry(automation, config):
             commit_message=kwargs.get('commit_message', '')
         ),
     })
+
+    registry.register('instagram', {
+        'publish': lambda **kwargs: automation.publish_instagram(
+            kwargs.get('projects', []),
+            caption=kwargs.get('caption', '')
+        ),
+    })
     
 
     registry.register('raw', {
@@ -74,6 +81,8 @@ def parse_arguments():
     parser.add_argument('--filename-prepend', '-fp', default='', help='Prepend string for PDF filename')
 
     parser.add_argument('--commit-message','-cm', default='', help='Commit message for publishing to github')
+
+    parser.add_argument('--caption','-ca', default='', help='Caption for Instagram post. Defaults to project tagline.')
     
     return parser.parse_args()
 
@@ -90,7 +99,10 @@ def main():
         website_posts=(os.environ.get('WEBSITE_POSTS')),
         website_media=(os.environ.get('WEBSITE_MEDIA')),
         website_pages=(os.environ.get('WEBSITE_PAGES')),
+        instagram_username=(os.environ.get('INSTAGRAM_USERNAME')),
+        instagram_password=(os.environ.get('INSTAGRAM_PASSWORD')),
         enable_roadmap=os.environ.get('ENABLE_ROADMAP').lower() == 'true',
+        enable_links=os.environ.get('ENABLE_LINKS').lower() == 'true',
         enable_things3=os.environ.get('ENABLE_THINGS3').lower() == 'true',
         things3_area=os.environ.get('THINGS3_AREA')
     )

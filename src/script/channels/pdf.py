@@ -9,7 +9,7 @@ from src.script.channels._channel import Channel
 from src.script.config import Config
 from src.script.constants import Media
 from src.script.utils import (
-    get_media_files,
+    get_project_media_files,
     get_project_metadata,
     get_project_path,
     resize_image_file,
@@ -26,9 +26,9 @@ class PDFHandler(Channel):
             
         super().__init__(**init)
 
-        self.media = {
-           Media.IMAGES.TYPE: Media.IMAGES.EXT
-        }
+        self.media = [
+            Media.IMAGES
+        ]
 
     def publish(self) -> None:
         # Search recursively for temp_pdf folders
@@ -90,7 +90,7 @@ class PDFHandler(Channel):
 
             image_pdfs = []
             context = {}
-            images = get_media_files(self, name, Media.IMAGES.TYPE)
+            images = get_project_media_files(self, name, Media.IMAGES.TYPE)
             if collate_images:
                 image_pdfs = self.generate_images_pdf(name, images)
             else:
@@ -146,12 +146,13 @@ class PDFHandler(Channel):
             new_names = []
             
             for file in sorted(images):
-                file = resize_image_file(file, max_width, max_height)
+                temp_file = resize_image_file(self, file, max_width, max_height)
                 new_name = f"{name}_{counter}{file.suffix}"
                 if filename_prepend:
                     new_name = f"{filename_prepend}_{new_name}"
                 new_names.append(new_name)
-                shutil.copy(str(file), str(temp_dir / new_name))
+                shutil.copy(str(temp_file), str(temp_dir / new_name))
+                temp_file.unlink()
                 counter += 1
             self.logger.info(f"Staged images for {name}")
             return ", ".join(new_names)

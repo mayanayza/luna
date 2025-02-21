@@ -19,14 +19,14 @@
 {% if videos %}
 {% for video in videos %}
 <video controls>
-  <source src="/media/{{ project.name }}/videos/{{ video.name }}" type="video/webm">
+  <source src="{{ video }}" type="video/webm">
 </video>
 {% endfor %}
 {% endif %}
 
 {% if models %}
 {% for model in models %}
-<model-viewer src="/media/{{ project.name }}/models/{{ model.name }}" auto-rotate camera-controls></model-viewer>
+<model-viewer src="{{ model }}" auto-rotate camera-controls></model-viewer>
 {% endfor %}
 {% endif %}
 

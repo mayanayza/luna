@@ -2,6 +2,7 @@
 import re
 
 from src.script.channels.github import GithubHandler
+from src.script.channels.instagram import InstagramHandler
 from src.script.channels.pdf import PDFHandler
 from src.script.channels.raw import RawHandler
 from src.script.channels.website import WebsiteHandler
@@ -23,6 +24,7 @@ class Automation:
         self.config = config
         self.github = GithubHandler(config)
         self.website = WebsiteHandler(config)
+        self.instagram = InstagramHandler(config)
         self.things = ThingsHandler(config)
         self.files = FileHandler(config)
         self.pdf = PDFHandler(config)
@@ -39,17 +41,21 @@ class Automation:
         for name in projects:
             self.github.publish(name, commit_message)
 
+    def publish_instagram(self, projects: list, caption: str) -> None:
+        for name in projects:
+            self.instagram.publish(name, caption)
+
     def stage_web(self, projects: list) -> None:
         staged_projects = []
         for name in projects:
             staged_projects.append( self.website.stage_post(name) )
 
+        self.website.stage_pages()
+
         return [p for p in staged_projects if p.strip()]
 
     def publish_web(self, projects: list) -> None:
         staged_projects = self.stage_web(projects)
-        self.website.stage_roadmap()
-        self.website.stage_links()
         self.website.publish( "Updating content for " + ", ".join(staged_projects) )
 
     def publish_pdf(self, projects: list, collate_images: bool, max_width: int, max_height: int, filename_prepend: str) -> None:

@@ -5,3 +5,6 @@ Markdown
 Jinja2
 PyPDF2
 reportlab
+instagrapi
+moviepy
+trimesh

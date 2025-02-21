@@ -1,7 +1,7 @@
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-import os
 
 import yaml
 
@@ -10,7 +10,6 @@ from src.script.constants import Files, Media
 from src.script.utils import (
     get_project_metadata,
     get_project_path,
-    load_template,
     setup_logging,
 )
 
@@ -33,8 +32,8 @@ class FileHandler:
             (project_dir / 'media').mkdir(parents=True, exist_ok=True)
             (project_dir / 'media-internal').mkdir(parents=True, exist_ok=True)
             # Create media directory structure
-            types = [Media.IMAGES, Media.VIDEOS, Media.AUDIO, Media.DOCS]
-            for media in types:
+
+            for media in Media.ALL_TYPES:
                 (project_dir / 'media' / media.TYPE).mkdir(parents=True, exist_ok=True)
                 (project_dir / 'media-internal' / media.TYPE).mkdir(parents=True, exist_ok=True)
 

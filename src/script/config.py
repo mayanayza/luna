@@ -8,6 +8,8 @@ class Config:
     website_domain: str
     github_username: str
     github_token: str
+    instagram_username: str
+    instagram_password: str
     website_dir: Path
     enable_things3: bool
     website_posts: str
@@ -15,6 +17,7 @@ class Config:
     website_pages: str
     things3_area: str
     enable_roadmap: bool
+    enable_links: bool
 
     @property
     def github_url_path(self) -> str:

@@ -3,11 +3,14 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Literal
 
+import trimesh
 import yaml
+from moviepy import VideoFileClip
 from PIL import Image
 
-from src.script.constants import Files
+from src.script.constants import Files, Media
 
 
 def setup_logging(name: str):
@@ -47,12 +50,13 @@ def is_public_github_repo(self, name) -> str:
 def is_project(self, item) -> bool:
     return item.is_dir() and (item / 'content' / Files.METADATA).exists()
 
-def get_media_files(self, name, type):
+def get_project_media_files(self, name, type):
     project_dir = get_project_path(self, name)
     media_path = project_dir / 'media' / type
+    extensions = Media.get_extensions(type)
     files = []
     if media_path.exists():
-        for ext in self.media[type]:
+        for ext in extensions:
             files.extend(list(media_path.glob(ext)))
     return files
 
@@ -74,11 +78,52 @@ def get_project_readme(self, name: str) -> str:
 def get_project_path(self, name: str) -> Path:
     return self.config.base_dir / name
 
-def resize_image_file(image_path, max_width: int=-1, max_height: int=-1):
-    with Image.open(image_path) as img:
+def convert_model_file(self, model_file, output_format: Literal['glb']='glb'):
+    try:
+        # Load the STL file
+        mesh = trimesh.load(model_file)
+        
+        # Create a scene with the mesh
+        scene = trimesh.Scene(mesh)
+        
+        # Export directly to bytes
+        temp_filename = model_file.with_suffix(f'.{output_format}')
+        scene.export(str(temp_filename), file_type=output_format)
+        
+        return temp_filename
+        
+    except Exception as e:
+        raise self.logger.error(f"Failed to convert model: {str(e)}")
+
+def convert_video_file(self, video_file, output_format: Literal['mp4', 'webm'] = 'mp4'):
+    try:
+        video = VideoFileClip(video_file)
+        temp_filename = video_file.with_suffix(f'.{output_format}')
+
+        if output_format == 'mp4':
+            video.write_videofile(
+                str(temp_filename),
+                codec='libx264',
+                audio_codec='aac'
+            )
+        else:  # webm
+            video.write_videofile(
+                str(temp_filename),
+                codec='libvpx',
+                audio_codec='libvorbis'
+            )
+        
+        video.close()
+        
+        return temp_filename
+    except Exception as e:
+        raise self.logger.error(f"Failed to convert video: {str(e)}")
+
+
+def resize_image_file(self, image_file, max_width: int=-1, max_height: int=-1):
+    with Image.open(image_file) as img:
         # Get original dimensions
         width, height = img.size
-
         width_ratio = 1 if max_width == -1 else max_width / width
         height_ratio = 1 if max_height == -1 else max_height / height
         
@@ -91,4 +136,9 @@ def resize_image_file(image_path, max_width: int=-1, max_height: int=-1):
                     
         # Resize the image
         resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-        return resized_img
+        
+        # Create temp file with same name but in temp directory
+        temp_path = Path('temp') / image_file.name
+        temp_path.parent.mkdir(exist_ok=True)  # Ensure temp directory exists
+        resized_img.save(temp_path)
+        return temp_path

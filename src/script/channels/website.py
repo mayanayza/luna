@@ -10,7 +10,9 @@ from src.script.channels._channel import Channel
 from src.script.config import Config
 from src.script.constants import Media, Status
 from src.script.utils import (
-    get_media_files,
+    convert_model_file,
+    convert_video_file,
+    get_project_media_files,
     get_project_metadata,
     get_project_path,
     is_project,
@@ -29,12 +31,12 @@ class WebsiteHandler(Channel):
             
         super().__init__(**init)
 
-        self.media = {
-           Media.IMAGES.TYPE: Media.IMAGES.EXT,
-           Media.VIDEOS.TYPE: ('*.webm',),
-           Media.MODELS.TYPE: ('*.glb',),
-           Media.EMBEDS.TYPE: Media.EMBEDS.EXT,
-        }
+        self.media = [
+           Media.IMAGES,
+           Media.VIDEOS,
+           Media.MODELS,
+           Media.EMBEDS
+        ]
 
     def publish(self, commit_message) -> None:
         try:
@@ -77,15 +79,23 @@ class WebsiteHandler(Channel):
             self.logger.error(f"Failed to stage website content for {name}: {e}")
             raise
 
-    def stage_roadmap(self):
+    def stage_pages(self):
+
+        if self.config.enable_roadmap or self.config.enable_links:
+            metadatas = []
+            for item in self.config.base_dir.iterdir():
+                if is_project(self, item):
+                    metadata = self.tp.process_project_metadata(item.name)
+                    metadatas.append(metadata)
+
         if self.config.enable_roadmap:
-            roadmap = self.generate_roadmap_page()
+            roadmap = self.generate_roadmap_page(metadatas)
             with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
                 f.write(roadmap)
 
-    def stage_links(self):
-        links = self.generate_links_page()
-        with open(self.config.website_pages_dir / 'links.md', 'w') as f:
+        if self.config.enable_links:
+            links = self.generate_links_page(metadatas)
+            with open(self.config.website_pages_dir / 'links.md', 'w') as f:
                 f.write(links)
 
     def generate_post(self, name) -> None:
@@ -94,8 +104,8 @@ class WebsiteHandler(Channel):
             template_path = "html/post.html"
 
             context = {}
-            for media_type in self.media:
-                context[media_type] = get_media_files(self, name, media_type)
+            for media in self.media:
+                context[media.TYPE] = self.get_website_media_files(name, media.TYPE)
             
             rendered_content = self.tp.process_template(name, template_path, context)
 
@@ -105,10 +115,10 @@ class WebsiteHandler(Channel):
                 'tagline': metadata['project']['tagline'],
                 'date': metadata['project']['date_created'],
                 'tags': metadata['project']['tags'],
-                'featured': metadata['project']['feature_post']
+                'featured': metadata['project']['feature_post'],
+                'gallery_images':self.get_website_media_files(name, Media.IMAGES.TYPE)
             } 
             front_matter = front_matter | self.determine_featured_content(name)
-            front_matter = front_matter | self.generate_gallery(name)
 
             post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{rendered_content}"
             self.logger.info(f"Successfully generated post for {name}")
@@ -116,17 +126,6 @@ class WebsiteHandler(Channel):
         except Exception as e:
             self.logger.error(f"Failed to generate post for {name}: {e}")
             raise
-
-    def generate_gallery(self, name) -> Dict:
-        website_image_dir = self.config.website_media_dir / name / Media.IMAGES.TYPE
-        gallery_images = []
-
-        for image in website_image_dir.iterdir():
-            gallery_images.append(f"/media/{name}/{Media.IMAGES.TYPE}/{image.name}")
-
-        return {
-            'gallery_images':gallery_images
-        }
 
     def determine_featured_content(self, name) -> Dict:
         metadata = get_project_metadata(self, name)
@@ -151,21 +150,15 @@ class WebsiteHandler(Channel):
                 'image': f"/media/{name}/{featured_content['source']}"
             }
 
-    def generate_roadmap_page(self) -> None:
+    def generate_roadmap_page(self, metadatas) -> None:
         try:
-            projects = []
-            for item in self.config.base_dir.iterdir():
-                if is_project(self, item):
-                    projects.append(item.name)
-
             in_progress = []
             backlog = []
             complete_art = []
             complete_other = []
 
-            for name in projects:
+            for metadata in metadatas:
 
-                metadata = self.tp.process_project_metadata(name)
                 project = metadata['project']
 
                 if project['status'] == Status.IN_PROGRESS:
@@ -194,20 +187,15 @@ class WebsiteHandler(Channel):
             self.logger.error(f"Failed to generate roadmap page: {e}")
             raise
 
-    def generate_links_page(self) -> None:
+    def generate_links_page(self, metadatas) -> None:
         try:
-            projects = []
-            for item in self.config.base_dir.iterdir():
-                if is_project(self, item):
-                    projects.append(item.name)
-
             featured = []
             in_progress = []
 
-            for name in projects:
+            for metadata in metadatas:
 
-                metadata = self.tp.process_project_metadata(name)
                 project = metadata['project']
+                name = project['name']
 
                 if project['status'] == Status.IN_PROGRESS:
                     in_progress.append(project)
@@ -237,16 +225,16 @@ class WebsiteHandler(Channel):
             metadata = get_project_metadata(self, name)
             project_dir = get_project_path(self, name)
                 
-            for media_type in self.media:
-                media_files = get_media_files(self, name, media_type)
+            for media in self.media:
+                media_files = get_project_media_files(self, name, media.TYPE)
+
+                output_type_dir = output_dir / str(media.TYPE)
+                if output_type_dir.exists():
+                    shutil.rmtree(output_type_dir)
+                output_type_dir.mkdir(parents=True, exist_ok=True)
 
                 if media_files:
-                    output_type_dir = output_dir / str(media_type)
-                    if output_type_dir.exists():
-                        shutil.rmtree(output_type_dir)
-                    output_type_dir.mkdir(parents=True, exist_ok=True)
-
-                    if media_type == Media.EMBEDS.TYPE:
+                    if media.TYPE == Media.EMBEDS.TYPE:
                         for embed in metadata['project']['embeds']:
                             source_file = Path(project_dir) / Path(embed['source'])
                             embed_type_dir = output_type_dir / embed['type']
@@ -256,25 +244,41 @@ class WebsiteHandler(Channel):
                     
                     for file in media_files:
                         file_name = str(file.name)
+
+                        self.logger.info(f"staging {file_name}")
+
+                        cleanup_source = True
                         
-                        if media_type == Media.IMAGES.TYPE:
-                            resized_image = resize_image_file(file.absolute(), 1920, 1080)
-                            temp_path = file.parent / f"resized_{file_name}"
-                            resized_image.save(temp_path)
-                            source_file = temp_path
+                        if media.TYPE == Media.IMAGES.TYPE:
+                            source_file = resize_image_file(self, file, 1920, 1080)
+                        elif media.TYPE == Media.VIDEOS.TYPE:
+                            source_file = convert_video_file(self, file, 'mp4')
+                        elif media.TYPE == Media.MODELS.TYPE:
+                            source_file = convert_model_file(self, file, 'glb')
                         else:
                             source_file = file
+                            cleanup_source = False
                         
-                        dest_path = output_type_dir / file_name
+                        dest_path = output_type_dir / source_file.name
                         shutil.copy2(source_file, dest_path)
                         
-                        if media_type == Media.IMAGES.TYPE:
-                            temp_path.unlink()
+                        if cleanup_source:
+                            source_file.unlink()
+
                 
             self.logger.info(f"Successfully staged all website media files for {name}")
         except Exception as e:
             self.logger.error(f"Failed to stage media for {name}: {e}")
             raise
+
+    def get_website_media_files(self, name, type):
+        website_media_dir = self.config.website_media_dir / name / type
+        media_files = []
+
+        for file in website_media_dir.iterdir():
+            media_files.append(f"/media/{name}/{type}/{file.name}")
+
+        return media_files
 
     def rename(self, old_name: str, new_name: str) -> None:
         """Update all website-related files when renaming a project"""

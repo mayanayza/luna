@@ -31,6 +31,7 @@ Nothing currently in backlog
 ## Done
 
 ### Art
+
 {% for project in complete_art %}
 {% if project.website %}
 | <a href='{{ project.website }}' target='_blank'>{{ project.display_name }}</a> | {{ project.tagline }} |
@@ -40,6 +41,7 @@ Nothing currently in backlog
 {% endfor %}
 
 ### Other Work
+
 {% for project in complete_other %}
 {% if project.website %}
 | <a href='{{ project.website }}' target='_blank'>{{ project.display_name }}</a> | {{ project.tagline }} |
