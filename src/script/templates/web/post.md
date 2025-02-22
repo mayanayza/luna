@@ -1,5 +1,5 @@
-{% if project.github %}
-  [View on GitHub]({{ project.github }}){:target="_blank"}
+{% if page.github %}
+  [View on GitHub]({{ page.github }}){:target="_blank"}
 {% endif %}
 {{ page.written_content }}
 {% include iframe-embed.html iframe_embed=page.iframe_embeds %}

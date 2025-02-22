@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 import trimesh
 import yaml
 from moviepy import VideoFileClip
@@ -88,11 +89,32 @@ def convert_model_file(self, model_file, output_format: Literal['glb']='glb'):
     try:
         # Load the STL file
         mesh = trimesh.load(model_file)
-        mesh.visual.face_colors = [255,128,171]
-        
+        mesh.visual.face_colors = [232,170,191]
+
+        rotation_matrix = trimesh.transformations.rotation_matrix(
+            angle=np.radians(-90),
+            direction=[1, 0, 0]
+        )
+
+        mesh.apply_transform(rotation_matrix)
+                
         # Create a scene with the mesh
         scene = trimesh.Scene(mesh)
         
+        scene.lights = {
+            'directional_1': {
+                'color': [1.0, 1.0, 1.0],
+                'direction': [0, 0, -1],
+                'intensity': 1.0
+            },
+            'point_1': {
+                'color': [1.0, 0.9, 0.9],
+                'position': [0, 0, 10],
+                'intensity': 1.0,
+                'range': 100
+            }
+        }
+
         # Create temp file with new extension
         temp_path = Path('temp') / f"{model_file.stem}.{output_format}"
         temp_path.parent.mkdir(exist_ok=True)  # Ensure temp directory exists

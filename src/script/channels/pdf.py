@@ -129,13 +129,15 @@ class PDFHandler(Channel):
     def generate_images_pdf(self, name, images):
         try:
             project_dir = get_project_path(self, name)
+            metadata = get_project_metadata(self, name)
 
             image_groups = [images[i:i + 2] for i in range(0, len(images), 2)]
             image_pdfs = []
 
             for group in image_groups:
-                context = {
-                    'images': [image.resolve() for image in group]
+                context = self.tp.process_project_metadata(name) | {
+                    'images': [image.resolve() for image in group],
+                    'title': metadata['project']['title']
                 }
                 html_string = self.tp.process_pdf_images_template(name, context)
                 image_pdf = HTML(string=html_string, base_url=project_dir).render()

@@ -12,7 +12,6 @@ from src.script.constants import Media, Status
 from src.script.utils import (
     convert_model_file,
     convert_video_file,
-    get_project_content,
     get_project_media_files,
     get_project_metadata,
     get_project_path,
@@ -104,27 +103,23 @@ class WebsiteHandler(Channel):
 
     def generate_post(self, name, embed_content) -> None:
         try:
-            metadata = get_project_metadata(self, name)            
+            metadata = self.tp.process_project_metadata(name)            
 
             front_matter = {
                 'layout': 'post',
-                'title': metadata['project']['title'],
-                'name' : metadata['project']['name'],
-                'tagline': metadata['project']['tagline'],
                 'date': metadata['project']['date_created'],
-                'tags': metadata['project']['tags'],
                 'featured': metadata['project']['feature_post'],
-                'written_content': get_project_content(self, name),
                 'images':self.get_website_media_files(name, Media.IMAGES.TYPE),
                 'videos':self.get_website_media_files(name, Media.VIDEOS.TYPE),
                 'models':self.get_website_media_files(name, Media.MODELS.TYPE),
             }
+            front_matter = front_matter | metadata['project']
             front_matter = front_matter | embed_content 
             front_matter = front_matter | self.determine_featured_content(name)
 
-            content = self.tp.get_post_template()
+            post_template = self.tp.get_post_template()
 
-            post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{content}"
+            post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{post_template}"
             self.logger.info(f"Successfully generated post for {name}")
             return post
         except Exception as e:

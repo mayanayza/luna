@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict
 
-from jinja2 import Environment, FileSystemLoader, Template
+from jinja2 import Environment, FileSystemLoader
 from src.script.config import Config
 from src.script.constants import Status
 from src.script.utils import (
@@ -29,46 +29,22 @@ class TemplateProcessor:
             return os.path.basename(path)
 
         self.env.filters['basename'] = basename
-
-    def process_template(self, name: str, template_name: str, context: Dict={}):
-        try:
-            context_cleaned = {}
-
-            context = context | self.process_project_metadata(name)
-            # Remove empty values
-            for key, value in context.items():
-                if value not in ([], '', None):
-                    context_cleaned[key] = value
-
-            content = get_project_content(self, name)
-            if content:
-                content = Template( str(content) ).render(context)
-                context_cleaned['content'] = content
-
-            readme = get_project_readme(self, name)
-            if readme:
-                readme = Template( str(readme) ).render(context)
-                context_cleaned['readme'] = readme
-            
-            template = self.env.get_template(template_name)
-            rendered = template.render(context_cleaned)
-            return rendered
-        except Exception as e:
-            self.logger.error(f"Failed to process template for {name}: {e}")
-            raise
         
     def process_github_readme_template(self, name, context):
-        return self.process_template(name, 'github/README.md', context)
+        template = self.env.get_template('github/README.md')
+        return template.render(context)
 
     def process_pdf_cover_template(self, context):
         template = self.env.get_template('pdf/cover.html')
         return template.render(context)
 
     def process_pdf_project_template(self, name, context):
-        return self.process_template(name, 'pdf/project.html', context)
+        template = self.env.get_template('pdf/project.html')
+        return template.render(context)
 
     def process_pdf_images_template(self, name, context):
-        return self.process_template(name, 'pdf/project_images.html', context)
+        template = self.env.get_template('pdf/project_images.html')
+        return template.render(context)
 
     def get_post_template(self):
         with open(f'{Path(__file__).parent}/web/post.md', 'r') as file:
@@ -102,9 +78,8 @@ class TemplateProcessor:
             if is_public_github_repo(self, name):
                 project['github'] = f"{self.config.github_url_path}/{name}"
 
-            if project['embeds']:
-                processed['iframe_embeds'] = [embed for embed in project['embeds'] if embed['type'] == 'iframe']
-                processed['github_embeds'] = [embed for embed in project['embeds'] if embed['type'] == 'github']
+            project['written_content'] = get_project_content(self, name)
+            project['readme'] = get_project_readme(self, name)
 
             processed['project'] = project
 
@@ -145,7 +120,7 @@ class TemplateProcessor:
             if ex['maintenance']['tasks']:
                 processed['maintenance_instructions'] = ex['maintenance']['tasks']
 
-            self.logger.info(f"Processed metadata for {name}")
+            self.logger.debug(f"Processed metadata for {name}")
             return processed
 
         except Exception as e:
