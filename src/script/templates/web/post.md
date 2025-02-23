@@ -2,7 +2,7 @@
   [View on GitHub]({{ page.github }}){:target="_blank"}
 {% endif %}
 {{ page.written_content }}
-{% include iframe-embed.html iframe_embed=page.iframe_embeds %}
+{% include iframe-embed.html iframe_embeds=page.iframe_embeds %}
 {% include gallery.html images=page.images %}
 {% include video.html videos=page.videos %}
 {% include model-viewer.html models=page.models %}

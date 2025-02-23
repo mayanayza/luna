@@ -1,7 +1,9 @@
 ## Featured
 
 {% include featured-links.html projects=page.featured_projects %}
-{% include button.html link=page.website title="View Portfolio" %}
+{% capture portfolio_url %}{{ page.website }}/tags/?tag=art{% endcapture %}
+{% include button.html link=portfolio_url title="View Art Portfolio" %}
+{% include button.html link=page.website title="View All Work" %}
 
 ## In the Works
 

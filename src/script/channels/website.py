@@ -282,7 +282,7 @@ class WebsiteHandler(Channel):
                 if embed_key not in embeds:
                     embeds[embed_key] = []
 
-                embeds[embed_key].append(f"/media/name/{Media.EMBEDS.TYPE}/{Path(embed['source']).name}")
+                embeds[embed_key].append(f"/media/{name}/{Media.EMBEDS.TYPE}/{Path(embed['source']).name}")
 
                 shutil.copy2(source_file, dest_path)
 
