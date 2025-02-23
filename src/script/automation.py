@@ -1,5 +1,4 @@
 
-import re
 
 from src.script.channels.github import GithubHandler
 from src.script.channels.instagram import InstagramHandler
@@ -10,11 +9,11 @@ from src.script.config import Config
 from src.script.setup.files import FileHandler
 from src.script.setup.things import ThingsHandler
 from src.script.utils import (
+    format_name,
     get_project_metadata,
     get_project_path,
     is_project,
     setup_logging,
-    strip_emoji,
 )
 
 
@@ -62,7 +61,7 @@ class Automation:
         for name in projects:
             self.pdf.stage_projects(name, max_width, max_height, filename_prepend, collate_images)
         self.pdf.stage_cover(projects, submission_name)
-        self.pdf.publish()                    
+        self.pdf.publish(submission_name)                    
 
     def publish_raw(self, projects) -> None:
         for name in projects:
@@ -126,18 +125,6 @@ class Automation:
         except Exception as e:
             self.logger.error(f"Failed to rename project: {e}")
 
-
-    def get_formatted_name(self, display_name: str) -> str:
-        # Remove emoji and other special characters, convert to lowercase
-        title = strip_emoji(display_name)
-        title = re.sub(r'[^a-zA-Z0-9\s-]', '', title)
-        
-        # Convert to kebab-case
-        name = title.strip().lower().replace(' ', '-')
-        name = re.sub(r'-+', '-', name)
-        
-        return name, title
-
     def prompt_for_name(self) -> str:
         name = input("Enter project name:").strip()
         project_dir = get_project_path(self, name)
@@ -152,7 +139,7 @@ class Automation:
         if not display_name:
             raise ValueError("Project name cannot be empty")
         
-        name, title = self.get_formatted_name(display_name)
+        name, title = format_name(self, display_name)
         
         print("\nProject details:")
         print(f"Name: {name}")

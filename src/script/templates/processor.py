@@ -109,10 +109,10 @@ class TemplateProcessor:
                 processed['setup_time'] = ex['setup']['time_required']
 
             if ex['setup']['people_required']:
-                processed['setup_tools'] = ex['setup']['people_required']
+                processed['setup_people'] = ex['setup']['people_required']
             
             if ex['setup']['tools_required']:
-                processed['setup_people'] = ", ".join(ex['setup']['tools_required'])
+                processed['setup_tools'] = ", ".join(ex['setup']['tools_required'])
 
             if ex['maintenance']['supplies_needed']:
                 processed['maintenance_supplies'] = ", ".join(ex['maintenance']['supplies_needed'])

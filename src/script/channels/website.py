@@ -15,6 +15,7 @@ from src.script.utils import (
     get_project_media_files,
     get_project_metadata,
     get_project_path,
+    get_website_media_files,
     is_project,
     load_personal_info,
     resize_image_file,
@@ -109,9 +110,9 @@ class WebsiteHandler(Channel):
                 'layout': 'post',
                 'date': metadata['project']['date_created'],
                 'featured': metadata['project']['feature_post'],
-                'images':self.get_website_media_files(name, Media.IMAGES.TYPE),
-                'videos':self.get_website_media_files(name, Media.VIDEOS.TYPE),
-                'models':self.get_website_media_files(name, Media.MODELS.TYPE),
+                'images':get_website_media_files(self, name, Media.IMAGES.TYPE),
+                'videos':get_website_media_files(self, name, Media.VIDEOS.TYPE),
+                'models':get_website_media_files(self, name, Media.MODELS.TYPE),
             }
             front_matter = front_matter | metadata['project']
             front_matter = front_matter | embed_content 
@@ -315,14 +316,7 @@ class WebsiteHandler(Channel):
                 'featured_image': f"/media/{name}/{featured_content['source']}"
             }
 
-    def get_website_media_files(self, name, type):
-        website_media_dir = self.config.website_media_dir / name / type
-        media_files = []
-
-        for file in website_media_dir.iterdir():
-            media_files.append(f"/media/{name}/{type}/{file.name}")
-
-        return sorted(media_files)
+    
 
     def rename(self, old_name: str, new_name: str) -> None:
         """Update all website-related files when renaming a project"""

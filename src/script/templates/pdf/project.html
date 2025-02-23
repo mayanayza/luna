@@ -152,21 +152,19 @@
         <div class="content-column">
             <header>
                 {% if project.title %}<h1>{{ project.title }}</h1>{% endif %}
-                {% if project.tagline %}<p class="description">{{ project.tagline }}</p>{% endif %}
                 
                 <div class="specs-list">
-                    {% if project.website %}<p><strong>Website:</strong> <a href="{{ project.website }}">View on Website</a></p>{% endif %}
+                    {% if project.website %}<p><a href="{{ project.website }}">View on website</a> for additional media</p>{% endif %}
                     {% if materials %}<p><strong>Materials:</strong> {{ materials }}</p>{% endif %}
                     {% if dimensions %}<p><strong>Dimensions:</strong> {{ dimensions }}</p>{% endif %}
                     {% if weight %}<p><strong>Weight:</strong> {{ weight }}</p>{% endif %}
                     {% if image_file_names %}<p><strong>Images:</strong> {{ image_file_names }}</p>{% endif %}
-                    {% if video_links %}<p><strong>Videos:</strong> {{ video_links }}</p>{% endif %}
                 </div>
             </header>
 
-            {% if content %}
+            {% if project.written_content %}
             <div class="content-text">
-                <p>{{ content }}</p>
+                <p>{{ project.written_content }}</p>
             </div>
             {% endif %}
 
@@ -174,34 +172,42 @@
                 <h2>Technical Requirements</h2>
                 <div class="tech-grid">
                     <div class="tech-row">
-                        {% if power %}
                         <div class="tech-item">
                             <h3>Power</h3>
+                            {% if power %}
                             <p>{{ power }}</p>
+                            {% else %}
+                            <p>N/A</p>
+                            {% endif %}
                         </div>
-                        {% endif %}
                         
-                        {% if space %}
                         <div class="tech-item">
                             <h3>Space</h3>
+                            {% if space %}
                             <p>{{ space }}</p>
+                            {% else %}
+                            <p>N/A</p>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </div>
                     <div class="tech-row">
-                        {% if lighting %}
                         <div class="tech-item">
                             <h3>Lighting</h3>
+                            {% if lighting %}
                             <p>{{ lighting }}</p>
+                            {% else %}
+                            <p>N/A</p>
+                            {% endif %}
                         </div>
-                        {% endif %}
 
-                        {% if mounting %}
                         <div class="tech-item">
                             <h3>Mounting</h3>
+                            {% if mounting %}
                             <p>{{ mounting }}</p>
+                            {% else %}
+                            <p>N/A</p>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>

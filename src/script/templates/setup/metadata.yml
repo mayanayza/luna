@@ -6,7 +6,6 @@ project:
   status: "archive" # backlog, in_progress, complete, archive
   priority: 0
   tagline: ""
-  description: "" #140 characters or fewer
   feature_post: false
   featured_content: 
     type: "image" # image or code

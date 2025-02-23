@@ -7,8 +7,8 @@ hide_header: false
 
 # Hi, I'm {{ name.first }}!
 
-{{ intro }}
+{{ bio_first_person }}
 
 {{ artist_statement }}
 
-{{ outro }}
+{{ interests }}
