@@ -8,7 +8,7 @@ import yaml
 
 from src.script.channels._channel import Channel
 from src.script.config import Config
-from src.script.constants import Media, Status
+from src.script.constants import Media
 from src.script.utils import (
     convert_model_file,
     convert_video_file,
@@ -60,11 +60,6 @@ class WebsiteHandler(Channel):
        
         try:
             metadata = get_project_metadata(self, name)
-            status = metadata['project']['status']
-
-            if status != Status.COMPLETE:
-                self.logger.warning(f"{name} status is not complete. Skipping staging.")
-                return ''
                 
             self.stage_media(name)
             embed_content = self.stage_embed_content(name)
@@ -89,14 +84,6 @@ class WebsiteHandler(Channel):
             if is_project(self, item):
                 metadata = self.tp.process_project_metadata(item.name)
                 metadatas.append(metadata)
-
-        roadmap = self.generate_roadmap_page(metadatas)
-        with open(self.config.website_pages_dir / 'roadmap.md', 'w') as f:
-            f.write(roadmap)
-
-        links = self.generate_links_page(metadatas)
-        with open(self.config.website_pages_dir / 'links.md', 'w') as f:
-            f.write(links)
 
         about = self.generate_about_page()
         with open(self.config.website_pages_dir / 'about.md', 'w') as f:
@@ -125,92 +112,6 @@ class WebsiteHandler(Channel):
             return post
         except Exception as e:
             self.logger.error(f"Failed to generate post for {name}: {e}")
-            raise
-
-    def generate_roadmap_page(self, metadatas) -> None:
-        try:
-            in_progress = []
-            backlog = []
-            complete_art = []
-            complete_other = []
-
-            for metadata in metadatas:
-
-                project = metadata['project']
-
-                if project['status'] == Status.IN_PROGRESS:
-                    in_progress.append(project)
-                elif project['status'] == Status.BACKLOG:
-                    backlog.append(project)
-                elif project['status'] == Status.COMPLETE:
-                    if "Art" in project['tags']:
-                        complete_art.append(project)
-                    else:
-                        complete_other.append(project)
-
-            backlog.sort(key=lambda x: x.get('priority', 0), reverse=True)
-
-            front_matter = {
-                'in_progress': in_progress,
-                'backlog': backlog,
-                'complete_art': complete_art,
-                'complete_other': complete_other,
-                'title': "Roadmap",
-                'permalink': '/roadmap/',
-                'hide_header': False,
-                'layout': 'page',
-                'website': self.config.website_domain
-            }
-
-            content = self.tp.get_roadmap_template()
-
-            roadmap = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{content}"
-
-            self.logger.info("Generated roadmap")
-            return roadmap
-        except Exception as e:
-            self.logger.error(f"Failed to generate roadmap page: {e}")
-            raise
-
-    def generate_links_page(self, metadatas) -> None:
-        try:
-            featured = []
-            in_progress = []
-
-            for metadata in metadatas:
-
-                project = metadata['project']
-                name = project['name']
-
-                if project['status'] == Status.IN_PROGRESS:
-                    in_progress.append(project)
-
-                if project['feature_post'] and project['status'] == Status.COMPLETE:
-
-                    if project['featured_content']['type'] == 'image':
-                        project = project | self.determine_featured_content(name)
-
-                    featured.append(project)
-
-
-            front_matter = {
-                'in_progress': in_progress,
-                'featured_projects': featured,
-                'title': "Maya's Links",
-                'permalink': '/links/',
-                'hide_header': True,
-                'layout': 'links',
-                'website': self.config.website_domain
-            }
-                                    
-            content = self.tp.get_links_template()
-
-            links = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{content}"
-
-            self.logger.info("Generated links")
-            return links
-        except Exception as e:
-            self.logger.error(f"Failed to generate links page: {e}")
             raise
 
     def generate_about_page(self):
@@ -275,16 +176,17 @@ class WebsiteHandler(Channel):
             embeds = {}
 
             for embed in metadata['project']['embeds']:
-                source_file = Path(project_dir) / Path(embed['source'])
-                dest_path =  output_embed_dir / Path(embed['source']).name
-                embed_key = f"{embed['type']}_embeds"
+                if embed['source'] and embed['type']:
+                    source_file = Path(project_dir) / Path(embed['source'])
+                    dest_path =  output_embed_dir / Path(embed['source']).name
+                    embed_key = f"{embed['type']}_embeds"
 
-                if embed_key not in embeds:
-                    embeds[embed_key] = []
+                    if embed_key not in embeds:
+                        embeds[embed_key] = []
 
-                embeds[embed_key].append(f"/media/{name}/{Media.EMBEDS.TYPE}/{Path(embed['source']).name}")
+                    embeds[embed_key].append(f"/media/{name}/{Media.EMBEDS.TYPE}/{Path(embed['source']).name}")
 
-                shutil.copy2(source_file, dest_path)
+                    shutil.copy2(source_file, dest_path)
 
             self.logger.info(f"Successfully staged all embed files for {name}")
 
@@ -315,8 +217,6 @@ class WebsiteHandler(Channel):
             return {
                 'featured_image': f"/media/{name}/{featured_content['source']}"
             }
-
-    
 
     def rename(self, old_name: str, new_name: str) -> None:
         """Update all website-related files when renaming a project"""

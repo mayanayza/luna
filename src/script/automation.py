@@ -70,9 +70,11 @@ class Automation:
     def create_project(self) -> None:
 
         name, display_name, title = self.prompt_for_display_name()
+        create_github = self.prompt_create_github()
 
         self.files.create(name, display_name, title)
-        self.github.create(name)
+        if create_github:
+            self.github.create(name)
         self.things.create(display_name)
     
     def list_projects(self) -> None:
@@ -132,6 +134,16 @@ class Automation:
             raise ValueError(f"Project {name} not found")
         else:
             return name
+
+    def prompt_create_github(self):
+        create_github = input("Create github repo for this project (y/N)?")
+        if create_github == 'y':
+            return True
+        elif create_github == 'N':
+            return False
+        else:
+            self.logger.info("Invalid input.")
+            self.prompt_create_github()
 
     def prompt_for_display_name(self) -> tuple[str, str]:
         """Prompt user for project name and return (name, formatted_name)"""

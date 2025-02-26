@@ -67,11 +67,14 @@ class TemplateProcessor:
         try:
             processed = {}
             metadata = get_project_metadata(self, name)
-            project = metadata['project']
 
             processed['website'] = self.config.website_domain
             processed['github'] = self.config.github_url_path
             processed['github_username'] = self.config.github_username
+
+            project = metadata['project']
+
+            del project['notes']
 
             if (project['status'] == Status.COMPLETE):
                 project['website'] = f"{self.config.website_domain}/{name}"

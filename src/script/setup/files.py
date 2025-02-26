@@ -54,7 +54,6 @@ class FileHandler:
             open(project_dir / 'content/content.md', 'w').close()
             open(project_dir / 'content/README.md', 'w').close()
 
-            shutil.copy(templates_dir / Files.README, project_dir / 'content' / Files.README)
             shutil.copy(templates_dir / Files.GITIGNORE, project_dir / Files.GITIGNORE)
 
             self.logger.info(f"Created project files for {name}")

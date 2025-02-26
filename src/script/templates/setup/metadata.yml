@@ -6,6 +6,7 @@ project:
   status: "archive" # backlog, in_progress, complete, archive
   priority: 0
   tagline: ""
+  notes: "" # Private, won't be published on website or to GitHub
   feature_post: false
   featured_content: 
     type: "image" # image or code
@@ -15,7 +16,7 @@ project:
     end_line: 0
   tags: []
   embeds:
-  - name: # full path relative to project directory e.g "src/main.py"
+  - source: # full path relative to project directory e.g "src/main.py"
     type: # iframe, github_embed, or no-embed
 
 physical_specifications:
