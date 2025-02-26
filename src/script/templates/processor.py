@@ -74,7 +74,7 @@ class TemplateProcessor:
 
             project = metadata['project']
 
-            del project['notes']
+            project.pop('notes', None)
 
             if (project['status'] == Status.COMPLETE):
                 project['website'] = f"{self.config.website_domain}/{name}"

@@ -6,91 +6,85 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from src.script.automation import Automation
 from src.script.channels._registry import ChannelRegistry
+from src.script.channels.github import GithubHandler
+from src.script.channels.instagram import InstagramHandler
+from src.script.channels.pdf import PDFHandler
+from src.script.channels.project import ProjectHandler
+from src.script.channels.raw import RawHandler
+from src.script.channels.website import WebsiteHandler
 from src.script.config import Config
 
 load_dotenv()
 
-def setup_channel_registry(automation, config):
-
+def setup_channel_registry(config):
+    """Set up the channel registry with all available handlers"""
     registry = ChannelRegistry(config)
     
-    # Register publication channels
-    registry.register('web', {
-        'stage': lambda **kwargs: automation.stage_web(
-            kwargs.get('projects', [])
-        ),
-        'publish': lambda **kwargs: automation.publish_web(
-            kwargs.get('projects', [])
-        )
-    })
+    # Initialize all handlers
+    github_handler = GithubHandler(config)
+    website_handler = WebsiteHandler(config)
+    pdf_handler = PDFHandler(config)
+    raw_handler = RawHandler(config)
+    instagram_handler = InstagramHandler(config)
     
-    registry.register('pdf', {
-        'publish': lambda **kwargs: automation.publish_pdf(
-            kwargs.get('projects', []),
-            collate_images=kwargs.get('collate_images', False), 
-            filename_prepend=kwargs.get('filename_prepend', ''),
-            submission_name=kwargs.get('submission_name', ''),
-            max_width=kwargs.get('max_width', ''),
-            max_height=kwargs.get('max_height', '')
-        )
-    })
-
-    registry.register('github', {
-        'stage': lambda **kwargs: automation.stage_github(
-            kwargs.get('projects', []),
-            commit_message=kwargs.get('commit_message', '')
-        ),
-        'publish': lambda **kwargs: automation.publish_github(
-            kwargs.get('projects', []),
-            commit_message=kwargs.get('commit_message', '')
-        ),
-    })
-
-    registry.register('instagram', {
-        'publish': lambda **kwargs: automation.publish_instagram(
-            kwargs.get('projects', []),
-            caption=kwargs.get('caption', '')
-        ),
-    })
+    # Create project handler with dependencies
+    project_handler = ProjectHandler(
+        config=config,
+        github_handler=github_handler,
+        website_handler=website_handler,
+        raw_handler=raw_handler
+    )
     
-
-    registry.register('raw', {
-        'publish': lambda **kwargs: automation.publish_raw(
-            kwargs.get('projects', []),
-        )
-    })
-
-    
+    # Register handlers' commands
+    github_handler.register_commands(registry)
+    project_handler.register_commands(registry)
+    website_handler.register_commands(registry)
+    pdf_handler.register_commands(registry)
+    raw_handler.register_commands(registry)
+    instagram_handler.register_commands(registry)
     
     return registry
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Project Publication Tool')
-    parser.add_argument('--command', '-c', help='Command to execute. Create, list, rename, publish, stage, delete.')
+    parser = argparse.ArgumentParser(description='Project Management and Publication Tool')
     
-    parser.add_argument('--all-projects', default=False, action='store_true', help='Stage or publish for all projects')
-    parser.add_argument('--projects', '-p', nargs='+', help='One or more projects to stage or publish.')
+    # Main command argument
+    parser.add_argument('command', help='Command to execute: create, list, rename, delete, init, stage, publish')
     
-    parser.add_argument('--all-channels', default=False, action='store_true', help='Stage or publish across all channels')
-    parser.add_argument('--channels', '-ch', nargs='+', help='One more channels to publish to (web, pdf, github).')
+    # Channel to operate on
+    parser.add_argument('--channel', '-ch', help='Channel to use (github, web, pdf, instagram, raw, project)')
     
+    # Project selection arguments
+    parser.add_argument('--all-projects', default=False, action='store_true', help='Apply command to all projects')
+    parser.add_argument('--projects', '-p', nargs='+', help='One or more projects to operate on')
+    
+    # Channel selection arguments (for compatibility with old interface)
+    parser.add_argument('--all-channels', default=False, action='store_true', help='Apply command across all channels')
+    parser.add_argument('--channels', nargs='+', help='One more channels to publish to (web, pdf, github)')
+    
+    # PDF-specific arguments
     parser.add_argument('--collate-images', '-ci', action='store_true', help='Collate images for PDF publication')
     parser.add_argument('--submission-name', '-sn', help='Name of what pdf is being submitted to')
     parser.add_argument('--max-width', '-mw', help='Max width for images when generating separate image files for PDF publication')
     parser.add_argument('--max-height', '-mh', help='Max height for images when generating separate image files for PDF publication')
     parser.add_argument('--filename-prepend', '-fp', default='', help='Prepend string for PDF filename')
 
+    # GitHub-specific arguments
     parser.add_argument('--commit-message','-cm', default='', help='Commit message for publishing to github')
 
+    # Instagram-specific arguments
     parser.add_argument('--caption','-ca', default='', help='Caption for Instagram post. Defaults to project tagline.')
+    
+    # List projects sorting/filtering
+    parser.add_argument('--sort-by', choices=['name', 'date', 'priority', 'status'], default='name', 
+                         help='Sort projects by this field when listing')
+    parser.add_argument('--status', choices=['backlog', 'in_progress', 'complete', 'archive'], 
+                         help='Filter projects by status when listing')
     
     return parser.parse_args()
 
-
 def main():
-
     args = parse_arguments()
     config = Config(
         base_dir=Path(os.environ.get('PROJECT_BASE_DIR')),
@@ -103,32 +97,54 @@ def main():
         website_pages=(os.environ.get('WEBSITE_PAGES')),
         instagram_username=(os.environ.get('INSTAGRAM_USERNAME')),
         instagram_password=(os.environ.get('INSTAGRAM_PASSWORD')),
-        enable_roadmap=os.environ.get('ENABLE_ROADMAP').lower() == 'true',
-        enable_links=os.environ.get('ENABLE_LINKS').lower() == 'true',
-        enable_things3=os.environ.get('ENABLE_THINGS3').lower() == 'true',
-        things3_area=os.environ.get('THINGS3_AREA')
+        enable_things3=os.environ.get('ENABLE_THINGS3', 'false').lower() == 'true',
+        things3_area=os.environ.get('THINGS3_AREA', '')
     )
-    automation = Automation(config)
-    channels = setup_channel_registry(automation, config)
+    
+    channels = setup_channel_registry(config)
 
     try:
-        
-        if args.command == 'create':
-            automation.create_project()
-        elif args.command == 'list':
-            automation.list_projects()
-        elif args.command == 'rename':
-            automation.rename_project()
-        elif args.command == 'delete':
-            automation.delete_project()
-        elif args.command == 'publish' or args.command == 'stage':
-
-            try:
-                # Publish based on command-line arguments
-                channels.command(**vars(args))
-            except ValueError as e:
-                print(f"Publication error: {e}")
+        # Handle command execution through channel registry
+        if args.command in ['create', 'list', 'rename', 'delete']:
+            # Project management commands always use the project channel
+            channels.command(
+                command=args.command, 
+                channels=['project'],
+                sort_by=args.sort_by, 
+                status=args.status,
+                projects=args.projects,
+                all_projects=args.all_projects
+            )
+        elif args.command == 'init':
+            # GitHub initialization if not done in project creation
+            if not args.projects and not args.all_projects:
+                print("Error: You must specify a project with --projects or use --all-projects")
                 sys.exit(1)
+            channels.command(
+                command=args.command, 
+                channels=['github'], 
+                projects=args.projects,
+                all_projects=args.all_projects
+            )
+        elif args.command in ['publish', 'stage']:
+            # Publishing commands
+            target_channels = args.channels if args.channels else [args.channel] if args.channel else None
+            
+            try:
+                channels.command(
+                    command=args.command,
+                    channels=target_channels,
+                    all_channels=args.all_channels,
+                    projects=args.projects,
+                    all_projects=args.all_projects,
+                    **{k: v for k, v in vars(args).items() if k not in ['command', 'channels', 'all_channels', 'projects', 'all_projects', 'channel']}
+                )
+            except ValueError as e:
+                print(f"Command error: {e}")
+                sys.exit(1)
+        else:
+            print(f"Unknown command: {args.command}")
+            sys.exit(1)
             
     except Exception as e:
         logging.error(f"Operation failed: {e}")

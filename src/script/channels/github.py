@@ -22,10 +22,53 @@ class GithubHandler(Channel):
         }
             
         super().__init__(**init)
-
-        self.media = [
-            Media.IMAGES
-        ]
+        
+    def get_commands(self):
+        """Return commands supported by GitHub handler"""
+        return {
+            'init': self.handle_init,
+            'stage': self.handle_stage,
+            'publish': self.handle_publish,
+        }
+        
+    def handle_init(self, **kwargs):
+        """Initialize GitHub repositories for projects"""
+        projects = self.validate_projects(kwargs.get('projects', []))
+        for name in projects:
+            try:
+                self.create(name)
+            except Exception as e:
+                self.logger.error(f"Failed to initialize GitHub for {name}: {e}")
+    
+    def handle_stage(self, **kwargs):
+        """Stage GitHub readme files for projects"""
+        projects = self.validate_projects(kwargs.get('projects', []))
+        for name in projects:
+            try:
+                self.stage(name)
+                self.logger.info(f"Staged GitHub readme for {name}")
+            except Exception as e:
+                self.logger.error(f"Failed to stage GitHub for {name}: {e}")
+    
+    def handle_publish(self, **kwargs):
+        """Publish projects to GitHub"""
+        projects = self.validate_projects(kwargs.get('projects', []))
+        commit_message = kwargs.get('commit_message', 'Update project content')
+        
+        # First stage all projects
+        for name in projects:
+            try:
+                self.stage(name)
+            except Exception as e:
+                self.logger.error(f"Failed to stage GitHub for {name}: {e}")
+        
+        # Then publish each project
+        for name in projects:
+            try:
+                self.publish(name, commit_message)
+                self.logger.info(f"Published {name} to GitHub")
+            except Exception as e:
+                self.logger.error(f"Failed to publish {name} to GitHub: {e}")
 
     def create(self, name: str) -> None:
         

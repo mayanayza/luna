@@ -25,11 +25,6 @@ class InstagramHandler(Channel):
         self.bot = Client()
         self.bot.delay_range = [1,3]
 
-        self.media = [
-            Media.IMAGES.TYPE,
-            Media.VIDEOS.TYPE
-        ]
-
     def login(self) -> None:
 
         login_via_session = False

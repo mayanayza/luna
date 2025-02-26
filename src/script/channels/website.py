@@ -2,7 +2,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 import yaml
 
@@ -32,13 +32,59 @@ class WebsiteHandler(Channel):
         }
             
         super().__init__(**init)
+        
+    def get_commands(self):
+        """Return commands supported by Website handler"""
+        return {
+            'stage': self.handle_stage,
+            'publish': self.handle_publish,
+        }
+        
+    def handle_stage(self, **kwargs):
+        """Handle stage command for website content"""
+        projects = self.validate_projects(kwargs.get('projects', []))
+        staged_projects = self.stage_web(projects)
+        return staged_projects
+    
+    def handle_publish(self, **kwargs):
+        """Handle publish command for website content"""
+        projects = self.validate_projects(kwargs.get('projects', []))
+        commit_message = kwargs.get('commit_message', 'Update website content')
+        self.publish_web(projects, commit_message)
+        
+    def stage_web(self, projects: List[str]) -> List[str]:
+        """Stage website content for projects"""
+        staged_projects = []
+        for name in projects:
+            try:
+                result = self.stage_post(name)
+                if result:
+                    staged_projects.append(result)
+            except Exception as e:
+                self.logger.error(f"Failed to stage website content for {name}: {e}")
 
-        self.media = [
-           Media.IMAGES,
-           Media.VIDEOS,
-           Media.MODELS,
-           Media.EMBEDS
-        ]
+        try:
+            self.stage_pages()
+        except Exception as e:
+            self.logger.error(f"Failed to stage website pages: {e}")
+
+        return [p for p in staged_projects if p.strip()]
+        
+    def publish_web(self, projects: List[str], commit_message: str) -> None:
+        """Publish website content for projects"""
+        try:
+            # First stage all content
+            staged_projects = self.stage_web(projects)
+            
+            # Then publish changes
+            if staged_projects:
+                commit_msg = f"Updating content for {', '.join(staged_projects)}"
+            else:
+                commit_msg = commit_message
+                
+            self.publish(commit_msg)
+        except Exception as e:
+            self.logger.error(f"Failed to publish website: {e}")
 
     def publish(self, commit_message) -> None:
         try:
@@ -55,6 +101,14 @@ class WebsiteHandler(Channel):
         except Exception as e:
             self.logger.error(f"Failed to publish website: {e}")
             raise
+
+    def stage(self, name: str) -> None:
+        """Stage a single project's content (for compatibility with rename)"""
+        try:
+            self.stage_post(name)
+            self.logger.info(f"Staged website content for {name}")
+        except Exception as e:
+            self.logger.error(f"Failed to stage website content for {name}: {e}")
 
     def stage_post(self, name: str) -> str:
        
@@ -128,7 +182,7 @@ class WebsiteHandler(Channel):
         try:
             output_dir = self.config.website_media_dir / name
                 
-            for media in self.media:
+            for media in [Media.IMAGES, Media.VIDEOS, Media.MODELS, Media.EMBEDS]:
                 media_files = get_project_media_files(self, name, media.TYPE)
 
                 output_type_dir = output_dir / str(media.TYPE)
@@ -249,4 +303,3 @@ class WebsiteHandler(Channel):
         except Exception as e:
             self.logger.error(f"Failed to delete website files for {name}: {e}")
             raise
-

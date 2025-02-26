@@ -3,7 +3,7 @@ project:
   display_name: "{display_name}"
   title: "{title}"
   date_created: "{date}"
-  status: "archive" # backlog, in_progress, complete, archive
+  status: "backlog" # backlog, in_progress, complete, archive
   priority: 0
   tagline: ""
   notes: "" # Private, won't be published on website or to GitHub

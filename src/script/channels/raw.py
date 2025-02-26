@@ -15,12 +15,25 @@ class RawHandler(Channel):
         }
             
         super().__init__(**init)
-
-        self.media = Media.ALL_TYPES
+        
+    def get_commands(self):
+        """Return commands supported by Raw handler"""
+        return {
+            'publish': self.handle_publish,
+        }
+        
+    def handle_publish(self, **kwargs):
+        """Handle publish command for raw file exports"""
+        projects = self.validate_projects(kwargs.get('projects', []))
+        for name in projects:
+            try:
+                self.publish(name)
+                self.logger.info(f"Published raw files for {name}")
+            except Exception as e:
+                self.logger.error(f"Failed to publish raw files for {name}: {e}")
 
     def publish(self, name: str) -> None:        
         try:
-
             self.delete(name)
 
             project_dir = get_project_path(self, name)
@@ -30,8 +43,8 @@ class RawHandler(Channel):
             shutil.copy2(project_dir / 'content/README.md', output_dir / 'README.md')
             shutil.copy2(project_dir / 'content/content.md', output_dir / 'content.md')
 
-            for media_type in self.media:
-                media_files = get_project_media_files(self, name, media_type)
+            for media in Media.ALL_TYPES:
+                media_files = get_project_media_files(self, name, media.TYPE)
                 for file in media_files:
                     shutil.copy2(file, str(output_dir / file.name))
                 
@@ -47,5 +60,5 @@ class RawHandler(Channel):
             if output_dir.exists():
                 shutil.rmtree(output_dir)
         except Exception as e:
-            self.logger.error(f"Error publishing raw: {e}")
+            self.logger.error(f"Error deleting raw content: {e}")
             raise

@@ -1,7 +1,6 @@
 import shutil
 from pathlib import Path
 
-# import markdown
 from PyPDF2 import PdfMerger
 from weasyprint import HTML
 
@@ -30,9 +29,51 @@ class PDFHandler(Channel):
             
         super().__init__(**init)
 
-        self.media = [
-            Media.IMAGES
-        ]
+    def get_commands(self):
+        """Return commands supported by PDF handler"""
+        return {
+            'publish': self.handle_publish,
+        }
+        
+    def handle_publish(self, **kwargs):
+        """Handle publish command for PDF generation"""
+        projects = self.validate_projects(kwargs.get('projects', []))
+        
+        if not projects:
+            self.logger.error("No valid projects provided for PDF generation")
+            return
+            
+        # Extract parameters
+        collate_images = kwargs.get('collate_images', False)
+        max_width = kwargs.get('max_width', 1600)
+        max_height = kwargs.get('max_height', 1200)
+        filename_prepend = kwargs.get('filename_prepend', '')
+        submission_name = kwargs.get('submission_name', '')
+        
+        # Set default values if needed
+        if max_width and isinstance(max_width, str) and max_width.isdigit():
+            max_width = int(max_width)
+        else:
+            max_width = 1600
+            
+        if max_height and isinstance(max_height, str) and max_height.isdigit():
+            max_height = int(max_height)
+        else:
+            max_height = 1200
+            
+        # Generate PDFs for each project
+        for name in projects:
+            try:
+                self.stage_projects(name, max_width, max_height, filename_prepend, collate_images)
+            except Exception as e:
+                self.logger.error(f"Failed to generate PDF for {name}: {e}")
+                
+        # Generate cover and publish final PDF
+        try:
+            self.stage_cover(projects, submission_name)
+            self.publish(submission_name)
+        except Exception as e:
+            self.logger.error(f"Failed to publish final PDF: {e}")
 
     def publish(self, submission_name='') -> None:
         # Search recursively for temp_pdf folders
@@ -43,6 +84,7 @@ class PDFHandler(Channel):
             # Create output folder if it doesn't exist
             output_folder.mkdir(exist_ok=True)
             
+            # First, process temp folders
             for temp_folder in temp_pdf_folders:
                 # Move PDFs
                 for pdf_file in temp_folder.glob('*.pdf'):
@@ -57,40 +99,80 @@ class PDFHandler(Channel):
                 shutil.rmtree(temp_folder)
                 self.logger.info(f"Processed and removed {temp_folder}")
 
+            # Check for PDFs in the output folder
             pdf_files = list(output_folder.glob('*.pdf'))
+            if not pdf_files:
+                self.logger.warning("No PDF files found in output folder.")
+                return
+                
+            # Separate cover from other PDFs
             not_cover = [p for p in pdf_files if p.name != '_cover.pdf']
-            cover = [next(p for p in pdf_files if p.name == '_cover.pdf')]
-            pdf_files = cover + not_cover
-            if pdf_files:
-                merger = PdfMerger()
+            cover_files = [p for p in pdf_files if p.name == '_cover.pdf']
+            
+            # Handle case when cover file might not exist
+            if cover_files:
+                pdf_files = cover_files + not_cover
+            else:
+                self.logger.warning("No cover PDF found, proceeding without it.")
+                pdf_files = not_cover
                 
-                # Add each PDF to the merger
-                for pdf in pdf_files:
+            if not pdf_files:
+                self.logger.warning("No valid PDF files to merge.")
+                return
+                
+            # Create merger
+            merger = PdfMerger()
+            
+            # Add each PDF to the merger
+            for pdf in pdf_files:
+                try:
                     merger.append(str(pdf))
-                
-                # Write combined PDF
+                except Exception as e:
+                    self.logger.error(f"Error adding PDF {pdf.name} to merger: {e}")
+                    # Continue with other PDFs
+            
+            # Get personal info for filename
+            try:
                 personal_info = load_personal_info(self)
-                name = f"{personal_info['name']['first']}-{personal_info['name']['last']}"
-                
-                if submission_name != '':
+                first_name = personal_info.get('name', {}).get('first', 'User')
+                last_name = personal_info.get('name', {}).get('last', '')
+                name = f"{first_name}-{last_name}"
+            except Exception as e:
+                self.logger.error(f"Error loading personal info: {e}")
+                name = "User"
+            
+            # Generate output filename
+            if submission_name:
+                try:
                     file_name, _ = format_name(self, submission_name)
                     file_name = f"{name}-{file_name}"
-                else:
+                except Exception as e:
+                    self.logger.error(f"Error formatting submission name: {e}")
                     file_name = f"{name}-submission"
+            else:
+                file_name = f"{name}-submission"
 
+            # Write combined PDF
+            try:
                 combined_path = output_folder / f"{file_name}.pdf"
                 merger.write(str(combined_path))
                 merger.close()
                 
-                # Delete source PDFs
+                # Delete source PDFs only after successful write
                 for pdf in pdf_files:
-                    pdf.unlink()
+                    try:
+                        pdf.unlink()
+                    except Exception as e:
+                        self.logger.warning(f"Could not delete source PDF {pdf.name}: {e}")
                 
                 self.logger.info(f"Published PDF at {combined_path}")
+            except Exception as e:
+                self.logger.error(f"Error writing combined PDF: {e}")
+                raise
         except Exception as e:
             self.logger.error(f"Error publishing PDF: {e}")
             raise
-
+    
     def stage_cover(self, projects, submission_name):
         context = load_personal_info(self)
         projects = [get_project_metadata(self, p)['project']['title'] for p in projects]
