@@ -1,207 +1,253 @@
 # 🦋 Luna
 
-Luna is a tool for artists and creative technologists which automates the creation, management, and syndication of art and personal projects across various channels. As I started to create more art, the toil of managing and organizing my work across different platforms became annoying, so I decided to create a tool to streamline it all.
+Luna is a tool for artists and creative technologists which automates the creation, management, and syndication of art and personal projects across various channels. It streamlines the process of maintaining consistent organization of your work across different platforms.
 
-Luna does the following through a simple CLI:
-- Creates local project directories to store work-in-progress files and media, 
-- Sets up a GitHub repository for your project
-- Optionally, creates a Things 3 project
-...all with consistent organization and metadata.
+## Overview
 
-Once ready, Luna also facilitates syndication of project content through various channels:
-- A portfolio website (designed for websites powered by Jekyll)
-- Github
-- PDF summaries for submission to open call and exhibitions
+Luna simplifies your creative workflow through a command-line interface that:
 
-Almost all of the content on my website is managed using Luna.
+- Creates standardized local project directories for work-in-progress files and media
+- Sets up GitHub repositories with proper structure and documentation
+- Generates consistent metadata across all your projects
+- Optionally integrates with Things 3 for task management (macOS only)
+
+When you're ready to share your work, Luna facilitates publication through various channels:
+
+- Portfolio website (designed for Jekyll-based sites)
+- GitHub repositories
+- PDF generation for exhibition submissions and open calls
+- Raw file exports for other purposes
 
 ## Features
-Provides a single source-of-truth for all project information to eliminate toil in managing across various channels
-- Creates standardized project structure on local machine to more easily manage project content and media files
-- Initializes git repository
-- Generates and publishes content for various channels based on project info
-	- Website post content and a roadmap of active work (designed for Jekyll websites)
-	- PDFs for submitting to open calls with a variety of formatting options
-	- Github for technical content and documentation / readme information
-	- Raw files to local output folder for other uses
-- Optionally integrates with Things 3 on MacOS
 
-## Setup
+- **Single Source of Truth**: Maintain all project information in one place to eliminate redundancy
+- **Standardized Structure**: Consistent project organization for easier navigation and management
+- **Multi-Channel Publishing**:
+  - **Website**: Generate Jekyll-compatible posts and media files
+  - **GitHub**: Create repositories and update README files
+  - **PDF**: Format project documentation for submissions with customizable options
+  - **Raw**: Export organized files for other platforms
+- **Optional Integrations**:
+  - Things 3 on macOS for task management
+
+## Installation
+
 1. Clone the repository:
 ```bash
-git clone git@github.com:yourusername/project-automation.git
-cd src
+git clone git@github.com:yourusername/luna.git
+cd luna
 ```
 
 2. Create and activate a virtual environment:
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: venv\Scripts\activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 3. Install dependencies:
 ```bash
-pip3 install -r requirements.txt
+pip install -r src/requirements.txt
 ```
 
 4. Create your environment file:
 ```bash
-cp .env.example .env
+cp src/.env.example .env
 # Edit .env with your values
 ```
 
-5. Run script commands from root directory
+5. Set up your personal info:
 ```bash
-cd ..
+cp src/personal-info.yml.example src/personal-info.yml
+# Edit with your information
 ```
 
-## Environment Variables
-- `WEBSITE_DOMAIN`: The domain on which your Jekyll website will ultimately be served
-- `PROJECT_BASE_DIR`: Path for where you would like to create and manage projects
-- `WEBSITE_DIR`: Path to where your website content is located
-- `WEBSITE_POSTS`: Relative path to WEBSITE_DIR where your website posts are located
-- `WEBSITE_MEDIA`: Relative path to WEBSITE_DIR where your website media is located
-- `WEBSITE_PAGES`: Relative path to WEBSITE_DIR where your website pages are located
-- `ENABLE_ROADMAP`: Enable/disable generating a roadmap page based on your projects for your website
-- `GITHUB_USERNAME`: Your GitHub username
-- `GITHUB_TOKEN`: Your GitHub personal access token
-- `ENABLE_THINGS3`: Enable/disable Things 3 integration (true/false)
-- `THINGS3_AREA`: Area where projects should be created
+## Configuration
+
+Edit the `.env` file with your specific settings:
+
+### Required Settings
+- `PROJECT_BASE_DIR`: Path where you want to create and manage projects
+- `FIRST_NAME` and `LAST_NAME`: Your name for documentation
+- `WEBSITE_DOMAIN`: The domain where your Jekyll website is hosted
+- `WEBSITE_DIR`: Path to your website directory
+- `WEBSITE_POSTS`: Relative path to posts directory (e.g., "_posts")
+- `WEBSITE_MEDIA`: Relative path to media directory (e.g., "_media")
+- `WEBSITE_PAGES`: Relative path to pages directory (e.g., "_pages")
+### Optional Settings
+- `GITHUB_USERNAME` and `GITHUB_TOKEN`: For GitHub integration
+- `ENABLE_THINGS3`: Set to "true" to enable Things 3 integration
+- `THINGS3_AREA`: Area in Things 3 where projects should be created
 
 ## Usage
 
-### Create a new project:
+All commands are run using the main script:
+
+### Creating a New Project
+
 ```bash
-python -m src.script.main --command create
-python -m src.script.main --c create
+python -m src.script.main create
 ```
 
-### List all projects:
+This interactive command will:
+1. Prompt for a project display name
+2. Create a standardized directory structure
+3. Initialize basic metadata files
+4. Optionally create a GitHub repository
+5. Optionally create a Things 3 project (if enabled)
+
+### Listing Projects
+
 ```bash
-python -m src.script.main --command list
-python -m src.script.main --c list
+python -m src.script.main list
+
+# Sort by different criteria
+python -m src.script.main list --sort-by date
+python -m src.script.main list --sort-by priority
+python -m src.script.main list --sort-by status
+
+# Filter by status
+python -m src.script.main list --status in_progress
 ```
-This will show all projects with their names, creation dates, and status.
 
-### Rename project:
+### Renaming a Project
+
 ```bash
-python -m src.script.main --command rename
-python -m src.script.main --c rename
+python -m src.script.main rename
 ```
 
-### Delete project:
+This updates the project locally and across all integration channels.
+
+### Deleting a Project
+
 ```bash
-python -m src.script.main --command delete
-python -m src.script.main --c delete
+python -m src.script.main delete
+# or
+python -m src.script.main delete --projects project-name
 ```
 
-### Publish project updates:
-```bash
-# Publish all projects to all channels
-python -m src.script.main --command publish --all-projects --all-channels
+### Publishing to Channels
 
+```bash
 # Publish specific projects to all channels
-python -m src.script.main --command publish --projects project1 project2 --all-channels
-python -m src.script.main --command publish --p project1 project2 --all-channels
+python -m src.script.main publish --projects project1 project2 --all-channels
+
+# Publish all projects to specific channels
+python -m src.script.main publish --all-projects --channels github web
 
 # Publish specific projects to specific channels
-python -m src.script.main --command publish --p project1 project2 --channels channel1 channel2
-python -m src.script.main --command publish --p project1 project2 --ch channel1 channel2
+python -m src.script.main publish --projects project1 --channels pdf
 ```
 
-### Channel-specific publishing options and information
+### Channel-Specific Options
 
-#### PDF
-
-Uses files in media/ directory, metadata.yml, content.md, README.md
-Outputs PDF to \_output folder in base directory
+#### PDF Channel
 
 ```bash
-# Publish (generate PDF with images collated into same document).
-python -m src.script.main --c publish --p project1 --ch pdf --collate-images
-python -m src.script.main --c publish --p project1 --ch pdf -ci
+# Generate PDF with images collated in the same document
+python -m src.script.main publish --projects project1 --channels pdf --collate-images
 
-# Publish (generate PDF with separate image files)
+# Generate PDF with separate image files and specific dimensions
+python -m src.script.main publish --projects project1 --channels pdf --max-width 1200 --max-height 800
 
-## Prepend optional text to image files
-python -m src.script.main --c publish --p project1 --ch pdf --filename-prepend
-python -m src.script.main --c publish --p project1 --ch pdf -fp
+# Add a prefix to exported filenames
+python -m src.script.main publish --projects project1 --channels pdf --filename-prepend "Exhibition-2023-"
 
-## Set max image dimensions
-python -m src.script.main --c publish --p project1 --ch pdf --max-width 1200 --max-height 800
-python -m src.script.main --c publish --p project1 --ch pdf -mw 1200 -mh 800
+# Specify submission name for PDF
+python -m src.script.main publish --projects project1 --channels pdf --submission-name "Gallery-Open-Call-2023"
 ```
 
-#### Github
-
-Uses files in media/ directory, metadata.yml, content.md
+#### GitHub Channel
 
 ```bash
-# Stage (generate README.md)
-python -m src.script.main --c stage --p project1 --ch github
+# Stage (generate README.md without pushing)
+python -m src.script.main stage --projects project1 --channels github
 
-# Publish (commit and pushing to Github). Commit message required.
-python -m src.script.main --c publish --p project1 --ch github --commit-message 'message'
-python -m src.script.main --c publish --p project1 --ch github -cm 'message'
+# Publish with commit message
+python -m src.script.main publish --projects project1 --channels github --commit-message "Updated project documentation"
 ```
 
-### Web
-
-Uses files in media/ directory, metadata.yml, content.md
-Project status must be set to `complete` for this publication option to work
+#### Website Channel
 
 ```bash
-# Stage (generate posts, roadmap, links page)
-python -m src.script.main --c stage --p project1 --ch github
+# Stage website content (project status must be "complete")
+python -m src.script.main stage --projects project1 --channels web
 
-# Publish (commit and push change to Github). Commit message auto-generated.
-python -m src.script.main --c publish --p project1 --ch web
+# Publish to website
+python -m src.script.main publish --projects project1 --channels web
 ```
 
-### Raw
-
-Uses files in media/ directory, metadata.yml, content.md, README.md
-Outputs to \_output/project_name folder in base directory
+#### Raw Channel
 
 ```bash
-# Publish (flattens content and media files and puts into one folder)
-python -m src.script.main --c publish --p project1 --ch raw
+# Export files to output folder
+python -m src.script.main publish --projects project1 --channels raw
 ```
 
 ## Project Structure
+
 Each project is created with the following structure:
+
 ```
 project-name/
-├── src/
-├── media/
+├── src/                  # Source code for the project
+├── media/                # Media files for publication
+│   ├── images/           # Image files
+│   ├── videos/           # Video files
+│   ├── audio/            # Audio files
+│   ├── models/           # 3D model files
+│   ├── docs/             # Document files
+│   └── embeds/           # Embed content
+├── media-internal/       # Working/draft media files (not published)
 │   ├── images/
 │   ├── videos/
 │   ├── audio/
-│   ├── docs/
-│   └── models/
-├── media-internal/
-│   ├── images/
-│   ├── videos/
-│   ├── audio/
-│   ├── docs/
-│   └── models/
-├── content/ 
-│   ├── content.md
-│   ├── metadata.yml
-│   └── README.md
+│   ├── models/
+│   └── docs/
+├── content/              # Project content and metadata
+│   ├── content.md        # Main content markdown
+│   ├── metadata.yml      # Project metadata
+│   └── README.md         # Project README
 ```
 
-media-internal is for organizing WIP assets which wil not be committed to Github. Final media files which are ready to be syndicated in different channels, media files should be moved to the corresponding media/ subfolder.
+The `media-internal` directory is intended for work-in-progress assets that won't be committed to GitHub. When files are ready for publication, move them to the corresponding subdirectory in the `media` folder.
 
 ## Development
-To add a channel
-1. Create a new .py file for the channel in the channels/ directory
-2. Create any necessary template files for the channel in the templates/ directory
-3. Add automation to automation.py
-4. Add channel to channel registry in main.py
 
-## Things 3 Integration
-The script provides a simple integration with Things 3 on macOS, and will create a project in the area specified in the .env file upon project creation.
+### Project Structure
 
+```
+luna/
+├── src/                  # Source code
+│   ├── script/           # Main script modules
+│   │   ├── channels/     # Publication channel handlers
+│   │   ├── templates/    # Templates for various outputs
+│   │   └── utils.py      # Utility functions
+│   ├── requirements.txt  # Project dependencies
+│   └── .env.example      # Environment variable template
+└── tests/                # Test suite (see testing strategy)
+```
 
+### Adding a New Channel
 
+1. Create a new handler file in the `src/script/channels/` directory
+2. Create any necessary templates in the `src/script/templates/` directory
+3. Add your channel to the channel registry in `src/script/main.py`
+4. Implement the required channel interface methods (stage, publish, etc.)
+
+## Testing
+
+See the [Testing Strategy](./tests/README.md) document for details on how to run and create tests for Luna.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
