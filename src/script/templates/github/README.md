@@ -1,5 +1,5 @@
 # {{ project.display_name }}
 
-{{ content }}
+{{ project.written_content }}
 
-{{ readme }}
+{{ project.readme }}
