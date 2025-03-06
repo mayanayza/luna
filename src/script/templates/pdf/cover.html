@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ name.first }} {{ name.last }} Submission</title>
+    <title>{{ first_name }} {{ last_name }} Submission</title>
     <style>
         @page {
             margin: 2cm;
@@ -92,14 +92,14 @@
     <div class="document">
         <div class="content-column">
             <header>
-                <h1>{{ name.first }} {{ name.last }}</h1>
+                <h1>{{ first_name }} {{ last_name }}</h1>
                 {% if submission_name %}
                 <h2>Submission for {{ submission_name }}</h2>
                 {% endif %}
                 
                 <div class="contact-info">
-                    <p><strong>Email:</strong> {{ contact.email }}</p>
-                    <p><strong>Location:</strong> {{ contact.location }}</p>
+                    <p><strong>Email:</strong> {{ email }}</p>
+                    <p><strong>Location:</strong> {{ location }}</p>
                     <p><strong>Website:</strong> {{ website }}</p>
                 </div>
             </header>

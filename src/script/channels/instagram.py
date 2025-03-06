@@ -8,7 +8,11 @@ from instagrapi.types import Location
 from src.script.channels._channel import Channel
 from src.script.config import Config
 from src.script.constants import Media
-from src.script.utils import get_project_media_files, get_project_metadata
+from src.script.utils import (
+    get_project_media_files,
+    get_project_metadata,
+    load_personal_info,
+)
 
 
 class InstagramHandler(Channel):
@@ -81,10 +85,13 @@ class InstagramHandler(Channel):
             if caption == '':
                 caption = metadata['project']['tagline']
 
+            personal_info = load_personal_info(self)
+            location_name = personal_info['location']
+
             self.bot.album_upload(
                 images, 
                 caption, 
-                location=Location(name='Bushwick, NY', lat=40.694428, lng=-73.921286)
+                location=Location(name=location_name)
             )
 
             self.logger.info("Published instagram")

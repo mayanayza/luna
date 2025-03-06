@@ -154,7 +154,13 @@
                 {% if project.title %}<h1>{{ project.title }}</h1>{% endif %}
                 
                 <div class="specs-list">
-                    {% if project.website %}<p><a href="{{ project.website }}">View on website</a> for additional media</p>{% endif %}
+                    {% if project.website %}
+                    {% if project.has_non_image_media %}
+                    <p><strong>Please <a href="{{ project.website }}">view on website</a> for additional non-image media</strong></p>
+                    {% else %}
+                    {% endif %}
+                    <p><a href="{{ project.website }}">View on website</a></p>
+                    {% endif %}
                     {% if materials %}<p><strong>Materials:</strong> {{ materials }}</p>{% endif %}
                     {% if dimensions %}<p><strong>Dimensions:</strong> {{ dimensions }}</p>{% endif %}
                     {% if weight %}<p><strong>Weight:</strong> {{ weight }}</p>{% endif %}

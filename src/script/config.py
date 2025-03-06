@@ -11,10 +11,11 @@ class Config:
     instagram_username: str
     instagram_password: str
     website_dir: Path
-    enable_things3: bool
     website_posts: str
     website_media: str
     website_pages: str
+    website_data: str
+    enable_things3: bool
     things3_area: str
 
     @property
@@ -32,3 +33,7 @@ class Config:
     @property
     def website_pages_dir(self) -> Path:
         return self.website_dir / self.website_pages
+
+    @property
+    def website_data_dir(self) -> Path:
+        return self.website_dir / self.website_data

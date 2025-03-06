@@ -1,4 +1,8 @@
-name:
-  first: your-first-name
-  last: your-last-name
-artist_statement: your-statement
+first_name: 
+last_name: 
+email: 
+phone: 
+location: 
+bio_first_person:
+bio_third_person:
+artist_statement:

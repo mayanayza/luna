@@ -46,22 +46,6 @@ class TemplateProcessor:
         template = self.env.get_template('pdf/project_images.html')
         return template.render(context)
 
-    def get_post_template(self):
-        with open(f'{Path(__file__).parent}/web/post.md', 'r') as file:
-            return file.read()
-
-    def get_roadmap_template(self):
-        with open(f'{Path(__file__).parent}/web/roadmap.md', 'r') as file:
-            return file.read()
-
-    def get_links_template(self):
-        with open(f'{Path(__file__).parent}/web/links.md', 'r') as file:
-            return file.read()
-
-    def process_about_template(self, context):
-        template = self.env.get_template('web/about.md')
-        return template.render(context)
-
     def process_project_metadata(self, name: str) -> Dict:
         
         try:

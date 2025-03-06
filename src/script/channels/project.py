@@ -69,9 +69,9 @@ class ProjectHandler(Channel):
         create_github = self.prompt_create_github()
 
         self.create_files(name, display_name, title)
+        self.create_things3(display_name)
         if create_github and self.github:
             self.github.create(name)
-            self.create_things3(display_name)
             
         self.logger.info(f"Successfully created project: {display_name}")
     
@@ -211,7 +211,7 @@ class ProjectHandler(Channel):
             new_project_dir = get_project_path(self, new_name)
             
             # Save updated metadata
-            with open(old_project_dir / Files.METADATA, 'w') as f:
+            with open(old_project_dir / "content" / Files.METADATA, 'w') as f:
                 yaml.safe_dump(metadata, f, sort_keys=False, allow_unicode=True)
             
             # Rename local directory

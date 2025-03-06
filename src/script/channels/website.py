@@ -16,7 +16,6 @@ from src.script.utils import (
     get_project_metadata,
     get_project_path,
     get_website_media_files,
-    is_project,
     load_personal_info,
     resize_image_file,
 )
@@ -64,9 +63,9 @@ class WebsiteHandler(Channel):
                 self.logger.error(f"Failed to stage website content for {name}: {e}")
 
         try:
-            self.stage_pages()
+            self.stage_personal_info()
         except Exception as e:
-            self.logger.error(f"Failed to stage website pages: {e}")
+            self.logger.error(f"Failed to stage personal info: {e}")
 
         return [p for p in staged_projects if p.strip()]
         
@@ -131,17 +130,18 @@ class WebsiteHandler(Channel):
             self.logger.error(f"Failed to stage website content for {name}: {e}")
             raise
 
-    def stage_pages(self):
+    def stage_personal_info(self):
+        info = load_personal_info(self)
 
-        metadatas = []
-        for item in self.config.base_dir.iterdir():
-            if is_project(self, item):
-                metadata = self.tp.process_project_metadata(item.name)
-                metadatas.append(metadata)
+        info.pop('last_name', None)
+        info.pop('email', None)
+        info.pop('phone', None)
+        info.pop('location', None)
 
-        about = self.generate_about_page()
-        with open(self.config.website_pages_dir / 'about.md', 'w') as f:
-            f.write(about)
+        info = yaml.dump(info, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        with open(self.config.website_data_dir / 'personal_info.yml', 'w') as f:
+            f.write(info)
 
     def generate_post(self, name, embed_content) -> None:
         try:
@@ -159,23 +159,13 @@ class WebsiteHandler(Channel):
             front_matter = front_matter | embed_content 
             front_matter = front_matter | self.determine_featured_content(name)
 
-            post_template = self.tp.get_post_template()
+            post_content = "{% include post-content.html %}"
 
-            post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{post_template}"
+            post = f"---\n{yaml.dump(front_matter, default_flow_style=False, sort_keys=False, allow_unicode=True)}---\n{post_content}"
             self.logger.info(f"Successfully generated post for {name}")
             return post
         except Exception as e:
             self.logger.error(f"Failed to generate post for {name}: {e}")
-            raise
-
-    def generate_about_page(self):
-        try:
-            context = load_personal_info(self)
-            about = self.tp.process_about_template(context) 
-            self.logger.info("Generated about")
-            return about
-        except Exception as e:
-            self.logger.error(f"Failed to generate about page: {e}")
             raise
 
     def stage_media(self, name: str) -> None:

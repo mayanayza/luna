@@ -63,11 +63,12 @@ cp src/personal-info.yml.example src/personal-info.yml
 
 ## Configuration
 
-Edit the `.env` file with your specific settings:
+Edit the `personal-info.yml` file with your information, it will be used across various channels where personalization is needed.
+
+Edit the `.env` file with your specific configuration settings:
 
 ### Required Settings
 - `PROJECT_BASE_DIR`: Path where you want to create and manage projects
-- `FIRST_NAME` and `LAST_NAME`: Your name for documentation
 - `WEBSITE_DOMAIN`: The domain where your Jekyll website is hosted
 - `WEBSITE_DIR`: Path to your website directory
 - `WEBSITE_POSTS`: Relative path to posts directory (e.g., "_posts")
@@ -142,18 +143,22 @@ python -m src.script.main publish --projects project1 --channels pdf
 
 #### PDF Channel
 
+Supports generating a PDF with media in the PDF, or with media as files separate to the PDF.
+
 ```bash
 # Generate PDF with images collated in the same document
 python -m src.script.main publish --projects project1 --channels pdf --collate-images
+
+# Specify submission name for PDF
+python -m src.script.main publish --projects project1 --channels pdf --submission-name "Gallery-Open-Call-2023"
+
+
 
 # Generate PDF with separate image files and specific dimensions
 python -m src.script.main publish --projects project1 --channels pdf --max-width 1200 --max-height 800
 
 # Add a prefix to exported filenames
 python -m src.script.main publish --projects project1 --channels pdf --filename-prepend "Exhibition-2023-"
-
-# Specify submission name for PDF
-python -m src.script.main publish --projects project1 --channels pdf --submission-name "Gallery-Open-Call-2023"
 ```
 
 #### GitHub Channel
@@ -169,17 +174,17 @@ python -m src.script.main publish --projects project1 --channels github --commit
 #### Website Channel
 
 ```bash
-# Stage website content (project status must be "complete")
+# Stage website content
 python -m src.script.main stage --projects project1 --channels web
 
-# Publish to website
+# Publish to website: will create a post for the project with front matter containing metadata and file path references for media files
 python -m src.script.main publish --projects project1 --channels web
 ```
 
 #### Raw Channel
 
 ```bash
-# Export files to output folder
+# Export files to _output folder
 python -m src.script.main publish --projects project1 --channels raw
 ```
 
@@ -209,7 +214,7 @@ project-name/
 │   └── README.md         # Project README
 ```
 
-The `media-internal` directory is intended for work-in-progress assets that won't be committed to GitHub. When files are ready for publication, move them to the corresponding subdirectory in the `media` folder.
+The `media-internal` directory is intended for work-in-progress assets that won't be used in channel publication. When files are ready for publication, move them to the corresponding subdirectory in the `media` folder and they will be automatically used.
 
 ## Development
 

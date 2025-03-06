@@ -134,8 +134,8 @@ class PDFHandler(Channel):
             # Get personal info for filename
             try:
                 personal_info = load_personal_info(self)
-                first_name = personal_info.get('name', {}).get('first', 'User')
-                last_name = personal_info.get('name', {}).get('last', '')
+                first_name = personal_info.get('first_name', '')
+                last_name = personal_info.get('last_name', '')
                 name = f"{first_name}-{last_name}"
             except Exception as e:
                 self.logger.error(f"Error loading personal info: {e}")
@@ -206,7 +206,7 @@ class PDFHandler(Channel):
             if metadata['project']['featured_content']['type'] == 'image':
                 context['featured_image'] = str((project_dir / 'media' / metadata['project']['featured_content']['source']).absolute())
 
-            context['video_link'] = self.get_video_link(name)
+            metadata['project']['has_non_image_media'] = self.has_non_image_media_files(name)
             context = context | metadata
             # Generate main content PDF
             html_string = self.tp.process_pdf_project_template(name, context)
@@ -223,9 +223,13 @@ class PDFHandler(Channel):
             self.logger.error(f"Failed to generate PDF for {name}: {e}")
             raise
 
-    def get_video_link(self, name):
-        videos = get_website_media_files(self, name, Media.VIDEOS.TYPE)
-        return f"{self.config.website_domain}{videos[0]}"
+    def has_non_image_media_files(self, name):
+        metadata = get_project_metadata(self)
+        videos = len( get_website_media_files(self, name, Media.VIDEOS.TYPE) ) > 0
+        audios = len( get_website_media_files(self, name, Media.AUDIO.TYPE) ) > 0
+        models = len( get_website_media_files(self, name, Media.MODELS.TYPE) ) > 0
+        embeds = len(metadata['project']['embeds']) > 0
+        return videos or audios or embeds or models
 
 
     def generate_images_pdf(self, name, images, images_per_page=2):
