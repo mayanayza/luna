@@ -1,6 +1,13 @@
 from enum import Enum
 
-#Default values for media folders + extensions
+
+class EntityType:
+    PROJECT = 'project'
+    INTEGRATION = 'integration'
+    API = 'api'
+    DB = 'database'
+    PROJECT_INTEGRATION = 'project_integration'
+
 
 class MediaProperties:
    def __init__(self, TYPE, EXTENSIONS):

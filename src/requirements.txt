@@ -8,3 +8,6 @@ reportlab
 instagrapi
 moviepy
 trimesh
+colorlog
+pydal>=20.5
+sqlite3>=3.38.0
