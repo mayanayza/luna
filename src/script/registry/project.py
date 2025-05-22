@@ -1,5 +1,5 @@
 from src.script.entity._project import Project
-from src.script.registry._command import CommandableRegistry
+from src.script.registry._base import CommandableRegistry
 
 
 class ProjectRegistry(CommandableRegistry):
@@ -10,10 +10,9 @@ class ProjectRegistry(CommandableRegistry):
         """Load projects from database."""
         self.load_from_database('project')
 
-    def handle_create(self, name: str, title: str = "", emoji: str = ""):
+    def handle_create(self, name: str, title: str = "", emoji: str = "", **kwargs):
         """Create a new project."""
-        project = Project(self)
-        project = project.create(name=name, title=title, emoji=emoji)
+        project = Project(registry=self, name=name, title=title, emoji=emoji, kwargs={})
         self.db.upsert('project', project)
         self.register_entity(project)
         return project

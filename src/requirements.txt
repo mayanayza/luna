@@ -9,5 +9,5 @@ instagrapi
 moviepy
 trimesh
 colorlog
+emoji
 pydal>=20.5
-sqlite3>=3.38.0

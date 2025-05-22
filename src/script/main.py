@@ -15,7 +15,8 @@ def main():
             # Get CLI API and start it
             cli = app_context.get_registry(EntityType.API).get_by_name('cli')
             if cli:
-                cli.start(app_context)
+                # Start the persistent CLI session
+                cli.start()
             else:
                 logging.error("CLI API not found")
                 return

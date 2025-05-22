@@ -1,12 +1,13 @@
 
 from typing import Dict
 
+from src.script.constants import EntityType
 from src.script.entity._base import EntityRef
 from src.script.entity._projectintegration import ProjectIntegration
-from src.script.registry._base import Registry
+from src.script.registry._base import CommandableRegistry
 
 
-class ProjectIntegrationRegistry(Registry):
+class ProjectIntegrationRegistry(CommandableRegistry):
 
     def __init__(self):
         super().__init__('project_integration', ProjectIntegration)
@@ -22,10 +23,8 @@ class ProjectIntegrationRegistry(Registry):
 
         try:
             # Create ProjectIntegration
-            pi = ProjectIntegration(self)
-            pi.create(project_ref, integration_ref)
-            with self.db.transaction():
-                self.db.upsert('project_integration', pi)
+            pi = ProjectIntegration(registry=self, project_id=project_ref.entity_id, integration_id=integration_ref.entity_id, kwargs={})
+            self.db.upsert('project_integration', pi)
             self.register_entity(pi)
 
             # Create registry entries in tree data structures
@@ -72,6 +71,7 @@ class ProjectIntegrationRegistry(Registry):
             for pi_ref in pi_refs:
                 pi = self.get_by_ref(pi_ref)
                 pi.rename(**kwargs)
+            self.db.upsert(EntityType.PROJECT_INTEGRATION, self)
         except Exception as e:
             self.logger.error(f"Error renaming integrations for project: {e}")
             return None
@@ -88,20 +88,21 @@ class ProjectIntegrationRegistry(Registry):
                     self.logger.error(f"Error removing integration from project: {e}")
 
             with self.db.transaction():
-                table = self.db.dal.project_integration
+                table = getattr(self.db.dal, EntityType.PROJECT_INTEGRATION)
                 self.db.dal(table.project_id == project_ref.entity_id).delete()
 
-            del self._pi_project_tree[project_ref.entity_id]
+            if project_ref.entity_id in self._pi_project_tree:
+                del self._pi_project_tree[project_ref.entity_id]
 
         except Exception as e:
             self.logger.error(f"Error removing integrations for project: {e}")
             return None
 
     def get_pi_refs_for_project(self, project_ref: EntityRef):
-        return self._pi_project_tree[project_ref.entity_id].values()
+        return self._pi_project_tree.get(project_ref.entity_id,{}).values()
 
     def get_pi_refs_for_integration(self, integration_ref: EntityRef):
-        return self._pi_integration_tree[integration_ref.entity_id].values()
+        return self._pi_integration_tree.get(integration_ref.entity_id,{}).values()
 
     def get_pi_by_refs(self, project_ref: EntityRef, integration_ref: EntityRef):
-        return self._pi_project_tree[project_ref.entity_id][integration_ref.entity_id]
+        return self._pi_project_tree.get(project_ref.entity_id,{}).get(integration_ref.entity_id,{})

@@ -8,12 +8,12 @@ from typing import TypeVar
 
 from pydal import DAL, Field
 from src.script.constants import EntityType
-from src.script.entity._base import EntityBase
+from src.script.entity._base import ModuleEntity, StorableEntity
 
 # Type aliases for common database types
 T = TypeVar('T')
 
-class Database(EntityBase):
+class Database(ModuleEntity):
     """
     Base class for database implementations that integrates with the registry pattern.
     Uses PyDAL as the underlying database abstraction layer.
@@ -21,15 +21,16 @@ class Database(EntityBase):
     This class extends EntityBase to be managed by the registry system.
     """
     
-    def __init__(self, registry):
+    def __init__(self, registry, name: str):
         """
         Initialize the database.
         
         Args:
             registry: The registry this database belongs to
         """
-        # Initialize EntityBase first
-        super().__init__(registry)
+        # Initialize ModuleEntity first
+        super().__init__(registry, name)
+        
         self._init_env_vars()
 
         self._db_dir = self.env.get('dir', os.path.expanduser("~/.luna/data"))
@@ -43,14 +44,29 @@ class Database(EntityBase):
         self._dal = None
 
         self._lock = threading.RLock()
+
+    @property
+    def db_dir(self) -> str:
+        return self._db_dir
+
+    @property
+    def db_path(self) -> str:
+        return self._db_path
+    
+    @property
+    def db_name(self) -> str:
+        return self._db_name
+    
+    @property
+    def connection_string(self):
+        return self._connection_string
     
     @property
     def dal(self) -> DAL:
-        """Get the PyDAL instance."""
         return self._dal
 
     @dal.setter
-    def dal(self, val):
+    def dal(self, val) -> None:
         self._dal = val
 
     def _init_env_vars(self) -> None:
@@ -62,21 +78,89 @@ class Database(EntityBase):
                 config_key = key[3:].lower()
                 self.env[config_key] = value
 
+    def _table_exists(self, table_name: str) -> bool:
+        """Check if a table exists in the database. Override in subclasses for DB-specific logic."""
+        try:
+            # Generic approach - try to query the table
+            table = getattr(self.dal, table_name, None)
+            if table is None:
+                return False
+            self.dal(table).count()
+            return True
+        except Exception:
+            return False
+
+    def _get_table_definitions(self):
+        """Get the table definitions for all required tables."""
+        # Return field specifications as dictionaries instead of Field objects
+        # This allows us to create fresh Field objects when needed
+        return {
+            EntityType.PROJECT: [
+                ('id', 'id'),
+                ('name', 'string'),
+                ('date_created', 'string'),
+                ('entity_data', 'json'),
+                ('title', 'string'),
+                ('emoji', 'string'),
+            ],
+            EntityType.INTEGRATION: [
+                ('id', 'id'),
+                ('name', 'string'),
+                ('date_created', 'string'),
+                ('entity_data', 'json'),
+                ('config', 'json'),
+            ],
+            EntityType.PROJECT_INTEGRATION: [
+                ('id', 'id'),
+                ('name', 'string'),
+                ('date_created', 'string'),
+                ('entity_data', 'json'),
+                ('project_id', 'integer'),
+                ('integration_id', 'integer'),
+            ]
+        }
+
+    def _create_field_objects(self, field_specs):
+        """Create fresh Field objects from field specifications."""
+        return [Field(name, field_type) for name, field_type in field_specs]
+
+    def _create_tables(self) -> bool:
+        """Create tables if they don't exist, with proper error handling."""
+        try:
+            table_definitions = self._get_table_definitions()
+            
+            # Define all tables with fresh Field objects and proper migration
+            for table_name, field_specs in table_definitions.items():
+                if not hasattr(self.dal, table_name):
+                    self.logger.debug(f"Defining '{table_name}' table")
+                    field_defs = self._create_field_objects(field_specs)
+                    self.dal.define_table(table_name, *field_defs, migrate=True)
+            return True        
+        except Exception as e:
+            self.logger.error(f"Error creating tables: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            self.dal.rollback()
+            return False
+
     def transaction(self):
         class TransactionContext:
             def __init__(self, db):
                 self.db = db
                 
             def __enter__(self):
+                self.db.logger.debug("Starting database transaction")
                 self.db._lock.acquire()
                 return self
                 
             def __exit__(self, exc_type, exc_val, exc_tb):
                 try:
                     if exc_type is not None:
+                        self.db.logger.warning("Rolling back database transaction")
                         self.db.dal.rollback()
                         return False
                     else:
+                        self.db.logger.debug("Committing database transaction")
                         self.db.dal.commit()
                         return True
                 finally:
@@ -102,78 +186,75 @@ class Database(EntityBase):
             os.makedirs(db_dir, exist_ok=True)
             
             # Create the DAL connection
-            self.logger.info(f"Initializing database connection: {self._connection_string}")
-            self.dal = DAL(self._connection_string, folder=self._db_dir, migrate=True)
+            self.logger.debug(f"Initializing database connection: {self._connection_string}")
+            self.dal = DAL(
+                self._connection_string, 
+                folder=self._db_dir, 
+                migrate=True,
+                pool_size=0,  # Good default for most databases
+                check_reserved=['all']
+            )
             
             # Verify connection was established
             if not self.dal:
                 self.logger.error("Failed to initialize database connection")
                 return False
-                
-            # Now create the tables
-            self.logger.info("Creating 'project' table")
-            self.dal.define_table(EntityType.PROJECT,
-                Field('id', 'integer'),
-                Field('name', 'string'),
-                Field('date_created', 'string'),
-                Field('data', 'json')
-            )
-                
-            # Create integrations table
-            self.logger.info("Creating 'integration' table")
-            self.dal.define_table(EntityType.INTEGRATION,
-                Field('id', 'integer'),
-                Field('name', 'string'),
-                Field('date_created', 'string'),
-                Field('data', 'json'),
-                Field('config', 'json'),
-            )
-                
-            # Create project_integrations table
-            self.logger.info("Creating 'project_integration' table")
-            self.dal.define_table(EntityType.PROJECT_INTEGRATION,
-                Field('id', 'integer'),
-                Field('name', 'string'),
-                Field('date_created', 'string'),
-                Field('data', 'json'),
-                Field('project_id', 'integer'),
-                Field('integration_id', 'integer'),
-            )
+
+            # Apply any database-specific configurations
+            if not self._configure_database():
+                self.logger.warning("Database configuration had issues, but continuing...")
+
+            # Create tables with proper error handling
+            if not self._create_tables():
+                self.logger.error("Failed to create required tables")
+                return False
                         
             self.logger.info(f"Initialized {self.name} database at: {self._db_path}")
             return True
+            
         except Exception as e:
             self.logger.error(f"Error initializing database {self.name}: {e}")
             import traceback
             self.logger.error(traceback.format_exc())
             return False
 
-    def upsert(self, table_name: str, entity: EntityBase) -> bool:
+    def _configure_database(self) -> bool:
+        """
+        Apply database-specific configurations. Override in subclasses.
+        
+        Returns:
+            True if successful, False if there were issues (but not fatal)
+        """
+        # Default implementation does nothing
+        return True
+
+    def upsert(self, table_name: str, entity: StorableEntity) -> bool:
         """
         Update if exists by ID, otherwise insert.
         
         Args:
             table_name: Name of the table
-            document: The document to save
-            id_field: The field to use as the ID for existence check
+            entity: The entity to save
             
         Returns:
             True if successful
         """
         try:
             table = self.dal[table_name]
+
+            record = {
+                'name': entity.name,
+                'date_created': entity.date_created,
+                'entity_data': entity.data,
+                **getattr(entity, 'db_additional_fields', {})
+            }
+
+            self.logger.debug(f"Upserting {record}")
             
             # Check if entity exists
             with self.transaction():
                 existing = self.dal(table['id'] == entity.id).select().first()
             
-            record = {
-                'name': entity.name,
-                'date_created': entity.date_created,
-                'data': entity.data,
-                **getattr(entity, 'storage_additional_fields', {})
-            }
-
             if existing:
                 # Update existing document (exclude id_field)
                 with self.transaction():
@@ -183,9 +264,10 @@ class Database(EntityBase):
             # Insert new document
             with self.transaction():
                 table.insert(**record)
+            self.logger.debug(f"Upserted record {record} to table {table_name}")
             return True
         except Exception as e:
-            self.logger.error(f"Error in save: {e}")
+            self.logger.error(f"Error in upsert: {e}")
             try:
                 self.dal.rollback()
             except Exception as rollback_error:
@@ -201,3 +283,42 @@ class Database(EntityBase):
             self.dal = None
             self._initialized = False
             self.logger.info(f"Closed {self.name} database connection")
+
+    def clear(self) -> bool:
+        """
+        Reset the database to a fresh state by deleting all data from all tables.
+        This preserves the table structure but removes all records.
+        
+        Returns:
+            True if successful
+        """
+        try:
+            if not self.dal:
+                self.logger.error("Database connection not initialized")
+                return False
+            
+            table_definitions = self._get_table_definitions()
+            
+            with self.transaction():
+                # Delete all data from each table
+                for table_name in table_definitions.keys():
+                    if hasattr(self.dal, table_name):
+                        table = getattr(self.dal, table_name)
+                        # Delete all records from the table
+                        deleted_count = self.dal(table).delete()
+                        self.logger.info(f"Deleted {deleted_count} records from table '{table_name}'")
+                    else:
+                        self.logger.warning(f"Table '{table_name}' not found during reset")
+            
+            self.logger.info(f"Successfully reset database {self.name} - all data cleared")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error resetting database {self.name}: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            try:
+                self.dal.rollback()
+            except:
+                pass
+            return False

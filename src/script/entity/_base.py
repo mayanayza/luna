@@ -27,51 +27,41 @@ class EntityRef:
     def __str__(self):
         return f"{self.registry_id}:{self.entity_id}"
 
-
-
-class StorableEntity:
-    def __init__(self, registry: 'Registry'):
-        self._db = None
-        super().__init__(registry)
-
-    @property
-    def db_additional_fields(self):
-        return {}
-    
-    @property
-    def db(self):
-        if not hasattr(self, '_db') or self._db is None:
-            raise RuntimeError(f"Database reference not set for {self.__class__.__name__}")
-        else:
-            return self._db
-
-    @db.setter
-    def db(self, val):
-        self._db = val
-
 class EntityBase(ABC):
     """Base class for all entities in the system."""
     
     def __init__(self, registry: 'Registry'):
-        self.registry = registry
-        self._id = registry.get_next_id()
-        self._data: Dict[str, Any] = {}
-        self._date_created = datetime.now().strftime('%d-%b-%Y-%H:%M:%S')
-        self.logger = logging.getLogger(f"{self.__class__.__name__}")
-        self.registry.register_entity(self)
+
+        if not self._name:
+            raise ValueError(f"No name provided to Entity {__name__} upon init. Aborting.")
+            return
+
+        self._registry = registry
+        self._logger = logging.getLogger(f"{self.__class__.__name__}")
         
+    def __str__(self):
+        return f"<{self.__class__.__name__} object, name '{self._name}', id '{self._id}'>"
+
+    @property
+    def registry(self):
+        return self._registry
+    
+    @property
+    def logger(self):
+        return self._logger
+    
     @property
     def ref(self) -> EntityRef:
         """Get a reference to this entity."""
-        return EntityRef(self.id, self.registry.registry_id)
+        return EntityRef(self.id, self.registry.id)
 
     @property
     def id(self):
         return self._id
 
-    @property
-    def date_created(self):
-        return self._date_created
+    @id.setter
+    def id(self, val):
+        self._id = val
 
     @property
     def name(self):
@@ -81,6 +71,35 @@ class EntityBase(ABC):
     def name(self, val):
         self._name = val
     
+class ModuleEntity(EntityBase):
+    def __init__(self, registry: 'Registry', name: str):
+        self._id = registry.get_next_id()
+        self._name = name
+
+        super().__init__(registry)
+
+class StorableEntity(EntityBase):
+    def __init__(self, registry: 'Registry', **kwargs):
+        
+        id_ = kwargs.get('id', None)
+        name = kwargs.get('name', None)
+        data = kwargs.get('data', {})
+        date_created = kwargs.get('date_created', datetime.now().strftime('%d-%b-%Y-%H:%M:%S'))
+
+        self._id = id_ if id_ else registry.get_next_id()
+        self._name = name
+        self._data: Dict[str, Any] = data
+        self._date_created = date_created
+
+        self._db = None
+        self._db_additional_fields = {}
+
+        super().__init__(registry)
+
+    @property
+    def db_additional_fields(self):
+        return self._db_additional_fields
+
     @property
     def data(self) -> Dict[str, Any]:
         """Get a copy of the entity's data."""
@@ -99,12 +118,21 @@ class EntityBase(ABC):
         """Set a specific data item."""
         self._data[key] = value
 
-    def load(self, id, name, date_created, data, **kwargs):
-        """Set properties when loading entity data from database"""
-        self._id = id
-        self._name = name
-        self._date_created = date_created
-        self._data = data
-        self.registry.register_entity(self)
+    @property
+    def date_created(self):
+        return self._date_created
 
+    @date_created.setter
+    def date_created(self, val):
+        self._date_created = val
+    
+    @property
+    def db(self):
+        if not hasattr(self, '_db') or self._db is None:
+            raise RuntimeError(f"Database reference not set for {self.__class__.__name__}")
+        else:
+            return self._db
 
+    @db.setter
+    def db(self, val):
+        self._db = val

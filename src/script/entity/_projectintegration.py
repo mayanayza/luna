@@ -1,13 +1,14 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from src.script.entity._base import EntityBase, EntityRef, StorableEntity
+from src.script.constants import EntityType
+from src.script.entity._base import StorableEntity
 from src.script.registry._base import Registry
 
 if TYPE_CHECKING:
     pass
 
-class ProjectIntegration(StorableEntity, EntityBase):
+class ProjectIntegration(StorableEntity):
     """
     Represents the interface between a project and an integration.
     
@@ -16,64 +17,45 @@ class ProjectIntegration(StorableEntity, EntityBase):
     a Project parameter.
     """
     
-    def __init__(self, registry: Registry):
-        self._project_ref = None
-        self._integration_ref = None
+    def __init__(self, registry: Registry, project_id: str, integration_id: str, **kwargs):
+    
+        integration_registry = registry.manager.get_by_name(EntityType.INTEGRATION)
+        project_registry = registry.manager.get_by_name(EntityType.PROJECT)
 
-        super().__init__(registry)
+        integration = integration_registry.get_by_id(integration_id)
+        project = project_registry.get_by_id(project_id)
 
-    @property
-    def db_additional_fields(self):
-        return {
-            'project_id': self._project_ref.entity_id,
-            'integration_id': self._integration_ref.entity_id
+        kwargs['name'] = f"{project.name} - {integration.name}"
+
+        super().__init__(registry, **kwargs)
+
+        self._project_ref = project.ref
+        self._integration_ref = integration.ref
+
+        self._db_additional_fields = {
+            'project_id': project.id,
+            'integration_id': integration.id
         }
 
-    def create(self, project_ref: EntityRef, integration_ref: EntityRef):
-        try:
-            """Create a project integration."""
-            self._project_ref = project_ref
-            self._integration_ref = integration_ref
-
-            integration = self.registry.manager.get_entity(integration_ref)
-            project = self.registry.manager.get_entity(project_ref)
-
-            self.name = f"{project.name} - {integration.name}"
-
-            commands = [method.replace('handler_','') for method in dir(integration) if callable(getattr(integration, method)) and method.startswith("handle_")]
-            
-            # Set default commands data
+        # Set default data if not yet set
+        if self.data == {}:
             self._data['commands'] = {}
+            commands = [method.replace('handler_','') for method in dir(integration) if callable(getattr(integration, method)) and method.startswith("handle_")]
             for command in commands:
                 self._data['commands'][command] = {"last_run": False}
-            
-            # Apply any project_fields from integration config
+
             self._data['fields'] = {}
             project_fields = getattr(integration, 'config').get('project_fields')
             for field, default_value in project_fields.items():
                 self._data['fields'][field] = default_value
-                    
-            # Bind methods and properties
-            # self._bind_members()
-            
-            return self
-        except Exception as e:
-            if integration and project:
-                self.logger.error(f"Error adding integration {integration.name} to project {project.name}: {e}")
-            else:
-                self.logger.error(f"Error creating ProjectIntegration: {e}")
 
-    def load(self, project_id, integration_id, **kwargs):
-        try:
-            integration_registry = self.registry.manager.get_registry('integration')
-            project_registry = self.registry.manager.get_registry('project')
-
-            self._integration_ref = integration_registry.get_by_id(integration_id)
-            self._project_ref = project_registry.get_by_id(project_id)
-            
-            super().load(**kwargs)
-        except Exception as e:
-            self.logger.error(f"Error loading ProjectIntegration: {e}")
+    @property
+    def project_ref(self):
+        return self._project_ref
+    
+    @property
+    def integration_ref(self):
+        return self._integration_ref
 
     def remove(self):
         try:
@@ -95,8 +77,8 @@ class ProjectIntegration(StorableEntity, EntityBase):
             project = self.registry.manager.get_entity(self._project_ref)
             integration.setup(project)
         except Exception as e:
-            if integration and project:
-                self.logger.error(f"Error setting up integration {integration.name} for project {project.name}: {e}")
+            if integration:
+                self.logger.error(f"Error setting up integration {integration.name}: {e}")
             else:
                 self.logger.error(f"Error setting up ProjectIntegration: {e}")
 

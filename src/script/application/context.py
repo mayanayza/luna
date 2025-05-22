@@ -4,7 +4,6 @@ import traceback
 
 import colorlog
 from src.script.constants import EntityType
-from src.script.registry._command import CommandDispatcher
 from src.script.registry._manager import RegistryManager
 from src.script.registry.api import ApiRegistry
 from src.script.registry.db import DatabaseRegistry
@@ -22,15 +21,15 @@ class ApplicationContext:
 
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
         self.registry_manager = RegistryManager()
-        self.command_dispatcher = CommandDispatcher(self.registry_manager)
-        self.registry_manager.set_command_dispatcher(self.command_dispatcher)
+        # self.command_dispatcher = CommandDispatcher(self.registry_manager)
+        # self.registry_manager.set_command_dispatcher(self.command_dispatcher)
             
-    def get_registry(self, registry_id):
-        return self.registry_manager.get_registry(registry_id)
+    def get_registry(self, registry_name):
+        return self.registry_manager.get_by_name(registry_name)
 
-    def register_registry(self, registry_id, registry_class, **init_kwargs):
+    def register_registry(self, registry_name, registry_class, **init_kwargs):
         """Create and register a registry of the given class."""
-        self.logger.info(f"Initializing {registry_id} registry")
+        self.logger.info(f"Initializing {registry_name} registry")
         registry = registry_class(**init_kwargs)
         self.registry_manager.register_registry(registry)
         registry.load()
@@ -38,14 +37,12 @@ class ApplicationContext:
     def initialize(self):
         """Initialize the application with registries."""
         try:
-            # Registries
             self.register_registry(EntityType.API, ApiRegistry)
             self.register_registry(EntityType.DB, DatabaseRegistry)
-            self.register_registry(EntityType.PROJECT_INTEGRATION, ProjectIntegrationRegistry)
 
-            # Commandable Registries
             self.register_registry(EntityType.INTEGRATION, IntegrationRegistry)
             self.register_registry(EntityType.PROJECT, ProjectRegistry)
+            self.register_registry(EntityType.PROJECT_INTEGRATION, ProjectIntegrationRegistry)
 
             
             self.logger.info("Application initialized successfully")
@@ -55,7 +52,7 @@ class ApplicationContext:
             traceback.print_exc()
             return False
 
-    def configure_logging(self, level=logging.INFO):
+    def configure_logging(self, level=logging.DEBUG):
         """
         Configure global logging with colorized output.
         This should be called once at application startup.

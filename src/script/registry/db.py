@@ -7,10 +7,10 @@ from typing import Optional
 
 from src.script.entity._base import EntityRef
 from src.script.entity._db import Database
-from src.script.registry._base import Registry
+from src.script.registry._base import CommandableRegistry
 
 
-class DatabaseRegistry(Registry):
+class DatabaseRegistry(CommandableRegistry):
     """
     Registry for database implementations.
     
@@ -60,7 +60,7 @@ class DatabaseRegistry(Registry):
                 return False
             
             # Set as active database
-            self.set_active_database_ref(db.ref)
+            self.active_db_ref = db.ref
                                 
             # Initialize the database
             if not db.initialize():
@@ -75,38 +75,29 @@ class DatabaseRegistry(Registry):
             self.logger.error(traceback.format_exc())
             return False
 
-    def get_active_database_ref(self) -> Optional[EntityRef]:
-        """
-        Get a reference to the active database.
-        
-        Returns:
-            EntityRef to the active database or None if not set
-        """
+    @property
+    def active_db_ref(self) -> EntityRef:
         return self._active_db_ref
-            
-    def set_active_database_ref(self, db_ref: EntityRef) -> bool:
-        """
-        Set the active database by reference.
-        
-        Args:
-            db_ref: The reference to the database to set as active
-            
-        Returns:
-            True if successful
-        """
-        db = self.get_by_ref(db_ref)
+
+    @active_db_ref.setter
+    def active_db_ref(self, val) -> bool:
+        db = self.get_by_ref(val)
         if db:
-            self._active_db_ref = db_ref
-            self.manager.update_db(db_ref)
-            self.logger.info(f"Set active database to: {db.name}")
+            self._active_db_ref = val
+            self.manager.update_db(val)
+            self.logger.debug(f"Set active database to: {db.name}")
             return True
         else:
-            self.logger.error(f"Database not found for ref: {db_ref}")
+            self.logger.error(f"Database not found for ref: {val}")
             return False
-                    
+                        
+    def handle_clear(self):
+        db = self.get_by_ref(self.active_db_ref)
+        db.clear()
+
     def reset(self) -> bool:
         """
-        Reset the database registry by closing all connections.
+        Reset the database by closing all connections and.
         
         Returns:
             True if reset was successful

@@ -1,5 +1,5 @@
 from src.script.entity._integration import Integration
-from src.script.registry._command import CommandableRegistry
+from src.script.registry._base import CommandableRegistry
 
 
 class IntegrationRegistry(CommandableRegistry):

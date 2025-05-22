@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 from typing import Literal
 
@@ -8,25 +7,6 @@ from moviepy import VideoFileClip
 from PIL import Image
 
 
-def format_name(title: str) -> str:
-    """
-    Format a title into a kebab-case name.
-    
-    Args:
-        title: The project title
-        
-    Returns:
-        str: Kebab-case name
-    """
-    # Remove special characters, keep alphanumeric and spaces
-    clean_title = re.sub(r'[^a-zA-Z0-9\s-]', '', title)
-    
-    # Convert to kebab-case for name
-    name = clean_title.strip().lower().replace(' ', '-')
-    name = re.sub(r'-+', '-', name)
-    
-    return name
-    
 def load_template(self, template_name: str) -> str:
     """Load a template file and return its contents"""
     script_dir = Path(__file__).resolve().parent

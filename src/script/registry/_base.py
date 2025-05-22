@@ -6,6 +6,7 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     Dict,
     List,
@@ -21,9 +22,10 @@ class Registry(ABC):
     Base registry class that manages entities of a specific type.
     """
     
-    def __init__(self, registry_id: str, entity_class: 'EntityBase'):
+    def __init__(self, name: str, entity_class: 'EntityBase'):
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
-        self._registry_id = registry_id
+        self._id = None
+        self._name = name
         self._entity_class = entity_class
         self._entity_class_is_storable = False
         self._entities: Dict[int, 'EntityBase'] = {}
@@ -31,7 +33,7 @@ class Registry(ABC):
         self._manager: Optional['RegistryManager'] = None
         self._next_id: int = 1
 
-        from src.script.entity._base import StorableEntity
+        from src.script.entity._base import ModuleEntity, StorableEntity
 
         if issubclass(self.entity_class, StorableEntity):
             self._db = None
@@ -58,6 +60,9 @@ class Registry(ABC):
             # Add the property to this class
             setattr(type(self), 'db', db_property)
 
+        if issubclass(self.entity_class, ModuleEntity):
+            pass
+
     @abstractmethod
     def load(self):
         # Implemented by registry to load entities and do any other necessary setup
@@ -72,8 +77,17 @@ class Registry(ABC):
         return self._entity_class
     
     @property
-    def registry_id(self):
-        return self._registry_id
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, val):
+        self._id = val
+
+    @property
+    def name(self):
+        return self._name
+    
     
     @property
     def manager(self):
@@ -156,45 +170,25 @@ class Registry(ABC):
         if hasattr(entity, 'name'):
             self._entities_by_name[entity.name] = entity
 
-    def handle_list(self, sort_by='name', **kwargs) -> List[Dict]:
-        entities = self.get_all_entities()
-
-        if sort_by == 'name':
-            sorted_entities = sorted(entities, key=lambda p: getattr(p, 'name', ''))
-        elif sort_by == 'date':
-            sorted_entities = sorted(entities, key=lambda p: p.date_created)
-        else:
-            sorted_entities = entities
-        
-        # Format result
-        result = []
-        for entity in sorted_entities:
-            result.append({
-                'name': entity.name,
-                'date_created': entity.date_created,
-                'id': str(entity.id)
-            })
-        
-        return result
-
-
     def load_from_database(self, table_name: str) -> None:
         try:
-
             with self.db.transaction():
                 table = getattr(self.db.dal, table_name)
                 rows = self.db.dal(table).select()
             entities_loaded = 0
             for entity_row in rows:
                 try:
-                    entity = self.entity_class(self)
-                    # Will be registered once data is loaded
-                    entity.load(**entity_row.as_dict())
+                    row_dict = entity_row.as_dict()
+                    # Map the database column name back to the expected attribute name
+                    if 'entity_data' in row_dict:
+                        row_dict['data'] = row_dict.pop('entity_data')
+                    entity = self.entity_class(self, **entity_row.as_dict())
+                    self.register_entity(entity)
                     entities_loaded += 1
                     self.logger.debug(f"Loaded entity: {entity.name} from table {table_name}")
                 except Exception as e:
                     self.logger.error(f"Error loading entity from {table_name}: {e}")
-            self.logger.info(f"Loaded {entities_loaded} {self.registry_id}(s) from database")
+            self.logger.info(f"Loaded {entities_loaded} {self.name}(s) from database")
         except Exception as e:
             self.logger.error(f"Error loading entities from {table_name}: {e}")
             import traceback
@@ -231,9 +225,70 @@ class Registry(ABC):
                                 self.logger.debug(f"Loaded entity: {entity.name} from {module_name}")
                             except Exception as e:
                                 self.logger.error(f"Error loading {name} from {module_name}: {e}")
-                    self.logger.info(f"Loaded {modules_loaded} {self.registry_id}(s) from modules")
+                    self.logger.info(f"Loaded {modules_loaded} {self.name}(s) from modules")
                 except Exception as e:
                     self.logger.error(f"Error loading module {module_name}: {e}")
         
         except Exception as e:
             self.logger.error(f"Error loading package {package_name}: {e}")
+
+class CommandableRegistry(Registry):
+    """
+    A registry that supports command execution with cross-registry capabilities, and can access the database
+    """
+    
+    def __init__(self, name: str, entity_class):
+        super().__init__(name, entity_class)
+
+    def handle_list(self, sort_by='name', **kwargs) -> List[Dict]:
+        entities = self.get_all_entities()
+
+        if sort_by == 'name':
+            sorted_entities = sorted(entities, key=lambda p: getattr(p, 'name', ''))
+        elif sort_by == 'date':
+            sorted_entities = sorted(entities, key=lambda p: p.date_created)
+        else:
+            sorted_entities = entities
+        
+        # Format result
+        results = []
+        for entity in sorted_entities:
+            result = {
+                'name': entity.name,
+                'id': str(entity.id)
+            }
+            if hasattr(entity, 'date_created'):
+                result['date_created'] = entity.date_created
+            results.append(result)
+        
+        return results
+
+    def _invoke_handler(self, handler_owner, command: str, params: dict) -> Any:
+        """
+        Execute a command using reflection to find the handler method.
+        
+        The handler method should be named using the pattern: handle_{command}
+        """
+
+        handler_name = f"handle_{command}"
+
+        if hasattr(handler_owner, handler_name):
+            handler = getattr(handler_owner, handler_name)
+            if callable(handler):
+                try:
+                    result = handler(**params)
+                    self.logger.debug(f"Executed command '{command}' on {handler_owner}")
+                    return result
+                except Exception as e:
+                    self.logger.error(f"Error executing command '{command}' on {handler_owner}: {e}")
+                    raise
+        
+        self.logger.warning(f"No handler found for command '{command}' on {handler_owner}")
+        return None
+
+    def invoke_entity_handler(self, entity, command: str, params: dict) -> Any:
+        return self._invoke_handler(entity, command, params)
+
+    def invoke_registry_handler(self, command: str, params: dict) -> Any:
+        return self._invoke_handler(self, command, params)
+        

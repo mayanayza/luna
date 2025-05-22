@@ -97,7 +97,7 @@ class LocalIntegration(Integration):
                 files.extend(list(media_path.glob(ext)))
         return files
 
-    def setup(self, project_ref, **kwargs) -> None:
+    def setup(self, project: Project, **kwargs) -> None:
         """
         Set up the local integration for a project.
         
@@ -105,12 +105,6 @@ class LocalIntegration(Integration):
             project_ref: Reference to the project
             **kwargs: Additional parameters
         """
-        # Get the project from the reference
-        project = self.registry.manager.get_entity(project_ref)
-        if not project:
-            self.logger.error(f"Project {project_ref} not found")
-            return
-
         # Create directory structure
         project_path = self.path(project)
         project_path.mkdir(parents=True, exist_ok=True)
@@ -134,7 +128,7 @@ class LocalIntegration(Integration):
         if (templates_dir / Files.GITIGNORE).exists():
             shutil.copy(templates_dir / Files.GITIGNORE, project_path / Files.GITIGNORE)
     
-    def remove(self, project_ref, **kwargs):
+    def remove(self, project: Project, **kwargs):
         """
         Remove local files for a project.
         
@@ -145,10 +139,6 @@ class LocalIntegration(Integration):
         Returns:
             dict: Result of the operation
         """
-        # Get project from reference
-        project = self.registry.manager.get_entity(project_ref)
-        if not project:
-            self.logger.error(f"Project {project_ref} not found")
 
         # Remove project directory
         project_path = self.path(project)
@@ -161,7 +151,7 @@ class LocalIntegration(Integration):
         if output_dir.exists():
             shutil.rmtree(output_dir)
 
-    def handle_publish(self, project_ref, **kwargs):
+    def handle_publish(self, project: Project, **kwargs):
         """
         Publish project files to output directory.
         
@@ -172,10 +162,6 @@ class LocalIntegration(Integration):
         Returns:
             dict: Result of the operation
         """
-        # Get project from reference
-        project = self.registry.manager.get_entity(project_ref)
-        if not project:
-            self.logger.error(f"Project {project_ref} not found")
 
         # Create output directory
         project_dir = self.path(project)
@@ -198,7 +184,7 @@ class LocalIntegration(Integration):
             for file in media_files:
                 shutil.copy2(file, output_dir / file.name)
 
-    def handle_save_project(self, project_ref, data, **kwargs):
+    def handle_save_project(self, project: Project, data, **kwargs):
         """
         Save project data to disk.
         
@@ -211,9 +197,6 @@ class LocalIntegration(Integration):
             dict: Result of the operation
         """
         # Get project from reference
-        project = self.registry.manager.get_entity(project_ref)
-        if not project:
-            self.logger.error(f"Project {project_ref} not found")
         
         try:
             # Save project data to YAML file
@@ -230,7 +213,7 @@ class LocalIntegration(Integration):
         except Exception as e:
             self.logger.error(f"Error saving project data: {e}")
 
-    def rename(self, project_ref, old_name, new_name, **kwargs):
+    def rename(self, project: Project, old_name, new_name, **kwargs):
         """
         Rename local project directory.
         
@@ -243,13 +226,7 @@ class LocalIntegration(Integration):
         Returns:
             dict: Result of the operation
         """
-        try:
-            # Get the project
-            project = self.registry.manager.get_entity(project_ref)
-            if not project:
-                self.logger.error(f"Project {project_ref} not found")
-                return {'success': False, 'error': f"Project {project_ref} not found"}
-                
+        try:                
             # Calculate paths
             old_dir = self.base_dir / old_name
             new_dir = self.base_dir / new_name
@@ -267,6 +244,6 @@ class LocalIntegration(Integration):
                 new_dir.mkdir(parents=True, exist_ok=True)
                 
                 # Setup the project filesystem
-                self.handle_setup(project_ref)
+                self.setup(project)
         except Exception as e:
             self.logger.error(f"Error renaming local directory: {e}")
