@@ -9,5 +9,6 @@ instagrapi
 moviepy
 trimesh
 colorlog
+tabulate
 emoji
 pydal>=20.5

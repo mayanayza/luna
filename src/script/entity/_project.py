@@ -16,7 +16,7 @@ class Project(StorableEntity):
         self._title = title
         self._emoji = emoji
 
-        self._db_additional_fields = {
+        self._db_fields = {
             'emoji': emoji,
             'title': title
         }

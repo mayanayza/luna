@@ -3,34 +3,13 @@ User interaction abstraction for CLI and other interfaces.
 """
 import logging
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 
-class InputValidator:
-    def __init__(self, validator: Callable[[str], bool], error: Dict[str, Any]):
-        self._validator = validator
-        self._error = error
-
-    def validate(self, user_input) -> Dict:
-        try:
-            if self._validator(user_input):
-                return {"passed": True}
-            else:
-                return {"passed": False, "error": self._error}
-        except Exception as e:
-            raise ValueError(f"Failed to validate input {user_input}: {e}")
-
-class UserInterface(ABC):
-    """Abstract base class for user interaction."""
-    
+class UIContextManager:
     def __init__(self, registry_manager):
-        """
-        Initialize the UserInteraction.
-        
-        Args:
-            logger: Logger instance for logging messages
-        """
-        self.logger = logging.getLogger(__name__)
+
         self._entity_type = None
         self._registry_manager = registry_manager
     
@@ -39,29 +18,104 @@ class UserInterface(ABC):
         return self._entity_type
 
     @property
-    def new_entity_validators(self) -> List[InputValidator]:
-        return [
-            InputValidator(self.validate_input_provided, "No input detected. Please enter a name."),
-            InputValidator(self.validate_not_existing_entity, f"Name already exists in {self._entity_type}s. Please enter a different name."),
-            InputValidator(self.validate_kebabcase, "Input must be kebab-case (i.e. my-project-name)")
-        ]
+    def registry(self):
+        if hasattr(self, '_registry_manager') and hasattr(self, '_entity_type'):
+            return self._registry_manager.get_by_name(self._entity_type)
+        else:
+            self.logger.warning("Registry manager and entity type not set in UIContextManager")
+    
+    def set_context(self, context_dict: Dict[str, Any]) -> None:
+        for key, val in context_dict.items():
+            if f'_{key}' in vars(self):
+                setattr(self, f'_{key}', val)
+            else:
+                self.logger.warning(f"Invalid context set by {__name__}. Key {key} does not exist.")
+
+class EditableAttribute:
+    def __init__(self, name: str, title: str, description: str, change_handler: Callable, default_value: Any, input_type: Any):
+        self._name = name
+        self._title = title
+        self._description = description
+        self._input_type = input_type
+
+        self._value = default_value
+        self._pending_value = None
+        self._is_pending = False
+
+        self._change_handler = change_handler
+
+    def _init_value(self, value: Optional = None):
+        if value:
+            self._value = type(self._value)(value)
+        self.change_handler(self._value, self._value)
 
     @property
-    def existing_entity_validators(self) -> List[InputValidator]:
-        return [
-            InputValidator(self.validate_input_provided, "No input detected. Please enter a name."),
-            InputValidator(self.validate_is_existing_entity, f"Name not found in {self._entity_type}s. Please enter a different name."),
-            InputValidator(self.validate_kebabcase, "Input must be kebab-case (i.e. my-project-name)")
-        ]
+    def change_handler(self):
+        return self._change_handler
 
     @property
-    def emoji_validators(self) -> List[InputValidator]:
-        return [
-            InputValidator(self.validate_input_provided, "No input detected. Please enter a name."),
-            InputValidator(self.validate_emoji, "Invalid emoji provided. Please enter a valid emoji.")
-        ]
+    def input_type(self):
+        return self._input_type
 
-    def validate(self, user_input, validators: List[InputValidator]):
+    @property
+    def description(self):
+        return self._description
+    
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def is_pending(self):
+        return self._is_pending
+    
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, val):
+        if type(val) is type(self._value):
+            self._is_pending = True
+            self._pending_value = val
+        else:
+            TypeError(f"Can't set value of type {type(val)} on attribute {self._name}; value of type {type(self._value)} required")
+
+    def end_edit(self):
+        try:
+            result = self.change_handler(self._value, self._pending_value)
+            if result:
+                self._value = self._pending_value
+                self._pending_value = None
+                self._is_pending = False
+                return result
+            else:
+                ValueError(f"Failed to update value of {self._name} from {self._value} to {self._pending_value}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Failed to update value of {self._name} from {self._value} to {self._pending_value}: {e}")
+            return False
+
+class ValidationRule:
+    def __init__(self, validation_function: Callable[[str], bool], error: Dict[str, Any]):
+        self._validation_function = validation_function
+        self._error = error
+
+    def validate(self, user_input) -> Dict:
+        try:
+            if self._validation_function(user_input):
+                return {"passed": True}
+            else:
+                return {"passed": False, "error": self._error}
+        except Exception as e:
+            raise ValueError(f"Failed to validate input {user_input}: {e}")
+
+class InputValidator:
+    def __init__(self, context: UIContextManager):
+        self.logger = logging.getLogger(__name__)
+        self.context = context
+
+    def validate(self, user_input, validators: List[ValidationRule]):
         for validator in validators:
             result = validator.validate(user_input)
             if not result['passed']:
@@ -69,12 +123,72 @@ class UserInterface(ABC):
 
         return {'passed': True}
 
-    def set_context(self, context_dict: Dict[str, Any]) -> None:
-        for key, val in context_dict.items():
-            if f'_{key}' in vars(self):
-                setattr(self, f'_{key}', val)
-            else:
-                self.logger.warning(f"Invalid context set by {__name__}. Key {key} does not exist.")
+    @property
+    def new_entity(self) -> List[ValidationRule]:
+        return [
+            ValidationRule(self.input_provided, "No input detected. Please enter input."),
+            ValidationRule(self.is_new_entity, f"Name already exists in {self.context.entity_type}s. Please enter a different name."),
+            ValidationRule(self.is_kebabcase, "Input must be kebab-case (i.e. my-project-name)")
+        ]
+
+    @property
+    def existing_entity(self) -> List[ValidationRule]:
+        return [
+            ValidationRule(self.input_provided, "No input detected. Please enter input."),
+            ValidationRule(self.is_existing_entity, f"Name not found in {self.context.entity_type}s. Please enter a different name."),
+            ValidationRule(self.is_kebabcase, "Input must be kebab-case (i.e. my-project-name)")
+        ]
+
+    @property
+    def emoji(self) -> List[ValidationRule]:
+        return [
+            ValidationRule(self.input_provided, "No input detected. Please enter input."),
+            ValidationRule(self.validate_emoji, "Invalid emoji provided. Please enter a valid emoji.")
+        ]
+
+    def local_path(self) -> List[ValidationRule]:
+        return [
+            ValidationRule(self.input_provided, "No input detected. Please enter input."),
+            ValidationRule(self.local_path_exists, "Path not found. Please provide a valid path.")
+        ]
+
+    def item_list_match(self, items) -> List[ValidationRule]:
+        return [
+            ValidationRule(self.is_in_list, f"Provided value not one of: {', '.join(items)}.")
+        ]
+
+    def is_in_list(self, items):
+        def in_list(self, user_input):
+            return user_input in items
+
+        return in_list
+
+    def input_provided(self, user_input: str) -> bool:
+        return bool(user_input)
+
+    def is_new_entity(self, user_input: str) -> bool:
+        entity = self.context.registry.get_by_name(user_input)
+        if entity:
+            return False
+        return True
+
+    def is_existing_entity(self, user_input: str) -> bool:
+        return not self.is_new_entity(user_input)
+
+    def local_path_exists(self, user_input: str) -> bool:
+        return Path(user_input).exists()
+
+    def is_kebabcase(self, name: str) -> bool:
+        import re
+        # Check if the name follows kebab-case pattern (lowercase letters, numbers, and hyphens)
+        # Must start and end with alphanumeric, no consecutive hyphens
+        pattern = r'^[a-z0-9]+(-[a-z0-9]+)*$'
+        
+        return bool(re.match(pattern, name))
+
+    def validate_emoji(self, user_input: str) -> bool:
+        import emoji
+        return bool(emoji.emoji_count(user_input)) and len(user_input) == 1
 
     def format_titlecase_to_kebabcase(self, title: str) -> str:
         """
@@ -114,42 +228,23 @@ class UserInterface(ABC):
         
         return title
 
-    def validate_input_provided(self, user_input: str) -> bool:
-        return bool(user_input)
 
-    def validate_not_existing_entity(self, user_input: str) -> bool:
-
-        if self._entity_type:
-            registry = self._registry_manager.get_by_name(self._entity_type)
-            return False if registry.get_by_name(user_input) else True
-        else:
-            self.logger.error(f"Registry manager not initialized with {__name__} an't validate project existence")
-            return False
-
-    def validate_is_existing_entity(self, user_input: str) -> bool:
-
-        if self._entity_type:
-            registry = self._registry_manager.get_by_name(self._entity_type)
-            return False if registry.get_by_name(user_input) else True
-        else:
-            self.logger.error(f"Registry manager not initialized with {__name__} an't validate project existence")
-            return False
-
-    def validate_kebabcase(self, name: str) -> bool:
-        import re
-        # Check if the name follows kebab-case pattern (lowercase letters, numbers, and hyphens)
-        # Must start and end with alphanumeric, no consecutive hyphens
-        pattern = r'^[a-z0-9]+(-[a-z0-9]+)*$'
+class UserInterface(ABC):
+    """Abstract base class for user interaction."""
+    
+    def __init__(self, context: UIContextManager, validator: InputValidator):
+        """
+        Initialize the UserInteraction.
         
-        return bool(re.match(pattern, name))
+        Args:
+            logger: Logger instance for logging messages
+        """
+        self.logger = logging.getLogger(__name__)
+        self.context = context
+        self.validator = validator
 
-    def validate_emoji(self, user_input: str) -> bool:
-        import emoji
-        return bool(emoji.emoji_count(user_input)) and len(user_input) == 1
-    
-    
     @abstractmethod
-    def get_input(self, prompt: str, validators: Optional[List[InputValidator]] = [], default: Optional[str] = None) -> str:
+    def get_input(self, prompt: str, validators: Optional[List[ValidationRule]] = [], default: Optional[str] = None) -> str:
         """
         Get input from the user with optional validation.
         
@@ -192,7 +287,7 @@ class UserInterface(ABC):
         pass
     
     @abstractmethod
-    def display_entity_details(self, entity_type: str, details: Dict[str, Any]) -> None:
+    def display_key_values_list(self, entity_type: str, details: Dict[str, Any]) -> None:
         """
         Display entity details to the user.
         
@@ -213,7 +308,7 @@ class UserInterface(ABC):
         pass
     
     @abstractmethod
-    def display_list_results(self, items: List[Any], registry_name: str) -> None:
+    def display_results_tabular(self, items: List[Any], registry_name: str) -> None:
         """
         Display list results.
         

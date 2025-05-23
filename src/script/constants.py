@@ -7,6 +7,7 @@ class EntityType:
     API = 'api'
     DB = 'database'
     PROJECT_INTEGRATION = 'project_integration'
+    INTEGRATION_INSTANCE = 'integration_instance'
 
 
 class MediaProperties:

@@ -10,6 +10,6 @@ class ApiRegistry(Registry):
         super().__init__('api', Api)
 
     def load(self):
-        self.load_from_module('src.script.api')
+        self.loader.load_from_module('src.script.api')
 
         

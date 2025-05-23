@@ -4,14 +4,7 @@ import logging
 import pkgutil
 import uuid
 from abc import ABC, abstractmethod
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from src.script.entity._base import EntityBase, EntityRef
@@ -32,6 +25,8 @@ class Registry(ABC):
         self._entities_by_name: Dict[str, 'EntityBase'] = {}  # Secondary index by name
         self._manager: Optional['RegistryManager'] = None
         self._next_id: int = 1
+
+        self.loader = RegistryEntityLoader(self)
 
         from src.script.entity._base import ModuleEntity, StorableEntity
 
@@ -138,14 +133,14 @@ class Registry(ABC):
     
     def get_by_id(self, entity_id: uuid.UUID) -> Optional['EntityBase']:
         """Get an entity by its ID."""
-        return self._entities.get(entity_id)
+        return self._entities.get(entity_id, None)
     
     def get_by_name(self, name: str) -> Optional['EntityBase']:
         """Get an entity by its name."""
-        return self._entities_by_name.get(name)
+        return self._entities_by_name.get(name, None)
 
     def get_by_ref(self, ref: 'EntityRef') -> 'EntityBase':
-        return self._entities.get(ref.entity_id)
+        return self._entities.get(ref.entity_id, None)
     
     def get_all_entities(self) -> List['EntityBase']:
         """Get all entities in this registry."""
@@ -169,68 +164,6 @@ class Registry(ABC):
         # Add with new name
         if hasattr(entity, 'name'):
             self._entities_by_name[entity.name] = entity
-
-    def load_from_database(self, table_name: str) -> None:
-        try:
-            with self.db.transaction():
-                table = getattr(self.db.dal, table_name)
-                rows = self.db.dal(table).select()
-            entities_loaded = 0
-            for entity_row in rows:
-                try:
-                    row_dict = entity_row.as_dict()
-                    # Map the database column name back to the expected attribute name
-                    if 'entity_data' in row_dict:
-                        row_dict['data'] = row_dict.pop('entity_data')
-                    entity = self.entity_class(self, **entity_row.as_dict())
-                    self.register_entity(entity)
-                    entities_loaded += 1
-                    self.logger.debug(f"Loaded entity: {entity.name} from table {table_name}")
-                except Exception as e:
-                    self.logger.error(f"Error loading entity from {table_name}: {e}")
-            self.logger.info(f"Loaded {entities_loaded} {self.name}(s) from database")
-        except Exception as e:
-            self.logger.error(f"Error loading entities from {table_name}: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def load_from_module(self, package_name: str) -> None:
-        """Load entities from modules in a package."""
-        try:
-            package = importlib.import_module(package_name)
-            
-            for module_info in pkgutil.iter_modules(package.__path__, package.__name__ + '.'):
-                module_name = module_info[1]
-                
-                # Skip modules that start with underscore
-                if module_name.split('.')[-1].startswith('_'):
-                    continue
-                
-                try:
-                    # Import the module
-                    module = importlib.import_module(module_name)
-                    
-                    modules_loaded = 0
-                    # Find all classes in the module that inherit from the entity class
-                    for name, obj in inspect.getmembers(module):
-                        if (inspect.isclass(obj) and 
-                            issubclass(obj, self.entity_class) and 
-                            obj is not self.entity_class):  # Skip the base class itself
-                            try:
-                                # Instantiate the entity class
-                                entity = obj(self)
-                                # No data to load, register immediately
-                                self.register_entity(entity)
-                                modules_loaded += 1
-                                self.logger.debug(f"Loaded entity: {entity.name} from {module_name}")
-                            except Exception as e:
-                                self.logger.error(f"Error loading {name} from {module_name}: {e}")
-                    self.logger.info(f"Loaded {modules_loaded} {self.name}(s) from modules")
-                except Exception as e:
-                    self.logger.error(f"Error loading module {module_name}: {e}")
-        
-        except Exception as e:
-            self.logger.error(f"Error loading package {package_name}: {e}")
 
 class CommandableRegistry(Registry):
     """
@@ -277,7 +210,7 @@ class CommandableRegistry(Registry):
             if callable(handler):
                 try:
                     result = handler(**params)
-                    self.logger.debug(f"Executed command '{command}' on {handler_owner}")
+                    self.logger.debug(f"Completed command '{command}' on {handler_owner}")
                     return result
                 except Exception as e:
                     self.logger.error(f"Error executing command '{command}' on {handler_owner}: {e}")
@@ -292,3 +225,156 @@ class CommandableRegistry(Registry):
     def invoke_registry_handler(self, command: str, params: dict) -> Any:
         return self._invoke_handler(self, command, params)
         
+
+class RegistryEntityLoader:
+
+    def __init__(self, registry):
+        self.registry = registry
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
+
+    def find_modules_with_derived_entity_class(self, package_name: str) -> List[Dict[str, Any]]:
+        """
+        Find modules that contain classes derived from a base class.
+        Works with both packages (folders) and individual modules (files).
+        
+        Args:
+            package_name: Name of the package/module to search (e.g., 'myapp.entities' or 'myapp.entities.local')
+            
+        Returns:
+            List of dictionaries containing:
+            - 'filename': module filename without .py extension
+            - 'module_name': full dotted module name
+            - 'derived_classes': list of classes that inherit from base_class
+        """
+        results = []
+        
+        try:
+            target = importlib.import_module(package_name)
+            
+            # Check if it's a package (has __path__) or a module
+            if hasattr(target, '__path__'):
+                # It's a package - iterate through its submodules
+                results = self._scan_package(target)
+            else:
+                # It's a single module - scan it directly
+                results = self._scan_single_module(target)
+                
+        except Exception as e:
+            self.logger.error(f"Error loading package/module {package_name}: {e}")
+            return []
+        
+        return results
+
+    def _scan_package(self, package) -> List[Dict[str, Any]]:
+        """Scan a package for modules with derived classes."""
+        results = []
+        
+        for module_info in pkgutil.iter_modules(package.__path__, package.__name__ + '.'):
+            module_name = module_info[1]
+            
+            # Skip modules that start with underscore
+            if module_name.split('.')[-1].startswith('_'):
+                continue
+            
+            try:
+                module = importlib.import_module(module_name)
+                derived_classes = self._find_derived_classes_in_module(module)
+                
+                if derived_classes:
+                    results.append({
+                        'filename': module_name.split('.')[-1],
+                        'module_name': module_name,
+                        'derived_classes': derived_classes
+                    })
+                    
+            except Exception as e:
+                self.logger.error(f"Error loading module {module_name}: {e}")
+                continue
+        
+        return results
+
+    def _scan_single_module(self, module) -> List[Dict[str, Any]]:
+        """Scan a single module for derived classes."""
+        results = []
+        
+        # Skip modules that start with underscore
+        module_filename = module.__name__.split('.')[-1]
+        if module_filename.startswith('_'):
+            return results
+        
+        try:
+            derived_classes = self._find_derived_classes_in_module(module)
+            
+            if derived_classes:
+                results.append({
+                    'filename': module_filename,
+                    'module_name': module.__name__,
+                    'derived_classes': derived_classes
+                })
+                
+        except Exception as e:
+            self.logger.error(f"Error scanning module {module.__name__}: {e}")
+        
+        return results
+
+    def _find_derived_classes_in_module(self, module) -> List:
+        """Find all classes in a module that inherit from the base class."""
+        derived_classes = []
+        
+        for name, obj in inspect.getmembers(module):
+            if (inspect.isclass(obj) and 
+                issubclass(obj, self.registry.entity_class) and 
+                obj is not self.registry.entity_class and
+                obj.__module__ == module.__name__):  # Ensure class is defined in this module
+                derived_classes.append(obj)
+        
+        return derived_classes
+
+    def get_filenames_with_derived_entity_class(self, package_name: str) -> List[str]:
+        """Get just the filenames that contain derived classes."""
+        modules_info = self.find_modules_with_derived_entity_class(package_name)
+        return [info['filename'] for info in modules_info]
+
+    def load_from_module(self, package_name: str, **kwargs: Optional) -> List:
+        """Load entities from modules in a package or single module."""
+        modules_info = self.find_modules_with_derived_entity_class(package_name)
+        modules_loaded = 0
+        entities = []
+        
+        for module_info in modules_info:
+            for cls in module_info['derived_classes']:
+                try:
+                    entity = cls(self.registry, **kwargs)
+                    self.registry.register_entity(entity)
+                    entities.append(entity)
+                    modules_loaded += 1
+                    self.logger.debug(f"Loaded entity: {entity.name} from {module_info['module_name']}")
+                except Exception as e:
+                    self.logger.error(f"Error loading {cls.__name__} from {module_info['module_name']}: {e}")
+        
+        self.logger.info(f"Loaded {modules_loaded} {self.registry.name}(s) from modules")
+        return entities
+
+    def load_from_database(self, table_name: str) -> None:
+        try:
+            with self.registry.db.transaction():
+                table = getattr(self.registry.db.dal, table_name)
+                rows = self.registry.db.dal(table).select()
+            entities_loaded = 0
+            for entity_row in rows:
+                try:
+                    row_dict = entity_row.as_dict()
+                    # Map the database column name back to the expected attribute name
+                    if 'entity_data' in row_dict:
+                        row_dict['data'] = row_dict.pop('entity_data')
+                    entity = self.registry.entity_class(self.registry, **entity_row.as_dict())
+                    self.registry.register_entity(entity)
+                    entities_loaded += 1
+                    self.logger.debug(f"Loaded entity: {entity.name} from table {table_name}")
+                except Exception as e:
+                    self.logger.error(f"Error loading entity from {table_name}: {e}")
+            self.logger.info(f"Loaded {entities_loaded} {self.registry.name}(s) from database")
+        except Exception as e:
+            self.logger.error(f"Error loading entities from {table_name}: {e}")
+            import traceback
+            traceback.print_exc()

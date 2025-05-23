@@ -99,6 +99,7 @@ class Database(ModuleEntity):
                 ('id', 'id'),
                 ('name', 'string'),
                 ('date_created', 'string'),
+                ('config', 'json'),
                 ('entity_data', 'json'),
                 ('title', 'string'),
                 ('emoji', 'string'),
@@ -107,14 +108,17 @@ class Database(ModuleEntity):
                 ('id', 'id'),
                 ('name', 'string'),
                 ('date_created', 'string'),
-                ('entity_data', 'json'),
+                ('title', 'string'),
+                ('emoji', 'string'),
                 ('config', 'json'),
+                ('entity_data', 'json'),
             ],
             EntityType.PROJECT_INTEGRATION: [
                 ('id', 'id'),
                 ('name', 'string'),
                 ('date_created', 'string'),
                 ('entity_data', 'json'),
+                ('config', 'json'),
                 ('project_id', 'integer'),
                 ('integration_id', 'integer'),
             ]
@@ -246,7 +250,7 @@ class Database(ModuleEntity):
                 'name': entity.name,
                 'date_created': entity.date_created,
                 'entity_data': entity.data,
-                **getattr(entity, 'db_additional_fields', {})
+                **getattr(entity, 'db_fields', {})
             }
 
             self.logger.debug(f"Upserting {record}")

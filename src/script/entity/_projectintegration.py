@@ -25,14 +25,14 @@ class ProjectIntegration(StorableEntity):
         integration = integration_registry.get_by_id(integration_id)
         project = project_registry.get_by_id(project_id)
 
-        kwargs['name'] = f"{project.name} - {integration.name}"
+        kwargs['name'] = f"{project.name}-{integration.name}"
 
         super().__init__(registry, **kwargs)
 
         self._project_ref = project.ref
         self._integration_ref = integration.ref
 
-        self._db_additional_fields = {
+        self._db_fields = {
             'project_id': project.id,
             'integration_id': integration.id
         }

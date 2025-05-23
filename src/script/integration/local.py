@@ -2,6 +2,7 @@ import os
 import shutil
 from pathlib import Path
 
+from src.script.api._ui import EditableAttribute
 from src.script.constants import Files, Media
 from src.script.entity._integration import Integration
 from src.script.entity._project import Project
@@ -10,35 +11,43 @@ from src.script.entity._project import Project
 class LocalIntegration(Integration):
     """Integration that manages local project files and directories."""
 
-    def __init__(self, registry):
-        config = {
-            'name': 'local',
-            'display_name': 'Local Filesystem',
-            'env': {
-                'base_dir': 'PROJECT_BASE_DIR'
-            },
-            'project_fields': {
-                # Default fields to add to project data for this integration
-                'local_settings': {
-                    'use_git': True,
-                    'backup_enabled': True
-                }
-            },
-            'apis': {}
-        }
+    def __init__(self, registry, **kwargs):
 
-        super().__init__(registry, config)
+        self._apis = {}
         
-        # Ensure base directory exists
-        base_dir = self.base_dir
-        if not base_dir.exists():
-            self.logger.info(f"Creating base directory: {base_dir}")
-            base_dir.mkdir(parents=True, exist_ok=True)
+        self._config = [
+            EditableAttribute(
+                name='base_dir',
+                title='Base Directory', 
+                description='Directory where project folders will be created',
+                change_handler=self._handle_base_directory_changed,
+                default_value=str(Path.home()),
+                input_type=str
+            ),
+            # EditableAttribute(
+            #     name='use_git',
+            #     title='Use Github',
+            #     description='Whether to initialize a github repo in project folders. Requires GitHub integration.',
+            #     change_handler=self._handle_use_github,
+            #     default_value=True,
+            #     input_type=bool
+            # )
+        ]
+        super().__init__(registry, **kwargs)
+        
+    def _handle_base_directory_changed(self, current_base_dir, new_base_dir):
+        self.logger.debug("Set up base directory")
+        # if not Path(new_base_dir).exists():
+        #     self.logger.info(f"Creating directory: {new_base_dir}")
+        #     Path(new_base_dir).mkdir(parents=True, exist_ok=True)
+
+    def _handle_use_github(self, val, new_val):
+        pass
 
     @property
     def base_dir(self) -> Path:
         """Get the base directory for all projects."""
-        return Path(self.env['base_dir'])
+        return Path(self.get_config_value('base_dir'))
 
     def path(self, project) -> Path:
         return self.base_dir / project.name

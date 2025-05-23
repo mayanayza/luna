@@ -2,7 +2,7 @@ import argparse
 import shlex
 from typing import Any, Dict, List, Optional
 
-from src.script.api._ui import InputValidator, UserInterface
+from src.script.api._ui import InputValidator, UIContextManager, UserInterface
 from src.script.constants import EntityType
 from src.script.entity._api import Api
 
@@ -71,14 +71,21 @@ REGISTRY_COMMANDS = {
                 ]
             },
             {
+                'name': 'detail',
+                'help': 'Show details of a project',
+                'args': [
+                    {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'required': True, 'help': 'Project to show details for'},
+                ]
+            },
+            {
                 'name': 'list',
                 'help': 'List projects',
                 'args': [
                     {
                         'group': 'mutually_exclusive',
                         'args': [
-                            {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'help': 'Project to list details for'},
-                            {'name': f'--{EntityType.PROJECT}s', 'nargs': '+', 'help': 'List of projects to show details for'},
+                            {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'help': 'Project to list summary for'},
+                            {'name': f'--{EntityType.PROJECT}s', 'nargs': '+', 'help': 'List of projects to show summary for'},
                             {'name': '--all', 'action': 'store_true', 'help': 'List all projects'}
                         ]
                     },
@@ -92,7 +99,7 @@ REGISTRY_COMMANDS = {
         'commands': [
             {
                 'name': 'create',
-                'help': 'Create a new integration',
+                'help': 'Create a new instance of an integration',
                 'handler': '_handle_integration_create'
             },
             {
@@ -119,6 +126,13 @@ REGISTRY_COMMANDS = {
                 ]
             },
             {
+                'name': 'detail',
+                'help': 'Show details of an integration',
+                'args': [
+                    {'name': f'--{EntityType.INTEGRATION}', 'short': '-i', 'required': True, 'help': 'Integration to show details for'},
+                ]
+            },
+            {
                 'name': 'list',
                 'help': 'List integrations',
                 'args': [
@@ -132,6 +146,31 @@ REGISTRY_COMMANDS = {
                     },
                     {'name': '--sort-by', 'choices': ['name', 'date', 'type'], 'default': 'name', 'help': 'Sort by field'}
                 ]
+            }
+        ]
+    },
+    EntityType.INTEGRATION_INSTANCE: {
+        'help': 'Commands for integration instance registry',
+        'commands': [
+            
+            {
+                'name': 'list',
+                'help': 'List integration instances',
+                'args': [
+                    {
+                        'group': 'mutually_exclusive',
+                        'args': [
+                            {'name': f'--{EntityType.INTEGRATION_INSTANCE}', 'short': '-i', 'help': 'Integration instance to list details for'},
+                            {'name': f'--{EntityType.INTEGRATION_INSTANCE}s', 'nargs': '+', 'help': 'List of integration instances to show details for'},
+                            {'name': '--all', 'action': 'store_true', 'help': 'List all integration instances'}
+                        ]
+                    },
+                    {'name': '--sort-by', 'choices': ['name', 'date', 'type'], 'default': 'name', 'help': 'Sort by field'}
+                ]
+            },
+            {
+                'name': 'edit',
+                'help': ''
             }
         ]
     },
@@ -152,7 +191,14 @@ REGISTRY_COMMANDS = {
                     },
                     {'name': '--sort-by', 'choices': ['project', 'integration'], 'default': 'project', 'help': 'Sort by field'}
                 ]
-            }
+            },
+            {
+                'name': 'detail',
+                'help': 'Show details of a project integration',
+                'args': [
+                    {'name': f'--{EntityType.PROJECT_INTEGRATION}', 'short': '-pi', 'required': True, 'help': 'Project integration to show details for'},
+                ]
+            },
         ]
     },
     EntityType.DB:{
@@ -164,18 +210,25 @@ REGISTRY_COMMANDS = {
                 'args': []
             },
             {
+                'name': 'detail',
+                'help': 'Show details of a database',
+                'args': [
+                    {'name': f'--{EntityType.DB}', 'short': '-db', 'required': True, 'help': 'Database to show details for'},
+                ]
+            },
+            {
                 'name': 'list',
                 'help': 'List databases',
                 'args': [
                     {
                         'group': 'mutually_exclusive',
                         'args': [
-                            {'name': f'--{EntityType.DB}', 'short': '-d', 'help': 'Database to list details for'},
+                            {'name': f'--{EntityType.DB}', 'short': '-db', 'help': 'Database to list details for'},
                             {'name': f'--{EntityType.DB}s', 'nargs': '+', 'help': 'List of databases to show details for'},
                             {'name': '--all', 'action': 'store_true', 'help': 'List all integrations'}
                         ]
                     },
-                    {'name': '--sort-by', 'choices': ['project', 'integration'], 'default': 'project', 'help': 'Sort by field'}
+                    {'name': '--sort-by', 'choices': ['name'], 'default': 'name', 'help': 'Sort by field'}
                 ]
             }
         ]
@@ -202,7 +255,7 @@ REGISTRY_COMMANDS = {
 class CliUserInterface(UserInterface):
     """CLI implementation of UserInteraction."""
     
-    def get_input(self, prompt: str, validators: Optional[List[InputValidator]] = [], default: Optional[str] = None) -> str:
+    def get_input(self, prompt: str, validators: Optional[List[InputValidator]] = [], default: Optional[str] = None, prepend: Optional[str] = None, append: Optional[str] = None) -> str:
         """
         Get input from the user via CLI with optional validation.
         
@@ -214,8 +267,10 @@ class CliUserInterface(UserInterface):
             str: The validated input from the user or the default value
         """
         while True:
-            user_input = input(prompt + ': ').strip()
-            result = self.validate(user_input, validators)
+            user_input = input(prompt).strip()
+            user_input = f'{prepend}{user_input}' if prepend else user_input
+            user_input = f'{user_input}{append}' if append else user_input
+            result = self.validator.validate(user_input, validators)
 
             if default is not None and not user_input:
                 return default
@@ -262,15 +317,15 @@ class CliUserInterface(UserInterface):
             self.logger.info(message)
             print(message)
     
-    def display_entity_details(self, details: Dict[str, Any]) -> None:
+    def display_key_values_list(self, details: Dict[str, Any]) -> None:
+
         """
-        Display entity details to the user via CLI.
+        Display a list of keys and values to the user via CLI.
         
         Args:
             entity_type: Type of entity (project, integration, etc.)
             details: Entity details to display
         """
-        print(f"\n{self.entity_type.capitalize()} details:")
         for key, value in details.items():
             print(f"{key.capitalize()}: {value or '<None>'}")
     
@@ -281,43 +336,35 @@ class CliUserInterface(UserInterface):
         Args:
             results: Results from command execution
         """
-        if not results:
-            print("No results returned")
-            return
         
+
         # Check if results is a dictionary with registry IDs as keys
         if isinstance(results, dict):
-            for registry_name, registry_results in results.items():
-                print(f"Results from {registry_name}:")
-                for result in registry_results:
-                    if isinstance(result, dict):
-                        for key, value in result.items():
-                            print(f"  {key}: {value}")
-                    else:
-                        print(f"  {result}")
+            for result in results:
+                if isinstance(result, dict):
+                    for key, value in result.items():
+                        print(f"  {key}: {value}")
+                else:
+                    print(f"  {result}")
         else:
             # Just display the result directly
             print(results)
     
-    def display_list_results(self, items: List[Any], registry_type: str) -> None:
-        """
-        Display list results in a formatted table via CLI.
-        
-        Args:
-            items: Items to display
-            registry_type: Type of registry
-        """
-        if not items:
-            print(f"No {registry_type} entries found")
-            return
-        
-        # Format items as a table
-        print(f"\n--- {registry_type.upper()} LIST ---")
-        for item in items:
-            if isinstance(item, dict):
-                print(f"{item.get('name', 'Unknown')}: {item}")
-            else:
-                print(f"{getattr(item, 'name', 'Unknown')}: {item}")
+    def display_results_tabular(self, results, headers):
+        from tabulate import tabulate
+
+        tabular = []
+
+        for result in results:
+            tab = []
+            for header in headers:
+                if header in result:
+                    tab.append(result[header])
+                else:
+                    tab.append('')
+            tabular.append(tab)
+
+        print(tabulate(tabular, headers))
     
     def display_help(self, parser: Any) -> None:
         """
@@ -348,7 +395,9 @@ class Cli(Api):
         self.registered_args = set()
         
         # Initialize user interface
-        self._ui = CliUserInterface(self.registry.manager)
+        self._context = UIContextManager(self.registry.manager)
+        self._validator = InputValidator(self._context)
+        self._ui = CliUserInterface(self._context, self._validator)
         
         # Add core arguments using subparsers for each registry
         self._setup_command_structure()
@@ -360,6 +409,15 @@ class Cli(Api):
     def ui(self):
         return self._ui
 
+    @property
+    def context(self):
+        return self._context
+
+    @property
+    def validator(self):
+        return self._validator
+    
+    
     @property
     def running(self):
         return self._running
@@ -557,6 +615,8 @@ class Cli(Api):
         registry = args.registry
         command = args.command
 
+        self.context.set_context({'entity_type': registry})
+
         self.logger.debug(f"Processing command: {registry} {command} with args: {vars(args)}")
         
         # Find special handler method if defined in config
@@ -576,13 +636,22 @@ class Cli(Api):
         params = vars(args)
         del params['registry']
         del params['command']
-        result = self.dispatch_command(registry, command, params)
+        results = self.dispatch_command(registry, command, params)
         
         # Display results
-        if command == 'list':
-            self.ui.display_list_results(result, registry)
-        else:
-            self.ui.display_results(result)
+
+        print(f"\n--- {registry.upper()} {command.upper()} RESULTS ---")
+        if not results:
+            print("No results returned")
+
+        if results:
+            if command == 'list':
+                self.ui.display_results_tabular(results, results[0].keys())
+            elif command == 'detail':
+                self.ui.display_key_values_list(results[0])
+            else:
+                for result in results:
+                    self.ui.display_results(result)
     
     def _handle_project_create(self, args):
         """
@@ -595,12 +664,10 @@ class Cli(Api):
             Any: Creation result
         """
 
-        self.ui.set_context({'entity_type': EntityType.PROJECT})
-
         # Get name, emoji, title
-        name = self.ui.get_input("Enter project name", self.ui.new_entity_validators)
-        emoji = self.ui.get_input("Enter an emoji prefix (or press enter to leave empty)", self.ui.emoji_validators, '')
-        title = self.ui.format_kebabcase_to_titlecase(name)
+        name = self.ui.get_input("Enter project name: ", self.validator.new_entity)
+        emoji = self.ui.get_input("Enter an emoji prefix (or press enter to leave empty): ", self.validator.emoji, default='')
+        title = self.validator.format_kebabcase_to_titlecase(name)
         
         # Display details for confirmation
         params = {
@@ -608,7 +675,7 @@ class Cli(Api):
             'title': title,
             'emoji': emoji
         }
-        self.ui.display_entity_details(params)
+        self.ui.display_key_values_list(params)
         
         # Confirm details
         if not self.ui.confirm("\nConfirm these details?"):
@@ -634,19 +701,16 @@ class Cli(Api):
         Returns:
             Any: Rename result
         """
-
-        self.ui.set_context({'entity_type': EntityType.PROJECT})
         
         # Get project name
 
-        project_name = self.ui.get_input("Enter name of project to rename", self.ui.existing_entity_validators)
+        project_name = self.ui.get_input("Enter name of project to rename: ", self.validator.existing_entity)
 
-        project_registry = self.registry.manager.get_by_name(EntityType.PROJECT)
-        project = project_registry.get_by_name(project_name)
+        project = self.context.registry.get_by_name(project_name)
 
-        new_name = self.ui.get_input("Enter new name: ", self.ui.new_entity_validators)
-        new_emoji = self.ui.get_input(f"Enter new emoji prefix (or press enter to use existing emoji {project.emoji})", self.ui.emoji_validators, project.emoji)
-        new_title = self.ui.format_kebabcase_to_titlecase(new_name)
+        new_name = self.ui.get_input("Enter new name: ", self.validator.new_entity)
+        new_emoji = self.ui.get_input(f"Enter new emoji prefix (or press enter to use existing emoji {project.emoji}): ", self.validator.emoji, default=project.emoji)
+        new_title = self.validator.format_kebabcase_to_titlecase(new_name)
                                 
         # Confirm changes
         params = {
@@ -655,7 +719,7 @@ class Cli(Api):
             'new_title': new_title,
             'new_emoji': new_emoji
         } 
-        self.ui.display_entity_details(params)
+        self.ui.display_key_values_list(params)
         
         if not self.ui.confirm("\nConfirm these changes?"):
             self.ui.display_message("Operation cancelled", "info")
@@ -684,34 +748,52 @@ class Cli(Api):
             Any: Creation result
         """        
 
-        self.ui.set_context({'entity_type': EntityType.INTEGRATION})
-
         # Get integration name
-        name = self.ui.get_input("Enter integration name", self.ui.new_entity_validators)
-        emoji = self.ui.get_emoji("Enter an emoji prefix (or press enter to leave empty)", self.ui.emoji_validators, '')
-        type = self.ui.get_input("Enter integration type", self.ui.existing_entity_validators)
 
+        types = self.context.registry.get_integration_filenames()
+        
+        type = self.ui.get_input(f"Enter integration type. Options - {', '.join(types)}: ", self.validator.item_list_match(types))
+        name = self.ui.get_input(f"Enter integration name: {type}-", self.validator.new_entity, prepend=f'{type}-')
+        emoji = self.ui.get_input("Enter an emoji prefix (or press enter to leave empty): ", self.validator.emoji, '')
+        title = self.validator.format_kebabcase_to_titlecase(name)
+        
         # Display details for confirmation
         params = {
+            'type': type,
             'name': name,
             'emoji': emoji,
-            'type': type
+            'title': title
         }
-        self.ui.display_entity_details(params)
+        self.ui.display_key_values_list(params)
         
         # Confirm details
         if not self.ui.confirm("\nConfirm these details?"):
             self.ui.display_message("Operation cancelled", "info")
             return None
 
-        result = self.dispatch_command(EntityType.INTEGRATION, 'create', params)
-        
-        if result:
-            self.ui.display_message(f"Created integration: {result.get('name', name)}", "info")
+        integration = self.dispatch_command(EntityType.INTEGRATION, 'create', params)
+
+        if integration:
+            self.ui.display_message(f"Created integration: {integration.name}", "info")
         else:
             self.ui.display_message("Failed to create integration", "error")
+            return
         
-        return result
+        if integration.config:
+            self.ui.display_message(f"Configuration required for'{integration.name}'", "info")
+
+            for editable_attribute in integration.config:
+
+                # match editable_attribute.input_type:
+                #     case str:
+                value = self.ui.get_input(f"Enter value for {editable_attribute.name}. Description: {editable_attribute.description}. Or, press enter to use default ({editable_attribute.value}): ", [], default=editable_attribute.value)
+                    # case bool:
+                    #     value = self.ui.confirm(f"Enter value for {editable_attribute.name}", editable_attribute.value)
+
+                editable_attribute.value = value
+                editable_attribute.end_edit()
+
+        return integration
     
     def _handle_integration_rename(self, args):
         """
@@ -723,16 +805,12 @@ class Cli(Api):
         Returns:
             Any: Rename result
         """
-        self.ui.set_context({'entity_type': EntityType.INTEGRATION})
+        integration_name = self.ui.get_input("Enter name of integration to rename", self.validator.existing_entity)
+        integration = self.context.registry.get_by_name(integration_name)
 
-        integration_name = self.ui.get_input("Enter name of integration to rename", self.ui.existing_entity_validators)
-
-        integration_registry = self.registry.manager.get_by_name(EntityType.INTEGRATION)
-        integration = integration_registry.get_by_name(integration_name)
-
-        new_name = self.ui.get_input("Enter new name", self.ui.new_entity_validators)
-        new_emoji = self.ui.get_input(f"Enter new emoji prefix (or press enter to use existing emoji {integration.emoji})", self.ui.emoji_validators, integration.emoji)
-        new_title = self.ui.format_kebabcase_to_titlecase(new_name)
+        new_name = self.ui.get_input("Enter new name", self.validator.new_entity)
+        new_emoji = self.ui.get_input(f"Enter new emoji prefix (or press enter to use existing emoji {integration.emoji})", self.validator.emoji, integration.emoji)
+        new_title = self.validator.format_kebabcase_to_titlecase(new_name)
 
         
         params = {
@@ -742,7 +820,7 @@ class Cli(Api):
             'new_emoji': new_emoji
         }
         
-        self.ui.display_entity_details("integration", params)
+        self.ui.display_key_values_list("integration", params)
         
         if not self.ui.confirm("\nConfirm these changes?"):
             self.ui.display_message("Operation cancelled", "info")

@@ -16,7 +16,7 @@ class ProjectIntegrationRegistry(CommandableRegistry):
 
     def load(self):
         """Load projects from database."""
-        self.load_from_database('project_integration')
+        self.loader.load_from_database('project_integration')
 
     def add_pi(self, project_ref: EntityRef, integration_ref: EntityRef) -> ProjectIntegration:
         """Create a new project_integration."""

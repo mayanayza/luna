@@ -47,7 +47,7 @@ class DatabaseRegistry(CommandableRegistry):
             True if setup was successful
         """
         
-        self.load_from_module('src.script.db')
+        self.loader.load_from_module('src.script.db')
 
         try:
             # Get database type from environment or config, default to 'sqlite'
