@@ -27,18 +27,16 @@ class ProjectIntegration(StorableEntity):
         name = f"{project.name}-{integration.name}"
         kwargs['name'] = name
 
-        commands = [method.replace('handler_','') for method in dir(integration) if callable(getattr(integration, method)) and method.startswith("handle_")]
-
-        self._commands = {command: {"last_run": False} for command in commands}
-
+        # commands = [method.replace('handler_','') for method in dir(integration) if callable(getattr(integration, method)) and method.startswith("handle_")]
+        # self._commands = {command: {"last_run": False} for command in commands}
+        self._commands = {}
         self._db_fields = {
-            'project_id': project.id,
-            'integration_id': integration.id,
+            'project_id': project.uuid,
+            'integration_id': integration.uuid,
             'commands': self._commands
         }
 
-        self._config_fields = integration.get('_project_integration_config_fields', [])
-
+        self._config_fields = getattr(integration, '_project_integration_config_fields', [])
         super().__init__(registry, EntityType.PROJECT_INTEGRATION, **kwargs)
 
         self._project_ref = project.ref

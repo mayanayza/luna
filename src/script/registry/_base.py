@@ -395,11 +395,8 @@ class RegistryEntityLoader:
 
     def get_entity_data_from_database(self, table_name: str):
         try:
-            print(0)
             with self.registry.db.transaction():
-                print(1)
                 table = getattr(self.registry.db.dal, table_name)
-                print(2)
                 rows = self.registry.db.dal(table).select()
 
             entity_data = []

@@ -151,7 +151,7 @@ class StorableEntity(EntityBase):
     
     def get_config_value(self, field_name: str):
         """Helper method to get configuration values from form fields"""
-        child = self._config.get_child(field_name)
+        child = self.config.get_child(field_name)
         if child and hasattr(child, 'value'):
             return child.value
         return None
