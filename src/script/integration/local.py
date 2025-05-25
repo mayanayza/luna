@@ -1,9 +1,11 @@
 import os
 import shutil
 from pathlib import Path
+from typing import List
 
-from src.script.api._ui import EditableAttribute
+from src.script.api._form import EditableAttribute
 from src.script.constants import Files, Media
+from src.script.entity._handler import SystemFormHandler
 from src.script.entity._integration import Integration
 from src.script.entity._project import Project
 
@@ -14,34 +16,45 @@ class LocalIntegration(Integration):
     def __init__(self, registry, **kwargs):
 
         self._apis = {}
+
+        handler_registry = registry.manager.get_by_name('handler')
+
+        base_directory_changed = SystemFormHandler(registry=handler_registry, name='base_dir', handler_func=self._handle_base_directory_changed)
+        use_github = SystemFormHandler(registry=handler_registry, name='use_git', handler_func=self._handle_use_github)
         
-        self._config = [
+        self._config_fields: List = [
             EditableAttribute(
                 name='base_dir',
                 title='Base Directory', 
                 description='Directory where project folders will be created',
-                change_handler=self._handle_base_directory_changed,
+                system_handler_ref=base_directory_changed.ref,
                 default_value=str(Path.home()),
                 input_type=str
             ),
-            # EditableAttribute(
-            #     name='use_git',
-            #     title='Use Github',
-            #     description='Whether to initialize a github repo in project folders. Requires GitHub integration.',
-            #     change_handler=self._handle_use_github,
-            #     default_value=True,
-            #     input_type=bool
-            # )
+            EditableAttribute(
+                name='use_git',
+                title='Use Github',
+                description='Whether to initialize a github repo in project folders. Requires GitHub integration.',
+                system_handler_ref=use_github.ref,  # Fixed typo here
+                default_value=True,
+                input_type=bool
+            )
         ]
+
+        self._project_integration_config_fields: List = []
+
         super().__init__(registry, **kwargs)
         
-    def _handle_base_directory_changed(self, current_base_dir, new_base_dir):
+    def _handle_base_directory_changed(self, old_value, new_value):
+        print(f"{old_value}, {new_value}")
         self.logger.debug("Set up base directory")
-        # if not Path(new_base_dir).exists():
-        #     self.logger.info(f"Creating directory: {new_base_dir}")
-        #     Path(new_base_dir).mkdir(parents=True, exist_ok=True)
+        # if not Path(new_value).exists():
+        #     self.logger.info(f"Creating directory: {new_value}")
+        #     Path(new_value).mkdir(parents=True, exist_ok=True)
 
-    def _handle_use_github(self, val, new_val):
+    def _handle_use_github(self, old_value, new_value):
+        print(f"{old_value}, {new_value}")
+        self.logger.debug("Use github")
         pass
 
     @property

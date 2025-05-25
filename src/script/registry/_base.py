@@ -2,9 +2,9 @@ import importlib
 import inspect
 import logging
 import pkgutil
-import uuid
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
     from src.script.entity._base import EntityBase, EntityRef
@@ -17,7 +17,7 @@ class Registry(ABC):
     
     def __init__(self, name: str, entity_class: 'EntityBase'):
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
-        self._id = None
+        self._uuid = uuid4()
         self._name = name
         self._entity_class = entity_class
         self._entity_class_is_storable = False
@@ -33,23 +33,26 @@ class Registry(ABC):
         if issubclass(self.entity_class, StorableEntity):
             self._db = None
             self._entity_class_is_storable = True
-            
-            # Use the original property from StorableEntity
-            db_prop = StorableEntity.db
-            
+                        
             # Create an enhanced setter that also propagates to entities
             def db_registry_setter(self, value):
-                # Call the original setter
-                db_prop.fset(self, value)
+                # Call the original setter on self
+                StorableEntity.db.fset(self, value)
                 
                 # Propagate to all entities
                 for entity in self._entities.values():
                     entity.db = value
+
+            def db_registry_getter(self):
+                if not hasattr(self, '_db') or self._db is None:
+                    raise RuntimeError(f"Database reference not set for {self.__class__.__name__}")
+                else:
+                    return self.manager.get_entity_by_ref(self._db)
             
             # Create a new property with the original getter but enhanced setter
             db_property = property(
-                db_prop.fget,  # Keep the original getter
-                db_registry_setter      # Use our enhanced setter
+                db_registry_getter,
+                db_registry_setter
             )
             
             # Add the property to this class
@@ -72,12 +75,12 @@ class Registry(ABC):
         return self._entity_class
     
     @property
-    def id(self):
-        return self._id
+    def uuid(self):
+        return self._uuid
 
-    @id.setter
-    def id(self, val):
-        self._id = val
+    @uuid.setter
+    def uuid(self, val):
+        self._uuid = val
 
     @property
     def name(self):
@@ -97,41 +100,41 @@ class Registry(ABC):
         next_id = self._next_id
         self._next_id += 1
         return next_id
+
+    def set_next_id(self, val) -> None:
+        if val >= self._next_id:
+            self._next_id = val+1
         
     def register_entity(self, entity: 'EntityBase') -> None:
         """Register an entity with this registry."""
-        self._entities[entity.id] = entity
-
-        # Give entity an ID if it doesn't have one (newly created)
-        # If it has one, it's being loaded and need to ensure next ID is higher to avoid duplicate IDs
-        if not hasattr(entity, '_id'):
-            entity._id = self.get_next_id()
-        elif entity.id >= self._next_id:
-            self._next_id = entity.id + 1
+        self._entities[entity.uuid] = entity
         
         if self.entity_class_is_storable:
-            entity.db = self.manager.get_db()
+            entity.db = self.manager.db_ref
+
+            if not hasattr(entity, '_db_id'):
+                entity._db_id = self.get_next_id()
         
         # Add to name index if the entity has a name attribute
         if hasattr(entity, 'name'):
             self._entities_by_name[entity.name] = entity
         
-        self.logger.debug(f"Registered entity: {getattr(entity, 'name', str(entity.id))}")
+        self.logger.debug(f"Registered entity: {getattr(entity, 'name', str(entity.uuid))}")
     
     def unregister_entity(self, entity: 'EntityBase') -> None:
         """Remove an entity from this registry."""
-        if entity.id in self._entities:
-            del self._entities[entity.id]
+        if entity.uuid in self._entities:
+            del self._entities[entity.uuid]
             
             # Remove from name index if present
             if hasattr(entity, 'name') and entity.name in self._entities_by_name:
                 del self._entities_by_name[entity.name]
             
-            self.logger.debug(f"Unregistered entity: {getattr(entity, 'name', str(entity.id))}")
+            self.logger.debug(f"Unregistered entity: {getattr(entity, 'name', str(entity.uuid))}")
         else:
-            self.logger.warning(f"Cannot unregister entity {entity.id}, not found")
+            self.logger.warning(f"Cannot unregister entity {entity.uuid}, not found")
     
-    def get_by_id(self, entity_id: uuid.UUID) -> Optional['EntityBase']:
+    def get_by_id(self, entity_id: UUID) -> Optional['EntityBase']:
         """Get an entity by its ID."""
         return self._entities.get(entity_id, None)
     
@@ -181,17 +184,18 @@ class CommandableRegistry(Registry):
         elif sort_by == 'date':
             sorted_entities = sorted(entities, key=lambda p: p.date_created)
         else:
-            sorted_entities = entities
+            sorted_entities = sorted(entities, key=lambda p: p.db_id)
         
         # Format result
         results = []
         for entity in sorted_entities:
             result = {
                 'name': entity.name,
-                'id': str(entity.id)
+                'id': str(entity.uuid),
             }
-            if hasattr(entity, 'date_created'):
-                result['date_created'] = entity.date_created
+            if hasattr(entity,'_db_fields'):
+                result.update(entity._db_fields)
+                result.update({'db_id': str(entity.db_id)})
             results.append(result)
         
         return results
@@ -232,13 +236,14 @@ class RegistryEntityLoader:
         self.registry = registry
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
 
-    def find_modules_with_derived_entity_class(self, package_name: str) -> List[Dict[str, Any]]:
+    def find_modules_with_derived_entity_class(self, package_name: str, recursive: bool = False) -> List[Dict[str, Any]]:
         """
         Find modules that contain classes derived from a base class.
         Works with both packages (folders) and individual modules (files).
         
         Args:
             package_name: Name of the package/module to search (e.g., 'myapp.entities' or 'myapp.entities.local')
+            recursive: If True, recursively search through all nested packages
             
         Returns:
             List of dictionaries containing:
@@ -254,7 +259,10 @@ class RegistryEntityLoader:
             # Check if it's a package (has __path__) or a module
             if hasattr(target, '__path__'):
                 # It's a package - iterate through its submodules
-                results = self._scan_package(target)
+                if recursive:
+                    results = self._scan_package_recursive(target)
+                else:
+                    results = self._scan_package(target)
             else:
                 # It's a single module - scan it directly
                 results = self._scan_single_module(target)
@@ -266,7 +274,7 @@ class RegistryEntityLoader:
         return results
 
     def _scan_package(self, package) -> List[Dict[str, Any]]:
-        """Scan a package for modules with derived classes."""
+        """Scan a package for modules with derived classes (non-recursive)."""
         results = []
         
         for module_info in pkgutil.iter_modules(package.__path__, package.__name__ + '.'):
@@ -290,6 +298,39 @@ class RegistryEntityLoader:
             except Exception as e:
                 self.logger.error(f"Error loading module {module_name}: {e}")
                 continue
+        
+        return results
+
+    def _scan_package_recursive(self, package) -> List[Dict[str, Any]]:
+        """Scan a package and all its nested packages recursively for modules with derived classes."""
+        results = []
+        
+        # Use pkgutil.walk_packages for recursive traversal
+        for importer, module_name, is_pkg in pkgutil.walk_packages(
+            package.__path__, 
+            package.__name__ + '.',
+            onerror=lambda x: None  # Skip modules that can't be imported
+        ):
+            # Skip modules that start with underscore
+            if module_name.split('.')[-1].startswith('_'):
+                continue
+            
+            # Only process modules, not packages
+            if not is_pkg:
+                try:
+                    module = importlib.import_module(module_name)
+                    derived_classes = self._find_derived_classes_in_module(module)
+                    
+                    if derived_classes:
+                        results.append({
+                            'filename': module_name.split('.')[-1],
+                            'module_name': module_name,
+                            'derived_classes': derived_classes
+                        })
+                        
+                except Exception as e:
+                    self.logger.error(f"Error loading module {module_name}: {e}")
+                    continue
         
         return results
 
@@ -330,51 +371,61 @@ class RegistryEntityLoader:
         
         return derived_classes
 
-    def get_filenames_with_derived_entity_class(self, package_name: str) -> List[str]:
+    def get_filenames_with_derived_entity_class(self, package_name: str, recursive: bool = False) -> List[str]:
         """Get just the filenames that contain derived classes."""
-        modules_info = self.find_modules_with_derived_entity_class(package_name)
+        modules_info = self.find_modules_with_derived_entity_class(package_name, recursive=recursive)
         return [info['filename'] for info in modules_info]
 
-    def load_from_module(self, package_name: str, **kwargs: Optional) -> List:
+    def load_from_module(self, package_name: str, recursive: bool = False, **kwargs: Optional) -> List:
         """Load entities from modules in a package or single module."""
-        modules_info = self.find_modules_with_derived_entity_class(package_name)
-        modules_loaded = 0
+        modules_info = self.find_modules_with_derived_entity_class(package_name, recursive=recursive)
         entities = []
         
         for module_info in modules_info:
             for cls in module_info['derived_classes']:
                 try:
                     entity = cls(self.registry, **kwargs)
-                    self.registry.register_entity(entity)
                     entities.append(entity)
-                    modules_loaded += 1
                     self.logger.debug(f"Loaded entity: {entity.name} from {module_info['module_name']}")
                 except Exception as e:
                     self.logger.error(f"Error loading {cls.__name__} from {module_info['module_name']}: {e}")
         
-        self.logger.info(f"Loaded {modules_loaded} {self.registry.name}(s) from modules")
+        self.logger.info(f"Loaded {len(entities)} {self.registry.name}(s) from modules")
         return entities
 
-    def load_from_database(self, table_name: str) -> None:
+    def get_entity_data_from_database(self, table_name: str):
         try:
+            print(0)
             with self.registry.db.transaction():
+                print(1)
                 table = getattr(self.registry.db.dal, table_name)
+                print(2)
                 rows = self.registry.db.dal(table).select()
-            entities_loaded = 0
+
+            entity_data = []
+
             for entity_row in rows:
                 try:
                     row_dict = entity_row.as_dict()
-                    # Map the database column name back to the expected attribute name
-                    if 'entity_data' in row_dict:
-                        row_dict['data'] = row_dict.pop('entity_data')
-                    entity = self.registry.entity_class(self.registry, **entity_row.as_dict())
-                    self.registry.register_entity(entity)
-                    entities_loaded += 1
-                    self.logger.debug(f"Loaded entity: {entity.name} from table {table_name}")
+                    entity_data.append(row_dict)
                 except Exception as e:
-                    self.logger.error(f"Error loading entity from {table_name}: {e}")
-            self.logger.info(f"Loaded {entities_loaded} {self.registry.name}(s) from database")
+                        self.logger.error(f"Error loading entity data {table_name}: {e}")
+            self.logger.info(f"Got data for {len(entity_data)} {self.registry.name}(s) from database")
         except Exception as e:
-            self.logger.error(f"Error loading entities from {table_name}: {e}")
+            self.logger.error(f"Error loading entity data from {table_name}: {e}")
             import traceback
             traceback.print_exc()
+
+        return entity_data
+
+    def load_from_database(self, table_name):
+        entity_data = self.get_entity_data_from_database(table_name)
+        entities_loaded = 0
+        for data in entity_data:
+            try:
+                entity = self.registry.entity_class(self.registry, **data)
+                entities_loaded += 1
+                self.logger.debug(f"Loaded entity: {entity.name} from table data {table_name}")
+            except Exception as e:
+                self.logger.error(f"Error loading entity from table data {table_name}: {e}")
+        self.logger.info(f"Loaded {entities_loaded} {self.registry.name}(s) from database")

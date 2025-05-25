@@ -1,14 +1,19 @@
 import sys
 from abc import abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from src.script.constants import EntityType
-from src.script.entity._base import EntityBase, ModuleEntity
+from src.script.constants import Command, EntityType
+from src.script.entity._base import (
+    CreatableEntity,
+    EntityBase,
+    ModuleEntity,
+    StorableEntity,
+)
 
 
 class Api(ModuleEntity):
     def __init__(self, registry, name: str):
-        super().__init__(registry, name)
+        super().__init__(registry, EntityType.API, name)
 
     @abstractmethod
     def start(self):
@@ -20,29 +25,97 @@ class Api(ModuleEntity):
         """
         pass
 
-    def _get_param_values_for_entity_type(self, registry_name: str) -> Dict:
-        return {
-            'singular': registry_name,
-            'plural': f"{registry_name}s",
-            'all': 'all'
+    @abstractmethod
+    def _process_command(self, args):
+        pass
+
+    def handle_entity_create(self, args, additional_params: Optional[Dict] = {}):
+        # Create and fill the form
+        entity_type = self.ui.context.entity_type
+        form_data = CreatableEntity.create_form(self.ui, entity_type)
+        if not form_data:
+            return None
+        
+        params = {
+            'name': form_data["name"],
+            'title': self.ui.validator.format_kebabcase_to_titlecase(form_data["name"]),
+            'emoji': form_data["emoji"],
+            **additional_params
         }
 
-    def _get_entities_from_params(self, params: Dict[str, str], registry_name: str) -> List[EntityBase]:
+        result = self.dispatch_command(entity_type, Command.CREATE, params)
         
-        registry = self.registry.manager.get_by_name(registry_name)
-        param_vals = self._get_param_values_for_entity_type(registry_name)
+        if result:
+            self.ui.respond(f"Created {entity_type} {result.name}", "success")
+        else:
+            self.ui.respond(f"Failed to create {entity_type}", "error")
+        
+        return result
 
-        for arg_string in param_vals.values():
-            if arg_string in params and params[arg_string]:
+    def _select_entity(self):
+        entity_type = self.ui.context.entity_type
+        entity_name = StorableEntity.select_form(self.ui, entity_type, Command.EDIT)
+        if not entity_name:
+            return None
 
-                    if arg_string == param_vals['singular']:
-                        return [ registry.get_by_name( params[param_vals['singular']] ) ]
-                    elif arg_string == param_vals['plural']:
-                        return [ registry.get_by_name(entity_name) for entity_name in params[param_vals['plural']] ]
-                    elif arg_string == param_vals['all']:
-                        return registry.get_all_entities()
+        entity = self.ui.context.current_entity_registry.get_by_name(entity_name)
+    
+        if not entity:
+            self.ui.respond(f"{entity_type.title()} '{entity_name}' not found", "error")
+            return None
+        return entity
 
-        return []        
+    def handle_entity_rename(self, entity: Optional[EntityBase] = None):
+        
+        entity = self._select_entity() if not entity else entity   
+
+        rename_data = entity.rename_form(self.ui)
+
+        if not rename_data:
+            return None
+
+        new_name = rename_data["new_name"]
+        new_emoji = rename_data["new_emoji"]
+        new_title = self.ui.validator.format_kebabcase_to_titlecase(new_name)
+
+        params = {
+            entity.type: entity.name,
+            'new_name': new_name,
+            'new_title': new_title,
+            'new_emoji': new_emoji
+        }
+
+        result = self.dispatch_command(entity.type, 'rename', params)
+
+        if result:
+            self.ui.respond(f"Updated {entity.type} '{entity.name}'", "success")
+            self.ui.respond(f"  Name changed to: {result.name}", "success")
+            self.ui.respond(f"  Title changed to: {result.title}", "success")
+            self.ui.respond(f"  Emoji changed to: {result.emoji or 'None'}", "success")
+        else:
+            self.ui.respond(f"Failed to rename {entity.type}", "error")
+        
+        return result
+
+    def handle_entity_edit(self, entity: Optional[EntityBase] = None):
+        """
+        Handle entity config editing using form-based approach.
+        
+        Args:
+            args: Command line arguments
+            
+        Returns:
+            Any: Edit result
+        """
+        entity = self._select_entity() if not entity else entity            
+        
+        self.ui.respond(f"Editing configuration for '{entity.name}'", "info")
+        
+        success = self.ui.form_builder.fill_form_interactive(entity.config)
+        if success:
+            self.ui.respond("Editing completed!", "success")
+        else:
+            return None
 
     def dispatch_command(self, registry_name, command, params):
         """
@@ -77,7 +150,12 @@ class Api(ModuleEntity):
                     params.pop(arg_string, None)
 
                 if entities:
-                    params[entity_type] = entities if entity_type == registry_name else entities[0]
+
+                    if len(entities) > 1 and entity_type != registry_name:
+                        self.logger.error(f"More than one {entity_type} entity provided for a command to registry {registry_name}. Only one non-target entity should only be provided in a command.")
+                        return
+                    else:
+                        params[entity_type] = entities if entity_type == registry_name else entities[0]                    
 
             target_entities = params[registry_name] if registry_name in params else None
                         
@@ -105,3 +183,28 @@ class Api(ModuleEntity):
             sys.exit(1)
             
         return None
+        
+
+    def _get_param_values_for_entity_type(self, registry_name: str) -> Dict:
+        return {
+            'singular': registry_name,
+            'plural': f"{registry_name}s",
+            'all': 'all'
+        }
+
+    def _get_entities_from_params(self, params: Dict[str, str], registry_name: str) -> List[EntityBase]:
+        
+        registry = self.registry.manager.get_by_name(registry_name)
+        param_vals = self._get_param_values_for_entity_type(registry_name)
+
+        for arg_string in param_vals.values():
+            if arg_string in params and params[arg_string]:
+
+                    if arg_string == param_vals['singular']:
+                        return [ registry.get_by_name( params[param_vals['singular']] ) ]
+                    elif arg_string == param_vals['plural']:
+                        return [ registry.get_by_name(entity_name) for entity_name in params[param_vals['plural']] ]
+                    elif arg_string == param_vals['all']:
+                        return registry.get_all_entities()
+
+        return []

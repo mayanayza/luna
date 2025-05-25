@@ -1,116 +1,85 @@
 from typing import Any, Dict
 
+from src.script.api._form import FormPermissions
 from src.script.constants import EntityType
-from src.script.entity._base import EntityBase, StorableEntity
+from src.script.entity._base import CreatableEntity, EntityBase
 from src.script.registry._base import Registry
 
 
-class Project(StorableEntity):
+class Project(CreatableEntity):
 
-    def __init__(self, registry: Registry, name: str, title: str, emoji: str, **kwargs) -> None:    
+    def __init__(self, registry: Registry, **kwargs) -> None:    
         
-        kwargs['name'] = name
+        self._db_fields = {}
+        self._config_fields = []
+        self._config_permissions = FormPermissions(
+                                        can_add_fields=True,
+                                        can_remove_fields=True,
+                                        can_modify_structure=True,
+                                        can_change_handlers=True
+                                    )
 
-        super().__init__(registry, **kwargs)
 
-        self._title = title
-        self._emoji = emoji
+        super().__init__(registry, EntityType.PROJECT, **kwargs)
 
-        self._db_fields = {
-            'emoji': emoji,
-            'title': title
-        }
-
-        if self.data == {}:
-            self.data = {
-                'metadata': {
-                    'primary_url_integration': 'website',
-                    'status': 'backlog',
-                    'priority': 0,
-                    'tagline': '',
-                    'notes': '',
-                    'tags': []
-                },
-                'media': {
-                    'embeds': [],
-                    'featured': {
-                        'type': 'image',
-                        'source': '',
-                        'language': '',
-                        'start_line': 0,
-                        'end_line': 0
-                    }
-                },
-                'attributes': {
-                    'physical': {
-                        'dimensions': {
-                            'width': '',
-                            'height': '',
-                            'depth': '',
-                            'unit': ''
-                        },
-                        'weight': {
-                            'value': '',
-                            'unit': ''
-                        },
-                        'materials': []
-                    },
-                    'technical_requirements': {
-                        'power': '',
-                        'space': '',
-                        'lighting': '',
-                        'mounting': '',
-                        'temperature_range': '',
-                        'humidity_range': '',
-                        'ventilation_needs': ''
-                    },
-                    'exhibition': {
-                        'setup': {
-                            'time_required': '',
-                            'people_required': '',
-                            'tools_required': [],
-                            'instructions': []
-                        },
-                        'maintenance': {
-                            'tasks': [],
-                            'supplies_needed': []
-                        },
-                        'history': []
-                    }
-                }
-            }
-
-    @property
-    def title(self):
-        """Get the project title."""
-        return self._title
-
-    @title.setter
-    def title(self, value):
-        """Set the project title."""
-        self._title = value
-
-    @property
-    def emoji(self):
-        """Get the project emoji."""
-        return self._emoji
-
-    @emoji.setter
-    def emoji(self, value):
-        """Set the project emoji."""
-        self._emoji = value
-        
-    @property
-    def display_title(self):
-        """Get the display title with emoji prefix if available."""
-        if self.emoji:
-            return f"{self.emoji} {self.title}"
-        return self.title
-
-    @property
-    def metadata(self):
-        """Get project metadata."""
-        return self._data.get('metadata', {})
+        # if self.data == {}:
+        #     self.data = {
+        #         'metadata': {
+        #             'primary_url_integration': 'website',
+        #             'status': 'backlog',
+        #             'priority': 0,
+        #             'tagline': '',
+        #             'notes': '',
+        #             'tags': []
+        #         },
+        #         'media': {
+        #             'embeds': [],
+        #             'featured': {
+        #                 'type': 'image',
+        #                 'source': '',
+        #                 'language': '',
+        #                 'start_line': 0,
+        #                 'end_line': 0
+        #             }
+        #         },
+        #         'attributes': {
+        #             'physical': {
+        #                 'dimensions': {
+        #                     'width': '',
+        #                     'height': '',
+        #                     'depth': '',
+        #                     'unit': ''
+        #                 },
+        #                 'weight': {
+        #                     'value': '',
+        #                     'unit': ''
+        #                 },
+        #                 'materials': []
+        #             },
+        #             'technical_requirements': {
+        #                 'power': '',
+        #                 'space': '',
+        #                 'lighting': '',
+        #                 'mounting': '',
+        #                 'temperature_range': '',
+        #                 'humidity_range': '',
+        #                 'ventilation_needs': ''
+        #             },
+        #             'exhibition': {
+        #                 'setup': {
+        #                     'time_required': '',
+        #                     'people_required': '',
+        #                     'tools_required': [],
+        #                     'instructions': []
+        #                 },
+        #                 'maintenance': {
+        #                     'tasks': [],
+        #                     'supplies_needed': []
+        #                 },
+        #                 'history': []
+        #             }
+        #         }
+        #     }
 
     def create(self) -> Dict[str, Any]:
         """Create a new project."""
@@ -126,9 +95,10 @@ class Project(StorableEntity):
             raise
 
     def handle_add_integration(self, integration:EntityBase):
-        pi_registry = self.registry.manager.get_by_name(EntityType.PROJECT_INTEGRATION)
 
+        pi_registry = self.registry.manager.get_by_name(EntityType.PROJECT_INTEGRATION)
         pi = pi_registry.add_pi(self.ref, integration.ref)
+
         pi.setup()
         self.logger.info(f"Added integration '{pi.name}' to project {self.name}")
         

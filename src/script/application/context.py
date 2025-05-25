@@ -7,6 +7,7 @@ from src.script.constants import EntityType
 from src.script.registry._manager import RegistryManager
 from src.script.registry.api import ApiRegistry
 from src.script.registry.db import DatabaseRegistry
+from src.script.registry.handler import HandlerRegistry
 from src.script.registry.integration import IntegrationRegistry
 from src.script.registry.project import ProjectRegistry
 from src.script.registry.projectintegration import ProjectIntegrationRegistry
@@ -37,6 +38,7 @@ class ApplicationContext:
     def initialize(self):
         """Initialize the application with registries."""
         try:
+            self.register_registry(EntityType.HANDLER, HandlerRegistry)
             self.register_registry(EntityType.API, ApiRegistry)
             self.register_registry(EntityType.DB, DatabaseRegistry)
 
@@ -54,12 +56,26 @@ class ApplicationContext:
 
     def configure_logging(self, level=logging.DEBUG):
         """
-        Configure global logging with colorized output.
+        Configure global logging with colorized output including custom SUCCESS level.
         This should be called once at application startup.
         
         Args:
             level: The default logging level
         """
+        # Define custom SUCCESS log level
+        SUCCESS_LEVEL = 25
+        logging.addLevelName(SUCCESS_LEVEL, 'SUCCESS')
+
+        def success(self, message, *args, **kwargs):
+            """
+            Log a message with severity 'SUCCESS'.
+            """
+            if self.isEnabledFor(SUCCESS_LEVEL):
+                self._log(SUCCESS_LEVEL, message, args, **kwargs)
+
+        # Add success method to Logger class
+        logging.Logger.success = success
+        
         # Configure the root logger
         root_logger = logging.getLogger()
         root_logger.setLevel(level)
@@ -74,7 +90,8 @@ class ApplicationContext:
             '%(log_color)s%(asctime)s - %(levelname)s - %(name)s - %(message)s',
             log_colors={
                 'DEBUG': 'cyan',
-                'INFO': 'green',
+                'INFO': 'blue',
+                'SUCCESS': 'green',
                 'WARNING': 'yellow',
                 'ERROR': 'red',
                 'CRITICAL': 'red,bg_white',

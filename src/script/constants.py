@@ -4,10 +4,19 @@ from enum import Enum
 class EntityType:
     PROJECT = 'project'
     INTEGRATION = 'integration'
+    PROJECT_INTEGRATION = 'project_integration'
     API = 'api'
     DB = 'database'
-    PROJECT_INTEGRATION = 'project_integration'
-    INTEGRATION_INSTANCE = 'integration_instance'
+    HANDLER = 'handler'
+
+class Command:
+    CREATE = 'create'
+    RENAME = 'rename'
+    ADD_INTEGRATION = 'add_integration'
+    REMOVE_INTEGRATION = 'remove_integration'
+    LIST = 'list'
+    DELETE = 'delete'
+    EDIT = 'edit'
 
 
 class MediaProperties:

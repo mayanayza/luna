@@ -29,7 +29,7 @@ class Database(ModuleEntity):
             registry: The registry this database belongs to
         """
         # Initialize ModuleEntity first
-        super().__init__(registry, name)
+        super().__init__(registry, EntityType.DB, name)
         
         self._init_env_vars()
 
@@ -97,30 +97,32 @@ class Database(ModuleEntity):
         return {
             EntityType.PROJECT: [
                 ('id', 'id'),
+                ('uuid', 'string'),
                 ('name', 'string'),
                 ('date_created', 'string'),
-                ('config', 'json'),
-                ('entity_data', 'json'),
                 ('title', 'string'),
                 ('emoji', 'string'),
+                ('config', 'json'),
             ],
             EntityType.INTEGRATION: [
                 ('id', 'id'),
+                ('uuid', 'string'),
                 ('name', 'string'),
                 ('date_created', 'string'),
+                ('config', 'json'),
+                ('integration_type', 'string'),
                 ('title', 'string'),
                 ('emoji', 'string'),
-                ('config', 'json'),
-                ('entity_data', 'json'),
             ],
             EntityType.PROJECT_INTEGRATION: [
                 ('id', 'id'),
+                ('uuid', 'string'),
                 ('name', 'string'),
-                ('date_created', 'string'),
-                ('entity_data', 'json'),
                 ('config', 'json'),
+                ('date_created', 'string'),
                 ('project_id', 'integer'),
                 ('integration_id', 'integer'),
+                ('commands', 'json'),
             ]
         }
 
@@ -249,20 +251,19 @@ class Database(ModuleEntity):
             record = {
                 'name': entity.name,
                 'date_created': entity.date_created,
-                'entity_data': entity.data,
-                **getattr(entity, 'db_fields', {})
+                **entity.db_fields
             }
 
             self.logger.debug(f"Upserting {record}")
             
             # Check if entity exists
             with self.transaction():
-                existing = self.dal(table['id'] == entity.id).select().first()
+                existing = self.dal(table['id'] == entity.db_id).select().first()
             
             if existing:
                 # Update existing document (exclude id_field)
                 with self.transaction():
-                    self.dal(table['id'] == entity.id).update(**record)
+                    self.dal(table['id'] == entity.db_id).update(**record)
                 return True
             
             # Insert new document

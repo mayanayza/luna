@@ -28,26 +28,21 @@ class RegistryManager:
     #         if hasattr(registry, 'command_dispatcher'):
     #             registry.command_dispatcher = dispatcher
 
+    @property
+    def db_ref(self):
+        return self._db_ref
+    
+
     def update_db(self, db_ref: EntityRef):
         self._db_ref = db_ref
 
         for registry in self._registries.values():
             if issubclass(registry.entity_class, StorableEntity):
-                registry.db = self.get_db()
+                registry.db = self._db_ref
     
-    def get_db(self):
-        return self.get_entity(self._db_ref)
-
-    def get_next_id(self) -> int:
-        """Get the next available entity ID."""
-        next_id = self._next_id
-        self._next_id += 1
-        return next_id
-
     def register_registry(self, registry):
         """Register a registry with the manager."""
-        registry.id = self.get_next_id()
-        self._registries[registry.id] = registry
+        self._registries[registry.uuid] = registry
         registry.manager = self
 
         # Add to name index if the entity has a name attribute
@@ -58,8 +53,8 @@ class RegistryManager:
         # if self._command_dispatcher and hasattr(registry, 'command_dispatcher'):
         #     registry.command_dispatcher = self._command_dispatcher
 
-        if issubclass(registry.entity_class, StorableEntity):
-            registry.db = self.get_entity(self._db_ref)
+        if registry.entity_class_is_storable:
+            registry.db = self._db_ref
 
         # Auto-load APIs if apis exists
         # if hasattr(registry, 'load_apis') and 'apis' in self._registries:
@@ -76,6 +71,9 @@ class RegistryManager:
         if registry:
             return registry.get_by_id(ref.entity_id)
         return None
+
+    def get_entity_by_ref(self, ref: EntityRef) -> Optional['EntityBase']:
+        return self.get_entity(ref)
 
     def find_entities_by_filter(self, filter_func, registry_id: Optional[str] = None) -> List[EntityRef]:
         """
@@ -95,11 +93,11 @@ class RegistryManager:
             if registry:
                 for entity in registry.get_all_entities():
                     if filter_func(entity):
-                        results.append(EntityRef(entity.id, registry.registry_id))
+                        results.append(EntityRef(entity.uuid, registry.uuid))
         else:
             for reg_id, registry in self._registries.items():
                 for entity in registry.get_all_entities():
                     if filter_func(entity):
-                        results.append(EntityRef(entity.id, reg_id))
+                        results.append(EntityRef(entity.uuid, reg_id))
         
         return results

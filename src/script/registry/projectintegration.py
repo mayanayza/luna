@@ -20,7 +20,6 @@ class ProjectIntegrationRegistry(CommandableRegistry):
 
     def add_pi(self, project_ref: EntityRef, integration_ref: EntityRef) -> ProjectIntegration:
         """Create a new project_integration."""
-
         try:
             # Create ProjectIntegration
             pi = ProjectIntegration(registry=self, project_id=project_ref.entity_id, integration_id=integration_ref.entity_id, kwargs={})

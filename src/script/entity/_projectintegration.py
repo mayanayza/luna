@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from src.script.constants import EntityType
@@ -25,30 +24,34 @@ class ProjectIntegration(StorableEntity):
         integration = integration_registry.get_by_id(integration_id)
         project = project_registry.get_by_id(project_id)
 
-        kwargs['name'] = f"{project.name}-{integration.name}"
+        name = f"{project.name}-{integration.name}"
+        kwargs['name'] = name
 
-        super().__init__(registry, **kwargs)
+        commands = [method.replace('handler_','') for method in dir(integration) if callable(getattr(integration, method)) and method.startswith("handle_")]
+
+        self._commands = {command: {"last_run": False} for command in commands}
+
+        self._db_fields = {
+            'project_id': project.id,
+            'integration_id': integration.id,
+            'commands': self._commands
+        }
+
+        self._config_fields = integration.get('_project_integration_config_fields', [])
+
+        super().__init__(registry, EntityType.PROJECT_INTEGRATION, **kwargs)
 
         self._project_ref = project.ref
         self._integration_ref = integration.ref
 
-        self._db_fields = {
-            'project_id': project.id,
-            'integration_id': integration.id
-        }
+    @property
+    def commands(self):
+        return self._commands
 
-        # Set default data if not yet set
-        if self.data == {}:
-            self._data['commands'] = {}
-            commands = [method.replace('handler_','') for method in dir(integration) if callable(getattr(integration, method)) and method.startswith("handle_")]
-            for command in commands:
-                self._data['commands'][command] = {"last_run": False}
-
-            self._data['fields'] = {}
-            project_fields = getattr(integration, 'config').get('project_fields')
-            for field, default_value in project_fields.items():
-                self._data['fields'][field] = default_value
-
+    @commands.setter
+    def commands(self,val):
+        self._commands = val
+    
     @property
     def project_ref(self):
         return self._project_ref
@@ -92,40 +95,7 @@ class ProjectIntegration(StorableEntity):
                 self.logger.error(f"Error renaming integration {integration.name} for project {project.name}: {e}")
             else:
                 self.logger.error(f"Error renaming ProjectIntegration: {e}")
-
-    def last_run(self, command):
-        """Get the last run datetime for a specific command."""
-        commands_data = self.data.get('commands', {})
-        command_data = commands_data.get(command, {})
-        last_run_str = command_data.get('last_run')
-        
-        if last_run_str and last_run_str is not False:
-            try:
-                return datetime.strptime(last_run_str, '%d-%b-%Y-%H:%M:%S')
-            except (ValueError, TypeError):
-                pass
-        return None
-
-    def update_last_run(self, command):
-        """Update the last run time for a command."""
-        # Get current data
-        data = self._data
-        
-        # Ensure commands dict exists
-        if 'commands' not in data:
-            data['commands'] = {}
-            
-        # Ensure command entry exists
-        if command not in data['commands']:
-            data['commands'][command] = {}
-            
-        # Update last run time
-        data['commands'][command]['last_run'] = datetime.now().strftime('%d-%b-%Y-%H:%M:%S')
-        
-        # Save back to db
-        with self.db.transaction():
-            self.db.upsert('project_integration', self)
-
+                
     # def _bind_members(self) -> None:
     #     """
     #     Automatically detect and bind integration methods and properties to this 
