@@ -46,14 +46,15 @@ class ProjectIntegrationRegistry(CommandableRegistry):
 
     def remove_pi(self, project_ref: EntityRef, integration_ref: EntityRef) -> str:
         try:
-            # Delete ProjectIntegration
             pi_ref = self.get_pi_by_refs(project_ref, integration_ref)
             pi = self.get_by_ref(pi_ref)
             pi.remove()
 
             with self.db.transaction():
                 table = self.db.dal.project_integration
-                self.db.dal(table.id == pi.id).delete()
+                self.db.dal(table.id == pi.db_id).delete()
+
+
 
             # Delete registry entries
             del self._pi_project_tree[project_ref.entity_id][integration_ref.entity_id]
@@ -98,10 +99,10 @@ class ProjectIntegrationRegistry(CommandableRegistry):
             return None
 
     def get_pi_refs_for_project(self, project_ref: EntityRef):
-        return self._pi_project_tree.get(project_ref.entity_id,{}).values()
+        return self._pi_project_tree[project_ref.entity_id].values()
 
     def get_pi_refs_for_integration(self, integration_ref: EntityRef):
-        return self._pi_integration_tree.get(integration_ref.entity_id,{}).values()
+        return self._pi_integration_tree[integration_ref.entity_id].values()
 
     def get_pi_by_refs(self, project_ref: EntityRef, integration_ref: EntityRef):
-        return self._pi_project_tree.get(project_ref.entity_id,{}).get(integration_ref.entity_id,{})
+        return self._pi_project_tree[project_ref.entity_id][integration_ref.entity_id]

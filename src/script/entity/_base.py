@@ -38,7 +38,6 @@ class EntityBase(ABC):
             raise ValueError(f"No name provided to Entity {__name__} upon init.")
             return
 
-        self._uuid = uuid4()
         self._type = type
         self._registry = registry
         registry.register_entity(self)
@@ -162,10 +161,7 @@ class StorableEntity(EntityBase):
     
     @property
     def db_fields(self):
-        return {
-            'config': self.config.to_dict(),
-            **self._db_fields
-        }
+        return self._db_fields
 
     @property
     def date_created(self):

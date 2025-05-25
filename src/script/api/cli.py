@@ -1,4 +1,5 @@
 import argparse
+import json
 import shlex
 from typing import Any, Dict
 
@@ -287,8 +288,8 @@ class CliUserInterface(UserInterface):
         Args:
             details: Entity details to display
         """
-        for key, value in details.items():
-            print(f"{key.capitalize()}: {value or '<None>'}")
+
+        print(json.dumps(details, indent=4))
     
     def display_results(self, results: Any) -> None:
         """

@@ -120,8 +120,8 @@ class Database(ModuleEntity):
                 ('name', 'string'),
                 ('config', 'json'),
                 ('date_created', 'string'),
-                ('project_id', 'integer'),
-                ('integration_id', 'integer'),
+                ('project_id', 'string'),
+                ('integration_id', 'string'),
                 ('commands', 'json'),
             ]
         }
@@ -251,6 +251,8 @@ class Database(ModuleEntity):
             record = {
                 'name': entity.name,
                 'date_created': entity.date_created,
+                'uuid': entity.uuid,
+                'config': entity.config.to_dict(),
                 **entity.db_fields
             }
 

@@ -17,16 +17,13 @@ class ProjectIntegration(StorableEntity):
     """
     
     def __init__(self, registry: Registry, project_id: str, integration_id: str, **kwargs):
-    
         integration_registry = registry.manager.get_by_name(EntityType.INTEGRATION)
         project_registry = registry.manager.get_by_name(EntityType.PROJECT)
 
         integration = integration_registry.get_by_id(integration_id)
         project = project_registry.get_by_id(project_id)
 
-        name = f"{project.name}-{integration.name}"
-        kwargs['name'] = name
-
+        kwargs['name'] = f"{project.name}-{integration.name}"
         # commands = [method.replace('handler_','') for method in dir(integration) if callable(getattr(integration, method)) and method.startswith("handle_")]
         # self._commands = {command: {"last_run": False} for command in commands}
         self._commands = {}

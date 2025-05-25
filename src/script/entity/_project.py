@@ -81,19 +81,6 @@ class Project(CreatableEntity):
         #         }
         #     }
 
-    def create(self) -> Dict[str, Any]:
-        """Create a new project."""
-        try:            
-            # Initialize data structure matching project.yml schema
-            
-            self.logger.info(f"Created project {self.name}")
-            return self
-        except Exception as e:
-            self.logger.error(f"Error creating project: {e}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            raise
-
     def handle_add_integration(self, integration:EntityBase):
 
         pi_registry = self.registry.manager.get_by_name(EntityType.PROJECT_INTEGRATION)

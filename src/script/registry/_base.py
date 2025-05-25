@@ -191,7 +191,7 @@ class CommandableRegistry(Registry):
         for entity in sorted_entities:
             result = {
                 'name': entity.name,
-                'id': str(entity.uuid),
+                'uuid': str(entity.uuid),
             }
             if hasattr(entity,'_db_fields'):
                 result.update(entity._db_fields)
