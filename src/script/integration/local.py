@@ -3,11 +3,11 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from src.script.api._form import EditableAttribute
-from src.script.constants import Files, Media
-from src.script.entity._handler import SystemFormHandler
-from src.script.entity._integration import Integration
-from src.script.entity._project import Project
+from src.script.common.constants import Files, Media
+from src.script.entity.integration import Integration
+from src.script.entity.project import Project
+from src.script.input.input import InputField
+from src.script.input.validation import InputValidator
 
 
 class LocalIntegration(Integration):
@@ -15,47 +15,27 @@ class LocalIntegration(Integration):
 
     def __init__(self, registry, **kwargs):
 
-        self._apis = {}
+        super().__init__(registry, **kwargs)
 
-        handler_registry = registry.manager.get_by_name('handler')
-
-        base_directory_changed = SystemFormHandler(registry=handler_registry, name='base_dir', handler_func=self._handle_base_directory_changed)
-        use_github = SystemFormHandler(registry=handler_registry, name='use_git', handler_func=self._handle_use_github)
-        
         self._config_fields: List = [
-            EditableAttribute(
+            InputField(
                 name='base_dir',
                 title='Base Directory', 
                 description='Directory where project folders will be created',
-                system_handler_ref=base_directory_changed.ref,
                 default_value=str(Path.home()),
-                input_type=str
+                field_type=str,
+                validation_rules=[InputValidator.local_path_exists()]
             ),
-            EditableAttribute(
+            InputField(
                 name='use_git',
                 title='Use Github',
                 description='Whether to initialize a github repo in project folders. Requires GitHub integration.',
-                system_handler_ref=use_github.ref,  # Fixed typo here
                 default_value=True,
-                input_type=bool
+                field_type=bool
             )
         ]
 
         self._project_integration_config_fields: List = []
-
-        super().__init__(registry, **kwargs)
-        
-    def _handle_base_directory_changed(self, old_value, new_value):
-        print(f"{old_value}, {new_value}")
-        self.logger.debug("Set up base directory")
-        # if not Path(new_value).exists():
-        #     self.logger.info(f"Creating directory: {new_value}")
-        #     Path(new_value).mkdir(parents=True, exist_ok=True)
-
-    def _handle_use_github(self, old_value, new_value):
-        print(f"{old_value}, {new_value}")
-        self.logger.debug("Use github")
-        pass
 
     @property
     def base_dir(self) -> Path:
@@ -64,6 +44,79 @@ class LocalIntegration(Integration):
 
     def path(self, project) -> Path:
         return self.base_dir / project.name
+
+     ######                                ##
+       ##                                  ##
+       ##     ## ###   ######   ##   ##  ######    #####
+       ##     ###  ##  ##   ##  ##   ##    ##     ##
+       ##     ##   ##  ##   ##  ##   ##    ##      ####
+       ##     ##   ##  ##   ##  ##  ###    ##         ##
+     ######   ##   ##  ######    ### ##     ###   #####
+                       ##
+
+    @classmethod
+    def get_publish_inputs(cls, entity, handler_registry, registry, **kwargs):
+        return None
+
+    @classmethod
+    def get_stage_inputs(cls, entity, handler_registry, registry, **kwargs):
+        return None
+
+     ##   ##                         ##   ###
+     ##   ##                         ##    ##
+     ##   ##   ######  ## ###    ######    ##      #####   ## ###    #####
+     #######  ##   ##  ###  ##  ##   ##    ##     ##   ##  ###      ##
+     ##   ##  ##   ##  ##   ##  ##   ##    ##     #######  ##        ####
+     ##   ##  ##  ###  ##   ##  ##   ##    ##     ##       ##           ##
+     ##   ##   ### ##  ##   ##   ######   ####     #####   ##       #####
+
+    @classmethod
+    def handle_edit(cls, entity, base_dir, use_git, **kwargs):
+        entity.logger.debug(f"{base_dir.old} -> {base_dir.new}")
+        entity.logger.debug(f"{use_git.old} -> {use_git.new}")
+
+        # if not Path(new_value).exists():
+        #     self.logger.info(f"Creating directory: {new_value}")
+        #     Path(new_value).mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def handle_publish(cls, entity, project: Project, **kwargs):
+        """
+        Publish project files to output directory.
+        
+        Args:
+            project_ref: Reference to the project
+            **kwargs: Additional parameters
+            
+        Returns:
+            dict: Result of the operation
+        """
+
+        # Create output directory
+        project_dir = entity.path(project)
+        output_dir = entity.base_dir / '_output' / project.name
+        
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+        
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy content files
+        for content_file in [Files.README, Files.CONTENT]:
+            source_path = project_dir / 'content' / content_file
+            if source_path.exists():
+                shutil.copy2(source_path, output_dir / content_file)
+
+        # Copy media files
+        for media in Media.ALL_TYPES:
+            media_files = entity.get_media_files(project, media.TYPE)
+            for file in media_files:
+                shutil.copy2(file, output_dir / file.name)
+
+    @classmethod
+    def handle_stage(cls, entity, project: Project, **kwargs):
+        pass
+    
 
     def get_readme(self, project: Project) -> str:
         """
@@ -173,67 +226,34 @@ class LocalIntegration(Integration):
         if output_dir.exists():
             shutil.rmtree(output_dir)
 
-    def handle_publish(self, project: Project, **kwargs):
-        """
-        Publish project files to output directory.
+    # def handle_save_project(self, project: Project, data, **kwargs):
+    #     """
+    #     Save project data to disk.
         
-        Args:
-            project_ref: Reference to the project
-            **kwargs: Additional parameters
+    #     Args:
+    #         project_ref: Reference to the project
+    #         data: Project data to save
+    #         **kwargs: Additional parameters
             
-        Returns:
-            dict: Result of the operation
-        """
-
-        # Create output directory
-        project_dir = self.path(project)
-        output_dir = self.base_dir / '_output' / project.name
+    #     Returns:
+    #         dict: Result of the operation
+    #     """
+    #     # Get project from reference
         
-        if output_dir.exists():
-            shutil.rmtree(output_dir)
-        
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Copy content files
-        for content_file in [Files.README, Files.CONTENT]:
-            source_path = project_dir / 'content' / content_file
-            if source_path.exists():
-                shutil.copy2(source_path, output_dir / content_file)
-
-        # Copy media files
-        for media in Media.ALL_TYPES:
-            media_files = self.get_media_files(project, media.TYPE)
-            for file in media_files:
-                shutil.copy2(file, output_dir / file.name)
-
-    def handle_save_project(self, project: Project, data, **kwargs):
-        """
-        Save project data to disk.
-        
-        Args:
-            project_ref: Reference to the project
-            data: Project data to save
-            **kwargs: Additional parameters
+    #     try:
+    #         # Save project data to YAML file
+    #         import yaml
+    #         project_dir = self.path(project)
+    #         content_dir = project_dir / 'content'
+    #         content_dir.mkdir(exist_ok=True, parents=True)
             
-        Returns:
-            dict: Result of the operation
-        """
-        # Get project from reference
-        
-        try:
-            # Save project data to YAML file
-            import yaml
-            project_dir = self.path(project)
-            content_dir = project_dir / 'content'
-            content_dir.mkdir(exist_ok=True, parents=True)
+    #         metadata_file = content_dir / Files.METADATA
+    #         with open(metadata_file, 'w') as f:
+    #             yaml.safe_dump(data, f)
             
-            metadata_file = content_dir / Files.METADATA
-            with open(metadata_file, 'w') as f:
-                yaml.safe_dump(data, f)
-            
-            self.logger.info(f"Saved project data for {project.name}")
-        except Exception as e:
-            self.logger.error(f"Error saving project data: {e}")
+    #         self.logger.info(f"Saved project data for {project.name}")
+    #     except Exception as e:
+    #         self.logger.error(f"Error saving project data: {e}")
 
     def rename(self, project: Project, old_name, new_name, **kwargs):
         """

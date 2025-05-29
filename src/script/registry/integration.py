@@ -1,30 +1,29 @@
-from src.script.constants import EntityType
-from src.script.entity._integration import Integration
-from src.script.registry._base import CommandableRegistry
+
+from src.script.common.constants import EntityType
+from src.script.entity.integration import Integration
+from src.script.registry._registry import CreatableFromModuleEntityRegistry
 
 
-class IntegrationRegistry(CommandableRegistry):
-    def __init__(self):
-        super().__init__(EntityType.INTEGRATION, Integration)
+class IntegrationRegistry(CreatableFromModuleEntityRegistry):
+    def __init__(self, manager):
+        super().__init__(EntityType.INTEGRATION, Integration, manager)
 
-    def load(self):
-        """Load integration modules and data."""
-        entity_data = self.loader.get_entity_data_from_database(EntityType.INTEGRATION)
+        entity_data = self.loader.get_entity_data_from_database(EntityType.INTEGRATION.value)
         
         for data in entity_data:
-            self.loader.load_from_module(f'src.script.integration.{data['integration_type']}', **data)
+            self.loader.load_from_module(f'src.script.integration.{data['base_module']}', **data)
+        
+    @classmethod
+    def handle_list_modules(cls, registry, **kwargs):
+        return registry.loader.get_filenames_with_derived_entity_class('src.script.integration')
 
-    def handle_list_types(self):
-        pass
-
-    def handle_create(self, **kwargs):  
-        integration_type = kwargs.get('integration_type', None)
-        if integration_type:      
-            integration = self.loader.load_from_module(f'src.script.integration.{integration_type}', **kwargs)
-            self.db.upsert(EntityType.INTEGRATION, integration[0])
+    @classmethod
+    def handle_create(cls, registry, **kwargs):  
+        base_module = kwargs.get('module', None)
+        if base_module: 
+            kwargs['base_module'] = base_module   
+            integration = registry.loader.load_from_module(f'src.script.integration.{base_module}', **kwargs)
+            registry.db.upsert(EntityType.INTEGRATION.value, integration[0])
             return integration[0]
         else:
-            self.logger.error("Can't create integration; missing integration_type param")
-
-    def get_integration_filenames(self):
-        return self.loader.get_filenames_with_derived_entity_class('src.script.integration')
+            registry.logger.error("Can't create integration; no module param")

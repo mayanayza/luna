@@ -5,48 +5,28 @@ Database registry that manages database implementations.
 import os
 from typing import Optional
 
+from src.script.common.constants import CommandType, EntityType
+from src.script.common.decorators import register_handlers
 from src.script.entity._base import EntityRef
-from src.script.entity._db import Database
-from src.script.registry._base import CommandableRegistry
+from src.script.entity.db import Database
+from src.script.input.factory import InputFactory
+from src.script.registry._registry import ListableEntityRegistry
 
 
-class DatabaseRegistry(CommandableRegistry):
-    """
-    Registry for database implementations.
+@register_handlers(
+    {
+        'input_method_name': 'get_clear_inputs',
+        'handler_method_name': 'handle_clear',
+        'command_type': CommandType.CLEAR,
+    }
+)
+class DatabaseRegistry(ListableEntityRegistry):
     
-    This class extends the Registry to manage database implementations
-    and handles database lifecycle management.
-    """
-    
-    def __init__(self):
-        """
-        Initialize the database registry.
+    def __init__(self, manager):
         
-        This loads database implementations and initializes basic structures
-        but does not set up any active database yet.
-        """
-        super().__init__('database', Database)
+        super().__init__(EntityType.DB, Database, manager)
         
-        self._active_db_ref: Optional[EntityRef] = None
-    
-    def load(self):
-        """
-        Setup the database system - initialize a database and create schema.
-        
-        This method:
-        1. Loads available database implementations
-        2. Selects a database implementation based on environment variables or config
-        3. Sets it as the active database
-        4. Initializes the database
-        5. Creates schema
-        
-        Args:
-            config: Optional database configuration
-            
-        Returns:
-            True if setup was successful
-        """
-        
+        self._active_db_ref: Optional[EntityRef] = None        
         self.loader.load_from_module('src.script.db')
 
         try:
@@ -57,7 +37,6 @@ class DatabaseRegistry(CommandableRegistry):
             db = self.get_by_name(db_type)
             if not db:
                 self.logger.error(f"Database implementation not found: {db_type}.")
-                return False
             
             # Set as active database
             self.active_db_ref = db.ref
@@ -65,15 +44,12 @@ class DatabaseRegistry(CommandableRegistry):
             # Initialize the database
             if not db.initialize():
                 self.logger.error(f"Failed to initialize database: {db.name}")
-                return False
                         
             self.logger.info(f"Database setup complete with {db.name}")
-            return True
         except Exception as e:
             self.logger.error(f"Error setting up database: {e}")
             import traceback
             self.logger.error(traceback.format_exc())
-            return False
 
     @property
     def active_db_ref(self) -> EntityRef:
@@ -90,18 +66,35 @@ class DatabaseRegistry(CommandableRegistry):
         else:
             self.logger.error(f"Database not found for ref: {val}")
             return False
-                        
-    def handle_clear(self):
-        db = self.get_by_ref(self.active_db_ref)
-        db.clear()
+
+     ######                                ##
+       ##                                  ##
+       ##     ## ###   ######   ##   ##  ######    #####
+       ##     ###  ##  ##   ##  ##   ##    ##     ##
+       ##     ##   ##  ##   ##  ##   ##    ##      ####
+       ##     ##   ##  ##   ##  ##  ###    ##         ##
+     ######   ##   ##  ######    ### ##     ###   #####
+                       ##
+
+    @classmethod
+    def get_clear_inputs(cls, registry, **kwargs):
+        return InputFactory.no_input_needed(handler_registry=registry.handler_registry)
+
+     ##   ##                         ##   ###
+     ##   ##                         ##    ##
+     ##   ##   ######  ## ###    ######    ##      #####   ## ###    #####
+     #######  ##   ##  ###  ##  ##   ##    ##     ##   ##  ###      ##
+     ##   ##  ##   ##  ##   ##  ##   ##    ##     #######  ##        ####
+     ##   ##  ##  ###  ##   ##  ##   ##    ##     ##       ##           ##
+     ##   ##   ### ##  ##   ##   ######   ####     #####   ##       #####
+
+    @classmethod
+    def handle_clear(cls, registry, **kwargs):
+        active_db = registry.get_by_ref(registry.active_db_ref)
+        return active_db.clear()
 
     def reset(self) -> bool:
-        """
-        Reset the database by closing all connections and.
-        
-        Returns:
-            True if reset was successful
-        """
+       
         try:
             # Close all database connections
             self.close_all()

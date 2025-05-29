@@ -1,7 +1,11 @@
 from enum import Enum
 
 
-class EntityType:
+class HandlerType(Enum):
+    SYSTEM = 'system'
+    USER = 'user'
+
+class EntityType(Enum):
     PROJECT = 'project'
     INTEGRATION = 'integration'
     PROJECT_INTEGRATION = 'project_integration'
@@ -9,14 +13,28 @@ class EntityType:
     DB = 'database'
     HANDLER = 'handler'
 
-class Command:
+class CommandType(Enum):
+    
+    # General
     CREATE = 'create'
     RENAME = 'rename'
-    ADD_INTEGRATION = 'add_integration'
-    REMOVE_INTEGRATION = 'remove_integration'
+    DETAIL = 'detail'
     LIST = 'list'
+    LIST_MODULES = 'list_modules'
     DELETE = 'delete'
     EDIT = 'edit'
+
+    # Project
+    ADD_INTEGRATION = 'add_integration'
+    REMOVE_INTEGRATION = 'remove_integration'
+
+    # Project integration
+    PUBLISH = 'publish'
+    STAGE = 'stage'
+
+    # Database
+    CLEAR = 'clear'
+
 
 
 class MediaProperties:

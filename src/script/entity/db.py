@@ -2,18 +2,21 @@
 Database base class that integrates PyDAL with the registry pattern.
 """
 
+import logging
 import os
 import threading
+from abc import abstractmethod
 from typing import TypeVar
 
 from pydal import DAL, Field
-from src.script.constants import EntityType
-from src.script.entity._base import ModuleEntity, StorableEntity
+from src.script.common.constants import EntityType
+from src.script.common.decorators import classproperty
+from src.script.entity._entity import ListableEntity, StorableEntity
 
 # Type aliases for common database types
 T = TypeVar('T')
 
-class Database(ModuleEntity):
+class Database(ListableEntity):
     """
     Base class for database implementations that integrates with the registry pattern.
     Uses PyDAL as the underlying database abstraction layer.
@@ -21,7 +24,7 @@ class Database(ModuleEntity):
     This class extends EntityBase to be managed by the registry system.
     """
     
-    def __init__(self, registry, name: str):
+    def __init__(self, registry, name: str, **kwargs):
         """
         Initialize the database.
         
@@ -29,7 +32,7 @@ class Database(ModuleEntity):
             registry: The registry this database belongs to
         """
         # Initialize ModuleEntity first
-        super().__init__(registry, EntityType.DB, name)
+        super().__init__(registry, name)
         
         self._init_env_vars()
 
@@ -44,6 +47,14 @@ class Database(ModuleEntity):
         self._dal = None
 
         self._lock = threading.RLock()
+
+    @classproperty
+    def type(self):
+        return EntityType.DB
+
+    @classproperty
+    def short_name(self):
+        return 'db'
 
     @property
     def db_dir(self) -> str:
@@ -68,6 +79,43 @@ class Database(ModuleEntity):
     @dal.setter
     def dal(self, val) -> None:
         self._dal = val
+
+    def clear(self, **kwargs) -> bool:
+        """
+        Reset the database to a fresh state by deleting all data from all tables.
+        This preserves the table structure but removes all records.
+        
+        Returns:
+            True if successful
+        """
+        try:
+            if not self.dal:
+                self.logger.error("Database connection not initialized")
+                return False
+            
+            table_definitions = self._get_table_definitions()
+            
+            with self.transaction():
+                # Delete all data from each table
+                for table_name in table_definitions.keys():
+                    if hasattr(self.dal, table_name):
+                        table = getattr(self.dal, table_name)
+                        # Delete all records from the table
+                        deleted_count = self.dal(table).delete()
+                        self.logger.info(f"Deleted {deleted_count} records from table '{table_name}'")
+                    else:
+                        self.logger.warning(f"Table '{table_name}' not found during reset")
+            
+            self.logger.info(f"Successfully reset database {self.name} - all data cleared")
+            return "Success"
+            
+        except Exception as e:
+            self.logger.error(f"Error resetting database {self.name}: {e}")
+            try:
+                self.dal.rollback()
+            except:
+                pass
+            return "Could not reset database"
 
     def _init_env_vars(self) -> None:
         # Get all environment variables with DB_ prefix
@@ -95,7 +143,7 @@ class Database(ModuleEntity):
         # Return field specifications as dictionaries instead of Field objects
         # This allows us to create fresh Field objects when needed
         return {
-            EntityType.PROJECT: [
+            EntityType.PROJECT.value: [
                 ('id', 'id'),
                 ('uuid', 'string'),
                 ('name', 'string'),
@@ -104,25 +152,24 @@ class Database(ModuleEntity):
                 ('emoji', 'string'),
                 ('config', 'json'),
             ],
-            EntityType.INTEGRATION: [
+            EntityType.INTEGRATION.value: [
                 ('id', 'id'),
                 ('uuid', 'string'),
                 ('name', 'string'),
                 ('date_created', 'string'),
                 ('config', 'json'),
-                ('integration_type', 'string'),
+                ('base_module', 'string'),
                 ('title', 'string'),
                 ('emoji', 'string'),
             ],
-            EntityType.PROJECT_INTEGRATION: [
+            EntityType.PROJECT_INTEGRATION.value: [
                 ('id', 'id'),
                 ('uuid', 'string'),
                 ('name', 'string'),
                 ('config', 'json'),
                 ('date_created', 'string'),
-                ('project_id', 'string'),
-                ('integration_id', 'string'),
-                ('commands', 'json'),
+                ('project_uuid', 'string'),
+                ('integration_uuid', 'string'),
             ]
         }
 
@@ -200,6 +247,9 @@ class Database(ModuleEntity):
                 pool_size=0,  # Good default for most databases
                 check_reserved=['all']
             )
+
+            if logging.getLogger().level == logging.DEBUG:
+                self.dal._debug = True
             
             # Verify connection was established
             if not self.dal:
@@ -224,6 +274,7 @@ class Database(ModuleEntity):
             self.logger.error(traceback.format_exc())
             return False
 
+    @abstractmethod
     def _configure_database(self) -> bool:
         """
         Apply database-specific configurations. Override in subclasses.
@@ -290,42 +341,3 @@ class Database(ModuleEntity):
             self.dal = None
             self._initialized = False
             self.logger.info(f"Closed {self.name} database connection")
-
-    def clear(self) -> bool:
-        """
-        Reset the database to a fresh state by deleting all data from all tables.
-        This preserves the table structure but removes all records.
-        
-        Returns:
-            True if successful
-        """
-        try:
-            if not self.dal:
-                self.logger.error("Database connection not initialized")
-                return False
-            
-            table_definitions = self._get_table_definitions()
-            
-            with self.transaction():
-                # Delete all data from each table
-                for table_name in table_definitions.keys():
-                    if hasattr(self.dal, table_name):
-                        table = getattr(self.dal, table_name)
-                        # Delete all records from the table
-                        deleted_count = self.dal(table).delete()
-                        self.logger.info(f"Deleted {deleted_count} records from table '{table_name}'")
-                    else:
-                        self.logger.warning(f"Table '{table_name}' not found during reset")
-            
-            self.logger.info(f"Successfully reset database {self.name} - all data cleared")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error resetting database {self.name}: {e}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            try:
-                self.dal.rollback()
-            except:
-                pass
-            return False

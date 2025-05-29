@@ -5,28 +5,21 @@ from typing import (
     Optional,
 )
 
-from src.script.entity._base import EntityBase, EntityRef, StorableEntity
+from src.script.common.constants import EntityType
+from src.script.entity._base import Entity, EntityRef
 from src.script.registry._base import Registry
+from src.script.registry._registry import StorableEntityRegistry
 
 
 class RegistryManager:
     """Central manager for all registries."""
     def __init__(self):
         self._registries: Dict[str, 'Registry'] = {}
-        self._registries_by_name: Dict[str, 'Registry'] = {}
+        self._registries_by_entity_type: Dict[EntityType, 'Registry'] = {}
         self._db_ref = None
         # self._command_dispatcher = None
         self.logger = logging.getLogger(__name__)
         self._next_id: int = 1
-
-    # def set_command_dispatcher(self, dispatcher):
-    #     """Set the command dispatcher for this manager and all commandable registries."""
-    #     self._command_dispatcher = dispatcher
-        
-    #     # Update all existing commandable registries
-    #     for registry in self._registries.values():
-    #         if hasattr(registry, 'command_dispatcher'):
-    #             registry.command_dispatcher = dispatcher
 
     @property
     def db_ref(self):
@@ -37,7 +30,8 @@ class RegistryManager:
         self._db_ref = db_ref
 
         for registry in self._registries.values():
-            if issubclass(registry.entity_class, StorableEntity):
+
+            if isinstance(registry, StorableEntityRegistry):
                 registry.db = self._db_ref
     
     def register_registry(self, registry):
@@ -45,34 +39,26 @@ class RegistryManager:
         self._registries[registry.uuid] = registry
         registry.manager = self
 
-        # Add to name index if the entity has a name attribute
-        if hasattr(registry, 'name'):
-            self._registries_by_name[registry.name] = registry
-        
-        # # Auto-set command dispatcher if available
-        # if self._command_dispatcher and hasattr(registry, 'command_dispatcher'):
-        #     registry.command_dispatcher = self._command_dispatcher
-
-        if registry.entity_class_is_storable:
-            registry.db = self._db_ref
-
-        # Auto-load APIs if apis exists
-        # if hasattr(registry, 'load_apis') and 'apis' in self._registries:
-        #     registry.load_apis(self._registries['apis'])
+        # Add to name index if the entity has an entity_type attribute
+        if hasattr(registry, 'entity_type'):
+            self._registries_by_entity_type[registry.entity_type] = registry
         
     def get_by_id(self, registry_id: str) -> Optional['Registry']:
         return self._registries.get(registry_id)
 
-    def get_by_name(self, registry_name: str) -> Optional['Registry']:
-        return self._registries_by_name.get(registry_name)
+    def get_by_entity_type(self, entity_type: EntityType) -> Optional['Registry']:
+        return self._registries_by_entity_type.get(entity_type)
     
-    def get_entity(self, ref: EntityRef) -> Optional['EntityBase']:
+    def get_entity(self, ref: EntityRef) -> Optional['Entity']:
         registry = self.get_by_id(ref.registry_id)
         if registry:
             return registry.get_by_id(ref.entity_id)
         return None
 
-    def get_entity_by_ref(self, ref: EntityRef) -> Optional['EntityBase']:
+    def get_all_registries(self) -> List['Registry']:
+        return self._registries.values()
+
+    def get_entity_by_ref(self, ref: EntityRef) -> Optional['Entity']:
         return self.get_entity(ref)
 
     def find_entities_by_filter(self, filter_func, registry_id: Optional[str] = None) -> List[EntityRef]:

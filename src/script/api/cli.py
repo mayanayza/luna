@@ -1,268 +1,23 @@
 import argparse
-import json
+import logging
 import shlex
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
-from src.script.api._form import CliFormBuilder
-from src.script.api._ui import UserInterface
-from src.script.constants import Command, EntityType
-from src.script.entity._api import Api
-from src.script.entity._base import CreatableEntity
+from src.script.api._input_converter import ApiInputConverter
+from src.script.common.constants import CommandType, EntityType
+from src.script.entity.api import Api
+from src.script.entity.handler import Handler
+from src.script.input.factory import InputFactory
+from src.script.input.input import Input, InputField, InputGroup
 
-REGISTRY_COMMANDS = {
-    EntityType.PROJECT: {
-        'help': 'Commands for project registry',
-        'commands': [
-            {
-                'name': 'create',
-                'help': 'Create a new project',
-                'handler': 'handle_entity_create'
-            },
-            {
-                'name': 'rename',
-                'help': 'Rename a project',
-                'handler': 'handle_entity_rename'
-            },
-            {
-                'name': 'delete',
-                'help': 'Delete one or more project(s)',
-                'args': [
-                    {
-                        'group': 'mutually_exclusive',
-                        'required': True,
-                        'args': [
-                            {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'help': 'Project to delete'},
-                            {'name': f'--{EntityType.PROJECT}s', 'nargs': '+', 'help': 'List of projects to delete'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'Delete all projects'}
-                        ]
-                    }
-                ]
-            },
-            {
-                'name': 'add_integration',
-                'help': 'Add an integration to one or more project(s)',
-                'args': [
-                    {'name': '--integration', 'short': '-i', 'required': True, 'help': 'Integration to add'},
-                    {
-                        'group': 'mutually_exclusive',
-                        'required': True,
-                        'args': [
-                            {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'help': 'Project to add integration to'},
-                            {'name': f'--{EntityType.PROJECT}s', 'nargs': '+', 'help': 'List of projects to add integration to'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'Add to all projects'}
-                        ]
-                    }
-                ]
-            },
-            {
-                'name': 'remove_integration',
-                'help': 'Remove an integration from one or more project',
-                'args': [
-                    {'name': '--integration', 'short': '-i', 'required': True, 'help': 'Integration to remove'},
-                    {
-                        'group': 'mutually_exclusive',
-                        'required': True,
-                        'args': [
-                            {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'help': 'Project to remove integration from'},
-                            {'name': f'--{EntityType.PROJECT}s', 'nargs': '+', 'help': 'List of projects to remove integration from'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'Remove from all projects'}
-                        ]
-                    }
-                ]
-            },
-            {
-                'name': 'detail',
-                'help': 'Show details of a project',
-                'args': [
-                    {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'required': True, 'help': 'Project to show details for'},
-                ]
-            },
-            {
-                'name': 'list',
-                'help': 'List projects',
-                'args': [
-                    {
-                        'group': 'mutually_exclusive',
-                        'args': [
-                            {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'help': 'Project to list summary for'},
-                            {'name': f'--{EntityType.PROJECT}s', 'nargs': '+', 'help': 'List of projects to show summary for'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'List all projects'}
-                        ]
-                    },
-                    {'name': '--sort-by', 'choices': ['name', 'date', 'priority', 'status'], 'default': 'name', 'help': 'Sort by field'}
-                ]
-            }
-        ]
-    },
-    EntityType.INTEGRATION: {
-        'help': 'Commands for integration registry',
-        'commands': [
-            {
-                'name': 'create',
-                'help': 'Create a new instance of an integration',
-                'handler': '_handle_integration_create'
-            },
-            {
-                'name': 'rename',
-                'help': 'Rename an integration',
-                'handler': 'handle_entity_rename'
-            },
-            {
-                'name': 'delete',
-                'help': 'Delete one or more integrations',
-                'args': [
-                    {
-                        'group': 'mutually_exclusive',
-                        'required': True,
-                        'args': [
-                            {'name': f'--{EntityType.INTEGRATION}', 'short': '-i', 'help': 'Integration to delete'},
-                            {'name': f'--{EntityType.INTEGRATION}s', 'nargs': '+', 'help': 'List of integrations to delete'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'Delete all integrations'}
-                        ]
-                    }
-                ]
-            },
-            {
-                'name': 'detail',
-                'help': 'Show details of an integration',
-                'args': [
-                    {'name': f'--{EntityType.INTEGRATION}', 'short': '-i', 'required': True, 'help': 'Integration to show details for'},
-                ]
-            },
-            {
-                'name': 'list',
-                'help': 'List integrations',
-                'args': [
-                    {
-                        'group': 'mutually_exclusive',
-                        'args': [
-                            {'name': f'--{EntityType.INTEGRATION}', 'short': '-i', 'help': 'Integration to list details for'},
-                            {'name': f'--{EntityType.INTEGRATION}s', 'nargs': '+', 'help': 'List of integrations to show details for'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'List all integrations'}
-                        ]
-                    },
-                    {'name': '--sort-by', 'choices': ['name', 'date', 'type'], 'default': 'name', 'help': 'Sort by field'}
-                ]
-            },
-            {
-                'name': 'edit',
-                'help': 'Edit integration configuration',
-                'handler': '_handle_integration_edit'
-            }
-        ]
-    },
-    EntityType.PROJECT_INTEGRATION: {
-        'help': 'Commands for project_integration registry',
-        'commands': [
-            {
-                'name': 'list',
-                'help': 'List project integrations',
-                'args': [
-                    {
-                        'group': 'mutually_exclusive',
-                        'args': [
-                            {'name': f'--{EntityType.PROJECT}', 'short': '-p', 'help': 'List integrations for specific project'},
-                            {'name': f'--{EntityType.INTEGRATION}', 'short': '-i', 'help': 'List projects for specific integration'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'List all project integrations'}
-                        ]
-                    },
-                    {'name': '--sort-by', 'choices': ['project', 'integration'], 'default': 'project', 'help': 'Sort by field'}
-                ]
-            },
-            {
-                'name': 'detail',
-                'help': 'Show details of a project integration',
-                'args': [
-                    {'name': f'--{EntityType.PROJECT_INTEGRATION}', 'short': '-pi', 'required': True, 'help': 'Project integration to show details for'},
-                ]
-            },
-        ]
-    },
-    EntityType.DB:{
-        'help': 'Commands for database registry',
-        'commands': [
-            {
-                'name': 'clear',
-                'help': 'Clear all data from database tables',
-                'args': []
-            },
-            {
-                'name': 'detail',
-                'help': 'Show details of a database',
-                'args': [
-                    {'name': f'--{EntityType.DB}', 'short': '-db', 'required': True, 'help': 'Database to show details for'},
-                ]
-            },
-            {
-                'name': 'list',
-                'help': 'List databases',
-                'args': [
-                    {
-                        'group': 'mutually_exclusive',
-                        'args': [
-                            {'name': f'--{EntityType.DB}', 'short': '-db', 'help': 'Database to list details for'},
-                            {'name': f'--{EntityType.DB}s', 'nargs': '+', 'help': 'List of databases to show details for'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'List all integrations'}
-                        ]
-                    },
-                    {'name': '--sort-by', 'choices': ['name'], 'default': 'name', 'help': 'Sort by field'}
-                ]
-            }
-        ]
-    },
-    EntityType.HANDLER:{
-        'help': 'Commands for handler registry',
-        'commands': [
-            {
-                'name': 'list',
-                'help': 'List handlers',
-                'args': [
-                    {
-                        'group': 'mutually_exclusive',
-                        'args': [
-                            {'name': f'--{EntityType.HANDLER}', 'short': '-db', 'help': 'Handler to list details for'},
-                            {'name': f'--{EntityType.HANDLER}s', 'nargs': '+', 'help': 'List of handlers to show details for'},
-                            {'name': '--all', 'action': 'store_true', 'help': 'List all handlers'}
-                        ]
-                    },
-                    {'name': '--sort-by', 'choices': ['name'], 'default': 'name', 'help': 'Sort by field'}
-                ]
-            }
-        ]
-    },
-    'cli': {
-        'help': 'CLI control commands',
-        'commands': [
-            {
-                'name': 'exit',
-                'help': 'Exit the CLI'
-            },
-            {
-                'name': 'quit',
-                'help': 'Exit the CLI (alias for exit)'
-            },
-            {
-                'name': 'help',
-                'help': 'Show available commands'
-            }
-        ]
-    }
-}
 
-class CliUserInterface(UserInterface):
-    """Simplified CLI UserInterface - focused on display-only operations"""
+class CliUserInterface:
+    """CLI user interface - handles display operations"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
     
     def confirm(self, message: str, default: bool = False) -> bool:
-        """
-        Ask the user for confirmation via CLI.
-        
-        Args:
-            message: Confirmation message to display
-            default: Default value if the user provides no input
-            
-        Returns:
-            bool: True if confirmed, False otherwise
-        """
         default_str = "y/N" if not default else "Y/n"
         response = input(f"{message} [{default_str}]: ").strip().lower()
         
@@ -272,33 +27,13 @@ class CliUserInterface(UserInterface):
         return response in ['y', 'yes']
     
     def respond(self, message: str, level: str = "info") -> None:
-        """
-        Display a message to the user via CLI.
-        
-        Args:
-            message: Message to display
-            level: Message level (info, warning, error)
-        """
         getattr(self.logger, level)(message)
     
     def display_key_values_list(self, details: Dict[str, Any]) -> None:
-        """
-        Display a list of keys and values to the user via CLI.
-        
-        Args:
-            details: Entity details to display
-        """
-
+        import json
         print(json.dumps(details, indent=4))
     
     def display_results(self, results: Any) -> None:
-        """
-        Display command execution results via CLI.
-        
-        Args:
-            results: Results from command execution
-        """
-        # Check if results is a dictionary with registry IDs as keys
         if isinstance(results, dict):
             for result in results:
                 if isinstance(result, dict):
@@ -307,321 +42,618 @@ class CliUserInterface(UserInterface):
                 else:
                     print(f"  {result}")
         else:
-            # Just display the result directly
             print(results)
     
     def display_results_tabular(self, results, headers):
-        from tabulate import tabulate
+        try:
+            from tabulate import tabulate
+            
+            tabular = []
+            for result in results:
+                tab = []
+                for header in headers:
+                    if header in result:
+                        tab.append(result[header])
+                    else:
+                        tab.append('')
+                tabular.append(tab)
 
-        tabular = []
-
-        for result in results:
-            tab = []
-            for header in headers:
-                if header in result:
-                    tab.append(result[header])
-                else:
-                    tab.append('')
-            tabular.append(tab)
-
-        print(tabulate(tabular, headers))
+            print(tabulate(tabular, headers))
+        except ImportError:
+            # Fallback if tabulate not available
+            for result in results:
+                self.display_results(result)
+    
+    def display_validation_errors(self, validation_errors: Dict[str, Any]) -> None:
+        """Display validation errors in a user-friendly format"""
+        print("\nValidation Errors:")
+        for field_name, error in validation_errors.items():
+            if isinstance(error, dict):
+                message = error.get('message', 'Unknown validation error')
+                code = error.get('code', '')
+                print(f"  • {field_name}: {message}")
+                if code:
+                    print(f"    (Error code: {code})")
+            else:
+                print(f"  • {field_name}: {error}")
+        print()
     
     def help(self, parser: Any) -> None:
-        """
-        Display help information via CLI.
-        
-        Args:
-            parser: ArgumentParser instance
-        """
-        # Display parser help
         parser.print_help()
         
-        # Display special commands
         print("\nSpecial commands:")
         print("  cli exit/quit - Exit the CLI session")
         print("  cli help      - Show this help message")
-        
+
 
 class Cli(Api):
-    """
-    Command-line interface for interacting with the application.
-    """
+    """Command-line interface that dynamically builds from entity interfaces"""
     
-    def __init__(self, registry):        
-        # Initialize base class
-        super().__init__(registry, 'cli')
+    def __init__(self, registry, **kwargs):
+        super().__init__(registry, 'cli', **kwargs)
         
-        # Create parser and register arguments
-        self.parser = argparse.ArgumentParser(description='Luna CLI')
-        self.registered_args = set()
+        # Single CLI converter handles both conversion and input collection
+        self._cli_converter = CliInputConverter()
+        self._user_interface = CliUserInterface()
         
-        # Initialize user interface
-        self._ui = CliUserInterface(self.registry.manager, CliFormBuilder)
-        
-        # Add core arguments using subparsers for each registry
-        self._setup_command_structure()
-        
-        # Variable to control the CLI loop
+        # Parser will be built dynamically
+        self.parser = None
         self._running = False
-
-    @property
-    def ui(self):
-        return self._ui    
     
     @property
-    def running(self):
-        return self._running
+    def user_interface(self):
+        return self._user_interface
 
-    @running.setter
-    def running(self, val):
-        self._running = val
+    @property
+    def cli_converter(self):
+        return self._cli_converter
     
-    def _setup_command_structure(self):
-        """Set up the command structure with registry subparsers."""
-        # Create registry subparsers
-        registry_subparsers = self.parser.add_subparsers(
-            dest='registry',
-            help='Target registry',
+    def start(self):
+        """Start the CLI session"""
+        self._build_parser_from_handler_registry()
+        self._running = True
+        
+        print("Starting CLI session. Type 'cli exit' to quit.\n")
+        self._setup_readline()
+        
+        while self._running:
+            try:
+                command = input("Luna CLI> ").strip()
+                if not command:
+                    continue
+                
+                self._execute_command(command)
+                    
+            except KeyboardInterrupt:
+                print("\nUse 'cli exit' to quit.")
+            except EOFError:
+                print("\nExiting CLI session.")
+                self._running = False
+
+    def _build_parser_from_handler_registry(self):
+        """Build the argparse structure from entity interfaces"""
+        
+        # Create a fresh parser each time
+        self.parser = argparse.ArgumentParser(description='Luna CLI')
+        
+        # Create entity type subparsers
+        entity_type_subparsers = self.parser.add_subparsers(
+            dest='entity_type',
+            help='Target entity type',
             required=True
         )
         
-        # Set up each registry's commands based on configuration
-        for registry_name, registry_config in REGISTRY_COMMANDS.items():
-            # Create registry subparser
-            registry_parser = registry_subparsers.add_parser(
-                registry_name, 
-                help=registry_config.get('help', f"Commands for {registry_name} registry")
-            )
-            
-            # Add commands to registry subparser
-            self._setup_registry_commands(registry_parser, registry_config['commands'])
-    
-    def _setup_registry_commands(self, registry_parser, commands):
-        """
-        Set up commands for a registry.
+        # Add CLI control commands
+        self._add_cli_control_commands(entity_type_subparsers)
+
+        command_handlers_by_entity_type = {}
+
+        for command_handler in self.handler_registry.get_all_entities():
+            if isinstance(command_handler, Handler):
+                entity_type = command_handler.entity_type
+                if command_handler.entity_type not in command_handlers_by_entity_type:
+                    command_handlers_by_entity_type[entity_type] = []
+                command_handlers_by_entity_type[entity_type].append(command_handler)
+
+        for entity_type, handlers in command_handlers_by_entity_type.items():
+            self._build_entity_type_parser(entity_type_subparsers, entity_type, handlers)
+
+    def _build_entity_type_parser(self, entity_type_subparsers, entity_type, command_handlers):
+        """Build parser for a specific entity type"""
+
+        # Create entity type parser
+        entity_parser = entity_type_subparsers.add_parser(
+            entity_type.value,
+            help=f"Commands for {entity_type.value}"
+        )
         
-        Args:
-            registry_parser: ArgumentParser for the registry
-            commands: List of command configurations
-        """
         # Create command subparsers
-        command_subparsers = registry_parser.add_subparsers(
-            dest='command',
+        command_type_subparsers = entity_parser.add_subparsers(
+            dest='command_type',
             help='Command to execute',
             required=True
         )
+
+        for command_handler in command_handlers:
+            self._add_input_as_command(command_type_subparsers, command_handler.command_type.value, command_handler.input_obj)
         
-        # Add each command
-        for command_config in commands:
-            command_name = command_config['name']
-            command_help = command_config.get('help', f"{command_name} command")
+    def _add_input_as_command(self, command_subparsers, command_type: str, input_obj):
+        """Add an input as a CLI command"""
+        if input_obj:
+            cli_spec = self.cli_converter.to_api_spec(input_obj)
             
             # Create command parser
-            command_parser = command_subparsers.add_parser(command_name, help=command_help)
+            cmd_parser = command_subparsers.add_parser(
+                command_type,
+                help=cli_spec.get('help', f"Execute {command_type}")
+            )
             
-            # Add arguments to command
-            if 'args' in command_config:
-                self._add_command_arguments(command_parser, command_config['args'])
-    
-    def _add_command_arguments(self, command_parser, args_config):
-        for arg_config in args_config:
-            # Handle argument groups
-            if 'group' in arg_config:
-                group_type = arg_config['group']
-                required = arg_config.get('required', False)
+            # Add arguments from CLI spec
+            self._add_arguments_from_spec(cmd_parser, cli_spec.get('args', []))
+
+    def _add_arguments_from_spec(self, parser, args_spec: List[Dict[str, Any]]):
+        """Add arguments to parser from CLI specification"""
+        
+        for arg_spec in args_spec:
+            try:
+                # Regular argument
+                arg_names = [arg_spec['name']]
+                if 'short' in arg_spec:
+                    arg_names.append(arg_spec['short'])
                 
-                if group_type == 'mutually_exclusive':
-                    group = command_parser.add_mutually_exclusive_group(required=required)
-                    # Pass the group to add arguments, not the original parser
-                    self._add_command_arguments(group, arg_config['args'])
-                else:
-                    self.logger.warning(f"Unknown group type: {group_type}")
+                # Filter out metadata keys
+                kwargs = {k: v for k, v in arg_spec.items() 
+                         if k not in ['name', 'short']}
+                                    
+                parser.add_argument(*arg_names, **kwargs)
+                    
+            except Exception as e:
+                self.logger.error(f"Error adding argument {arg_spec}: {e}")
+
+    def _execute_command(self, command: str):
+        """Parse and execute a command"""
+        try:
+            args = self.parser.parse_args(shlex.split(command))
+            
+            if args.entity_type == 'cli':
+                self._handle_cli_command(args)
             else:
-                # Handle regular arguments
-                arg_name = arg_config['name']
-                kwargs = {k: v for k, v in arg_config.items() if k != 'name' and k != 'short'}
+                command_success = self._process_entity_command(args)
                 
-                # If there's a short version, add it to the args
-                args = [arg_name]
-                if 'short' in arg_config:
-                    args.append(arg_config['short'])
+                # Rebuild parser after successful command execution
+                if command_success:
+                    self._build_parser_from_handler_registry()
                 
-                # Add argument to parser
-                command_parser.add_argument(*args, **kwargs)
+        except SystemExit:
+            # argparse error - continue
+            pass
+
+    def _process_entity_command(self, args) -> bool:
+        """Process a command for an entity type and return success status"""
+        entity_type_enum = EntityType(args.entity_type)
+        command_type_enum = CommandType(args.command_type)
+        handler = self.handler_registry.get_handler_by_entity_and_command_types(entity_type_enum, command_type_enum)
+
+        params = {k: v for k, v in vars(args).items() 
+                 if not k.startswith('_') and k not in ['entity_type', 'command_type']}
+
+        input_obj = handler.input_obj
+
+        print(f"Initial params: {params}")
+
+        if not handler.needs_target:
+            # Registry-level commands (like list, create)
+            return self._convert_and_execute(
+                input_obj,
+                args.command_type, 
+                params,
+                {
+                    "interface": "cli", 
+                    "authenticated": True,
+                }
+            )
+        else:
+
+            input_obj.prepend_child(
+                InputFactory.entity_target_selector_field(
+                    registry=input_obj.handler_registry.manager.get_by_entity_type(entity_type_enum),
+                    handler_registry=input_obj.handler_registry
+                ))
+
+            return self._convert_and_execute(
+                input_obj,
+                args.command_type, 
+                params,
+                {
+                    "interface": "cli", 
+                    "authenticated": True,
+                }
+            )
     
-    def start(self):
-        """
-        Start the persistent CLI session.
+    def _convert_and_execute(self, input_obj, command_type, params, context) -> bool:
+        """Convert and execute command, return success status"""
+        try:
+            result = self.cli_converter.execute_with_input_collection(
+                input_obj,
+                command_type, 
+                params,
+                context
+            )
+
+            command_output = []
+            
+            # Display results based on success/failure
+            if result.get("success"):
+                
+                for handler_result in result.handler_results:
+
+                    if hasattr(handler_result, 'success'):
+                        if handler_result.success:
+                            self.display_results(command_type, handler_result.result)                            
+                            command_output.append(handler_result.result)
+                        else:
+                            # Handler execution failed
+                            error = handler_result.error
+                            self.logger.error(f"Command '{command_type}' {error['type']} handler execution failed: {error.error}")                                
+                            command_output.append(error)
+
+                return command_output
+
+            else:
+                # Handle different types of errors more specifically
+                if result.get("validation_errors"):
+                    self.logger.error(f"Command '{command_type}' failed due to validation errors:")
+                    self.user_interface.display_validation_errors(result["validation_errors"])
+                elif result.get("cancelled"):
+                    self.logger.warning(f"Command '{command_type}' was cancelled by user.")
+                elif result.get("error"):
+                    self.logger.error(f"Command '{command_type}' failed: {result['error']}")
+                else:
+                    self.logger.error(f"Command '{command_type}' failed for unknown reason.")
+                    print(f"Full result: {result}")
+                
+                return False  # Command failed
+            
+        except Exception as e:
+            self.logger.error(f"Error executing {command_type}: {e}", exc_info=True)
+            return False  # Command failed due to exception
+
+    def _handle_cli_command(self, args):
+        """Handle CLI control commands"""
+        if args.command in ['exit', 'quit']:
+            self._running = False
+            print("Exiting CLI session.")
+        elif args.command == 'help':
+            self.user_interface.help(self.parser)
         
-        """
-        self.running = True
-        self.ui.respond("Starting persistent CLI session. Type 'cli exit' or 'cli quit' to exit.")
+    def _add_cli_control_commands(self, entity_type_subparser):
+        """Add CLI-specific control commands"""
+        cli_parser = entity_type_subparser.add_parser(
+            'cli',
+            help='CLI control commands'
+        )
         
-        # Setup readline for command history
+        cli_commands = cli_parser.add_subparsers(
+            dest='command',
+            help='CLI command',
+            required=True
+        )
+        
+        cli_commands.add_parser('exit', help='Exit the CLI')
+        cli_commands.add_parser('quit', help='Exit the CLI (alias for exit)')
+        cli_commands.add_parser('help', help='Show available commands')
+    
+    def _setup_readline(self):
+        """Setup command history"""
         try:
             import atexit
             import os
             import readline
             
-            # History file path
             histfile = os.path.join(os.path.expanduser("~"), ".luna_history")
-            
-            # Create history file if it doesn't exist
             try:
                 readline.read_history_file(histfile)
-                # Set history length
                 readline.set_history_length(1000)
             except FileNotFoundError:
                 pass
-                
-            # Save history on exit
             atexit.register(readline.write_history_file, histfile)
             
-            self.ui.respond("Command history enabled (use up/down arrows to navigate)")
-        except (ImportError, ModuleNotFoundError):
-            self.ui.respond("Readline module not available. Command history disabled.", "warning")
-        
-        while self.running:
-            try:
-                # Display prompt and get user input
-                command = input("\nLuna CLI> ").strip()
-                
-                # Skip empty commands
-                if not command:
-                    continue
-                
-                # Parse the command into arguments
-                try:
-                    # Use shlex to properly handle quoted arguments
-                    args_list = shlex.split(command)
-                    args = self.parser.parse_args(args_list)
-                    
-                    # Handle CLI control commands
-                    if args.registry == 'cli':
-                        if args.command in ['exit', 'quit']:
-                            self.ui.respond("Exiting CLI session.")
-                            self.running = False
-                            continue
-                        elif args.command == 'help':
-                            self.ui.help(self.parser)
-                            continue
-                    
-                    # Process the command
-                    self._process_command(args)
-                    
-                except SystemExit:
-                    # Catch the SystemExit that argparse.parse_args raises on error
-                    # This allows us to keep the CLI running even when there's a parsing error
-                    continue
-                
-            except KeyboardInterrupt:
-                print("\nUse 'cli exit' to quit.")
-            except EOFError:
-                # Handle Ctrl+D (EOF)
-                print("\nExiting CLI session.")
-                self.running = False
-            except Exception as e:
-                self.ui.respond(f"Error processing command: {e}", "error")
-                import traceback
-                traceback.print_exc()
+        except ImportError:
+            pass  # No readline available
+
+class CliInputConverter(ApiInputConverter):
+    """CLI-specific input converter with integrated input collection"""
     
-    def _process_command(self, args):
-        """
-        Process a command based on parsed arguments.
+    def to_api_spec(self, input_obj: Input) -> Dict[str, Any]:
+        """Convert to CLI argparse specification"""
+        args = []
         
-        Args:
-            args: The parsed command line arguments
-        """
-        registry_name = args.registry
-        command = args.command
+        def process_node(node):
+            if isinstance(node, InputField):  # Field-like
+                # Skip hidden fields from CLI argument generation
+                if getattr(node, 'hidden', False):
+                    return []
+                
+                # Determine argument name format
+                param_type = getattr(node, 'param_type', 'named')
+                if param_type == "positional":
+                    # Only positional arguments don't get -- prefix
+                    arg_name = node.name
+                else:
+                    # All other types (named, flag, variadic) get -- prefix
+                    arg_name = f"--{node.name}"
+                
+                arg_spec = {
+                    "name": arg_name,
+                    "help": getattr(node, 'description', None)
+                }
+                
+                # Add short name if available
+                if hasattr(node, 'short_name') and node.short_name:
+                    arg_spec["short"] = f"-{node.short_name}"
+                
+                # Handle parameter types
+                if param_type == "flag":
+                    arg_spec["action"] = "store_true"
+                elif param_type == "variadic":
+                    arg_spec["nargs"] = "+"
+                
+                # For fields with dict choices, we only expose the display names to argparse
+                if hasattr(node, 'choices') and node.choices:
+                    display_names = node.get_choice_display_names()
+                    if display_names:
+                        arg_spec["choices"] = display_names
+                
+                # Handle default values (but don't make callable defaults visible)
+                if hasattr(node, 'default_value') and node.default_value is not None and not callable(node.default_value):
+                    arg_spec["default"] = node.default_value
+                elif hasattr(node, 'value') and node.value is not None:
+                    arg_spec["default"] = node.value
+                
+                return [arg_spec]
+                
+            elif isinstance(node, InputGroup):  # Group-like
+                # Get all child arguments
+                child_args = []
+                for child in node.children.values():
+                    child_result = process_node(child)
+                    if child_result:
+                        child_args.extend(child_result)
+                
+                # Return child arguments directly
+                return child_args
+            
+            return []
+        
+        # Process the input object
+        args = process_node(input_obj)
+        
+        return {
+            "name": input_obj.name,
+            "help": getattr(input_obj, 'description', None),
+            "args": args
+        }
 
-        self.ui.context.entity_type = registry_name
+    def display_structure(self, input_obj: Input, context: Dict[str, Any] = None) -> None:
+        """Display the CLI input structure"""
+        self._display_node_recursive(input_obj, level=0)
 
-        self.logger.debug(f"Processing command: {registry_name} {command} with args: {vars(args)}")
+    def collect_missing_inputs(self, input_obj: Input, provided_inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Collect missing inputs interactively via CLI"""
+        inputs = provided_inputs.copy()                
+        success = self._collect_node_inputs_interactive(input_obj, inputs, context)
         
-        # Find special handler method if defined in config
-        handler_method = None
-        for cmd_config in REGISTRY_COMMANDS.get(registry_name, {}).get('commands', []):
-            if cmd_config.get('name') == command and 'handler' in cmd_config:
-                handler_method = cmd_config['handler']
-                break
-        
-        if handler_method and hasattr(self, handler_method):
-            # Call the handler method
-            handler = getattr(self, handler_method)
-            result = handler(args)
-            return result
-        
-        # Dispatch command to appropriate registry
-        params = vars(args)
-        del params['registry']
-        del params['command']
-        results = self.dispatch_command(registry_name, command, params)
-
-        if isinstance(results, list):
-            results = [r for r in results if r is not None]
-        
-        # Display results
-        print(f"\n--- {registry_name.upper()} {command.upper()} RESULTS ---")
-        if not results:
-            print("No results returned")
-
-        if results:
-            if command == 'list':
-                self.ui.display_results_tabular(results, results[0].keys())
-            elif command == 'detail':
-                self.ui.display_key_values_list(results[0])
+        if success:
+            return self._handle_cli_submission(inputs, input_obj.confirm_submit)
+        else:
+            print("Input collection cancelled")
+            return {"success": False, "cancelled": True}
+    
+    def _collect_node_inputs_interactive(self, node, inputs: Dict[str, Any], context: Dict[str, Any], path: str = "") -> bool:
+        """Recursively collect inputs for a node via CLI"""        
+        if isinstance(node, InputField):  # Field-like
+            # Skip hidden fields - they'll be auto-computed
+            if getattr(node, 'hidden', False):
+                return True
+                
+            if node.name not in inputs or inputs[node.name] is None:
+                return self._collect_field_input_cli(node, inputs, context)
             else:
-                for result in results:
-                    self.ui.display_results(result)
-    
-    def _handle_integration_create(self, args):
+                return True
+        elif isinstance(node, InputGroup):  # Group-like (including Input)
+            if hasattr(node, 'title') and node.title:
+                print(f"--- {node.title} ---")
+            
+            # Collect all children
+            for child in node.children.values():
+                if not self._collect_node_inputs_interactive(child, inputs, context, f"{path}.{node.name}" if path else node.name):
+                    return False
+        return True
+
+    def _collect_field_input_cli(self, field: InputField, inputs: Dict[str, Any], context: Dict[str, Any]) -> bool:
+        """Collect input for a single field via CLI"""
+        
+        # Handle choice fields with numbered selection
+        if hasattr(field, 'choices') and field.choices:
+            title = field.title or f"Select {field.name}"
+            options = []
+            
+            # Get display names for choices
+            display_names = field.get_choice_display_names()
+            for display_name in display_names:
+                options.append({
+                    'name': display_name,
+                    'description': '',
+                    'default_value': field.default_value if str(field.default_value) == display_name else None
+                })
+            
+            selected_option, success = self._display_and_select_from_options(title, options)
+            if not success:
+                return False
+            
+            # Get the actual value for the selected display name
+            selected_value = field.get_choice_value(selected_option['name'])
+            inputs[field.name] = selected_value
+            return True
+        
+        # Handle regular fields (existing logic)
+        prefill_value = None
+
+        if field.default_value is not None:
+            if callable(field.default_value):
+                try:
+                    current_values = {k: v for k, v in inputs.items()}
+                    computed_value = field.compute_dynamic_value(current_values)
+                    if computed_value is not None:
+                        prefill_value = str(computed_value)
+                except:
+                    pass
+            else:
+                prefill_value = str(field.default_value)
+
+        prompt = getattr(field, 'prompt', f"Enter {field.title}: ")
+
+        if field.required:
+            prompt = "(required) " + prompt
+
+        while True:
+            try:
+                if prefill_value:
+                    user_input = self._input_with_prefill(prompt, prefill_value)
+                else:
+                    user_input = input(prompt)
+                
+                # Handle empty input
+                if not user_input:
+                    if field.required:
+                        print("This field is required")
+                        continue
+                    else:
+                        inputs[field.name] = None
+                        return True
+                
+                # Type conversion
+                if field.field_type is bool:
+                    user_input = user_input.lower() in ('true', 't', 'yes', 'y', '1')
+                elif field.field_type is not str:
+                    user_input = field.field_type(user_input)
+                
+                # Use field's native validation
+                validation_result = field.validate(user_input)
+
+                if not validation_result["passed"]:
+                    error_msg = validation_result.get('error', {}).get('message', 'Validation failed')
+                    print(f"Error: {error_msg}")
+                    continue
+                
+                inputs[field.name] = user_input
+                return True
+                
+            except (ValueError, TypeError) as e:
+                print(f"Invalid {field.field_type.__name__}: {e}")
+                continue
+            except KeyboardInterrupt:
+                print("\nInput cancelled")
+                return False
+
+    def _display_and_select_from_options(self, title: str, options: list, prompt: str = "Choose option") -> tuple:
         """
-        Handle integration creation using streamlined form-based approach.
+        Display numbered options and get user selection.
         
         Args:
-            args: Command line arguments
+            title: Title to display above options
+            options: List of dicts with 'name', 'description', and optionally 'default_value'
+            prompt: Prompt text for user input
             
         Returns:
-            Any: Creation result
+            tuple: (selected_option_dict, success_bool)
         """
-        # Get integration type selection first (simple selection, not a form field)
-        types = self.ui.context.current_entity_registry.get_integration_filenames()
-        integration_type = self.ui.form_builder.get_selection(
-            "Select integration type:", 
-            types
-        )
+        print(f"\n{title}:")
+        print()
+        for i, option in enumerate(options, 1):
+            desc = option.get('description', '')
+            default_info = f" (current: {option.get('default_value', '')})" if option.get('default_value') else ""
+            separator = ' - ' if desc or default_info else ''
+            print(f"  {i}. {option['name']}{separator}{desc}{default_info}")
         
-        if not integration_type:
-            return None
-        
-        # Create and fill the integration creation form with prefix
-        name_prefix = f"{integration_type}-"
-        form_data = CreatableEntity.create_form(self.ui, EntityType.INTEGRATION, name_prefix=name_prefix)
-        if not form_data:
-            return None
-        
-        # Extract values and build final name with prefix
-        base_name = form_data["name"]
-        emoji = form_data["emoji"]
-        
-        # Build prefixed name
-        name = f"{name_prefix}{base_name}"
-        title = self.ui.validator.format_kebabcase_to_titlecase(name)
-        
-        # Create integration
-        params = {
-            'integration_type': integration_type,
-            'name': name,
-            'emoji': emoji,
-            'title': title
-        }
-        
-        integration = self.dispatch_command(EntityType.INTEGRATION, Command.CREATE, params)
-        
-        self.handle_entity_edit(integration)
+        # Get selection
+        while True:
+            try:
+                print()
+                choice = input(f"{prompt} (enter number or name): ").strip()
+                
+                # Try to parse as number first
+                try:
+                    choice_num = int(choice)
+                    if 1 <= choice_num <= len(options):
+                        return options[choice_num - 1], True
+                    else:
+                        print(f"Number must be between 1 and {len(options)}")
+                        continue
+                except ValueError:
+                    # Not a number, try to match by name
+                    for option in options:
+                        if option['name'].lower() == choice.lower():
+                            return option, True
+                    
+                    # No match found
+                    valid_names = [opt['name'] for opt in options]
+                    print(f"Invalid choice. Valid options: {', '.join(valid_names)}")
+                    continue
+                    
+            except KeyboardInterrupt:
+                print("\nSelection cancelled")
+                return None, False
 
-        return integration
+    def _input_with_prefill(self, prompt: str, prefill: str) -> str:
+        """Get input with prefilled text that user can edit"""
+        try:
+            import readline
+            
+            def startup_hook():
+                readline.insert_text(prefill)
+                readline.redisplay()
+            
+            readline.set_startup_hook(startup_hook)
+            try:
+                result = input(prompt)
+            finally:
+                readline.set_startup_hook(None)
+            
+            return result
+            
+        except ImportError:
+            # Fallback if readline not available
+            print(f"Prefill: {prefill}")
+            return input(prompt)
+                
+    def _handle_cli_submission(self, inputs: Dict[str, Any], confirm_submit: Optional[bool] = True) -> Dict[str, Any]:
+        """Handle CLI input submission"""
+        if confirm_submit is False:
+            return {"success": True, "inputs": inputs}
 
+        print("\n=== Summary ===")
+        for name, value in inputs.items():
+            print(f"{name}: {value}")
+        
+        # Confirm submission
+        response = input("\nSubmit? [Y/n]: ").strip().lower()
+        if response and response not in ['y', 'yes']:
+            return {"success": False, "cancelled": True}
+        
+        return {"success": True, "inputs": inputs}
     
-    
+    def _display_node_recursive(self, node, level: int = 0):
+        """Recursively display node structure for CLI"""
+        indent = "  " * level
+        
+        if isinstance(node, InputField):  # Field-like
+            # Show hidden fields in display but mark them
+            hidden_marker = " (auto)" if getattr(node, 'hidden', False) else ""
+            value_display = getattr(node, 'value', "(empty)")
+            print(f"{indent}{node.title}{hidden_marker}: {value_display}")
+        elif isinstance(node, InputGroup):  # Group-like (including Input)
+            if hasattr(node, 'title'):
+                print(f"{indent}[{node.title}]")
+            for child in node.children.values():
+                self._display_node_recursive(child, level + 1)

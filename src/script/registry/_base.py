@@ -2,74 +2,46 @@ import importlib
 import inspect
 import logging
 import pkgutil
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from uuid import UUID, uuid4
 
+from src.script.common.constants import EntityType
+
 if TYPE_CHECKING:
-    from src.script.entity._base import EntityBase, EntityRef
+    from src.script.entity._base import (
+        Entity,
+        EntityRef,
+    )
     from src.script.registry._manager import RegistryManager
+
+ ######                       ##                ##
+ ##   ##                                        ##
+ ##   ##   #####    ######  ####      #####   ######   ## ###   ##  ##
+ ######   ##   ##  ##   ##    ##     ##         ##     ###      ##  ##
+ ## ##    #######  ##   ##    ##      ####      ##     ##       ##  ##
+ ##  ##   ##        ######    ##         ##     ##     ##        #####
+ ##   ##   #####        ##  ######   #####       ###   ##           ##
+                    #####                                        ####
 
 class Registry(ABC):
     """
     Base registry class that manages entities of a specific type.
     """
     
-    def __init__(self, name: str, entity_class: 'EntityBase'):
+    def __init__(self, entity_type: EntityType, entity_class: 'Entity', manager):
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
         self._uuid = uuid4()
-        self._name = name
+        self._entity_type = entity_type
         self._entity_class = entity_class
-        self._entity_class_is_storable = False
-        self._entities: Dict[int, 'EntityBase'] = {}
-        self._entities_by_name: Dict[str, 'EntityBase'] = {}  # Secondary index by name
-        self._manager: Optional['RegistryManager'] = None
+        self._entities: Dict[int, 'Entity'] = {}
+        self._entities_by_name: Dict[str, 'Entity'] = {}  # Secondary index by name
+        self._manager: Optional['RegistryManager'] = manager
         self._next_id: int = 1
 
         self.loader = RegistryEntityLoader(self)
+        self.manager.register_registry(self)
 
-        from src.script.entity._base import ModuleEntity, StorableEntity
-
-        if issubclass(self.entity_class, StorableEntity):
-            self._db = None
-            self._entity_class_is_storable = True
-                        
-            # Create an enhanced setter that also propagates to entities
-            def db_registry_setter(self, value):
-                # Call the original setter on self
-                StorableEntity.db.fset(self, value)
-                
-                # Propagate to all entities
-                for entity in self._entities.values():
-                    entity.db = value
-
-            def db_registry_getter(self):
-                if not hasattr(self, '_db') or self._db is None:
-                    raise RuntimeError(f"Database reference not set for {self.__class__.__name__}")
-                else:
-                    return self.manager.get_entity_by_ref(self._db)
-            
-            # Create a new property with the original getter but enhanced setter
-            db_property = property(
-                db_registry_getter,
-                db_registry_setter
-            )
-            
-            # Add the property to this class
-            setattr(type(self), 'db', db_property)
-
-        if issubclass(self.entity_class, ModuleEntity):
-            pass
-
-    @abstractmethod
-    def load(self):
-        # Implemented by registry to load entities and do any other necessary setup
-        pass
-
-    @property
-    def entity_class_is_storable(self):
-        return self._entity_class_is_storable
-    
     @property
     def entity_class(self):
         return self._entity_class
@@ -83,10 +55,9 @@ class Registry(ABC):
         self._uuid = val
 
     @property
-    def name(self):
-        return self._name
-    
-    
+    def entity_type(self):
+        return self._entity_type
+        
     @property
     def manager(self):
         return self._manager
@@ -104,24 +75,18 @@ class Registry(ABC):
     def set_next_id(self, val) -> None:
         if val >= self._next_id:
             self._next_id = val+1
-        
-    def register_entity(self, entity: 'EntityBase') -> None:
+
+    def register_entity(self, entity: 'Entity') -> None:
         """Register an entity with this registry."""
         self._entities[entity.uuid] = entity
-        
-        if self.entity_class_is_storable:
-            entity.db = self.manager.db_ref
-
-            if not hasattr(entity, '_db_id'):
-                entity._db_id = self.get_next_id()
-        
+               
         # Add to name index if the entity has a name attribute
         if hasattr(entity, 'name'):
             self._entities_by_name[entity.name] = entity
         
-        self.logger.debug(f"Registered entity: {getattr(entity, 'name', str(entity.uuid))}")
+        self.logger.debug(f"Registered entity: {entity}")
     
-    def unregister_entity(self, entity: 'EntityBase') -> None:
+    def unregister_entity(self, entity: 'Entity') -> None:
         """Remove an entity from this registry."""
         if entity.uuid in self._entities:
             del self._entities[entity.uuid]
@@ -130,26 +95,29 @@ class Registry(ABC):
             if hasattr(entity, 'name') and entity.name in self._entities_by_name:
                 del self._entities_by_name[entity.name]
             
-            self.logger.debug(f"Unregistered entity: {getattr(entity, 'name', str(entity.uuid))}")
+            self.logger.debug(f"Unregistered entity: {entity}")
         else:
             self.logger.warning(f"Cannot unregister entity {entity.uuid}, not found")
     
-    def get_by_id(self, entity_id: UUID) -> Optional['EntityBase']:
+    def get_by_id(self, entity_id: UUID) -> Optional['Entity']:
         """Get an entity by its ID."""
         return self._entities.get(entity_id, None)
     
-    def get_by_name(self, name: str) -> Optional['EntityBase']:
+    def get_by_name(self, name: str) -> Optional['Entity']:
         """Get an entity by its name."""
         return self._entities_by_name.get(name, None)
 
-    def get_by_ref(self, ref: 'EntityRef') -> 'EntityBase':
+    def get_by_ref(self, ref: 'EntityRef') -> 'Entity':
         return self._entities.get(ref.entity_id, None)
     
-    def get_all_entities(self) -> List['EntityBase']:
+    def get_all_entities(self) -> List['Entity']:
         """Get all entities in this registry."""
         return list(self._entities.values())
 
-    def find_entities(self, filter_func: Callable[['EntityBase'], bool]) -> List['EntityBase']:
+    def get_all_entities_names(self) -> List[str]:
+        return list(self._entities_by_name.keys())
+
+    def find_entities(self, filter_func: Callable[['Entity'], bool]) -> List['Entity']:
         """Find entities based on a filter function."""
         return [entity for entity in self._entities.values() if filter_func(entity)]
         
@@ -168,67 +136,15 @@ class Registry(ABC):
         if hasattr(entity, 'name'):
             self._entities_by_name[entity.name] = entity
 
-class CommandableRegistry(Registry):
-    """
-    A registry that supports command execution with cross-registry capabilities, and can access the database
-    """
-    
-    def __init__(self, name: str, entity_class):
-        super().__init__(name, entity_class)
 
-    def handle_list(self, sort_by='name', **kwargs) -> List[Dict]:
-        entities = self.get_all_entities()
+ ##                              ##
+ ##                              ##
+ ##        #####    ######   ######   #####   ## ###
+ ##       ##   ##  ##   ##  ##   ##  ##   ##  ###
+ ##       ##   ##  ##   ##  ##   ##  #######  ##
+ ##       ##   ##  ##  ###  ##   ##  ##       ##
+ ######    #####    ### ##   ######   #####   ##
 
-        if sort_by == 'name':
-            sorted_entities = sorted(entities, key=lambda p: getattr(p, 'name', ''))
-        elif sort_by == 'date':
-            sorted_entities = sorted(entities, key=lambda p: p.date_created)
-        else:
-            sorted_entities = sorted(entities, key=lambda p: p.db_id)
-        
-        # Format result
-        results = []
-        for entity in sorted_entities:
-            result = {
-                'name': entity.name,
-                'uuid': str(entity.uuid),
-            }
-            if hasattr(entity,'_db_fields'):
-                result.update(entity._db_fields)
-                result.update({'db_id': str(entity.db_id)})
-            results.append(result)
-        
-        return results
-
-    def _invoke_handler(self, handler_owner, command: str, params: dict) -> Any:
-        """
-        Execute a command using reflection to find the handler method.
-        
-        The handler method should be named using the pattern: handle_{command}
-        """
-
-        handler_name = f"handle_{command}"
-
-        if hasattr(handler_owner, handler_name):
-            handler = getattr(handler_owner, handler_name)
-            if callable(handler):
-                try:
-                    result = handler(**params)
-                    self.logger.debug(f"Completed command '{command}' on {handler_owner}")
-                    return result
-                except Exception as e:
-                    self.logger.error(f"Error executing command '{command}' on {handler_owner}: {e}")
-                    raise
-        
-        self.logger.warning(f"No handler found for command '{command}' on {handler_owner}")
-        return None
-
-    def invoke_entity_handler(self, entity, command: str, params: dict) -> Any:
-        return self._invoke_handler(entity, command, params)
-
-    def invoke_registry_handler(self, command: str, params: dict) -> Any:
-        return self._invoke_handler(self, command, params)
-        
 
 class RegistryEntityLoader:
 
@@ -384,13 +300,14 @@ class RegistryEntityLoader:
         for module_info in modules_info:
             for cls in module_info['derived_classes']:
                 try:
+                    kwargs['filename'] = module_info['filename']
                     entity = cls(self.registry, **kwargs)
                     entities.append(entity)
                     self.logger.debug(f"Loaded entity: {entity.name} from {module_info['module_name']}")
                 except Exception as e:
                     self.logger.error(f"Error loading {cls.__name__} from {module_info['module_name']}: {e}")
         
-        self.logger.info(f"Loaded {len(entities)} {self.registry.name}(s) from modules")
+        self.logger.info(f"Loaded {len(entities)} {self.registry.entity_type.value}(s) from modules")
         return entities
 
     def get_entity_data_from_database(self, table_name: str):
@@ -407,11 +324,9 @@ class RegistryEntityLoader:
                     entity_data.append(row_dict)
                 except Exception as e:
                         self.logger.error(f"Error loading entity data {table_name}: {e}")
-            self.logger.info(f"Got data for {len(entity_data)} {self.registry.name}(s) from database")
+            self.logger.info(f"Got data for {len(entity_data)} {self.registry.entity_type.value}(s) from database")
         except Exception as e:
             self.logger.error(f"Error loading entity data from {table_name}: {e}")
-            import traceback
-            traceback.print_exc()
 
         return entity_data
 
@@ -425,4 +340,4 @@ class RegistryEntityLoader:
                 self.logger.debug(f"Loaded entity: {entity.name} from table data {table_name}")
             except Exception as e:
                 self.logger.error(f"Error loading entity from table data {table_name}: {e}")
-        self.logger.info(f"Loaded {entities_loaded} {self.registry.name}(s) from database")
+        self.logger.info(f"Loaded {entities_loaded} {self.registry.entity_type.value}(s) from database")

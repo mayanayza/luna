@@ -3,7 +3,6 @@ import sys
 import traceback
 
 import colorlog
-from src.script.constants import EntityType
 from src.script.registry._manager import RegistryManager
 from src.script.registry.api import ApiRegistry
 from src.script.registry.db import DatabaseRegistry
@@ -12,6 +11,13 @@ from src.script.registry.integration import IntegrationRegistry
 from src.script.registry.project import ProjectRegistry
 from src.script.registry.projectintegration import ProjectIntegrationRegistry
 
+
+class ExceptionFormatter(colorlog.ColoredFormatter):
+    def format(self, record):
+        # Auto-include exception info for ERROR and CRITICAL if there's an active exception
+        if record.levelno >= logging.ERROR and not record.exc_info and sys.exc_info()[0] is not None:
+            record.exc_info = sys.exc_info()
+        return super().format(record)
 
 class ApplicationContext:
     """Central coordination point for application setup"""
@@ -22,30 +28,21 @@ class ApplicationContext:
 
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
         self.registry_manager = RegistryManager()
-        # self.command_dispatcher = CommandDispatcher(self.registry_manager)
-        # self.registry_manager.set_command_dispatcher(self.command_dispatcher)
             
-    def get_registry(self, registry_name):
-        return self.registry_manager.get_by_name(registry_name)
-
-    def register_registry(self, registry_name, registry_class, **init_kwargs):
-        """Create and register a registry of the given class."""
-        self.logger.info(f"Initializing {registry_name} registry")
-        registry = registry_class(**init_kwargs)
-        self.registry_manager.register_registry(registry)
-        registry.load()
+    def get_registry(self, entity_type):
+        return self.registry_manager.get_by_entity_type(entity_type)
     
     def initialize(self):
         """Initialize the application with registries."""
         try:
-            self.register_registry(EntityType.HANDLER, HandlerRegistry)
-            self.register_registry(EntityType.API, ApiRegistry)
-            self.register_registry(EntityType.DB, DatabaseRegistry)
+            HandlerRegistry(self.registry_manager)
+            DatabaseRegistry(self.registry_manager)
 
-            self.register_registry(EntityType.INTEGRATION, IntegrationRegistry)
-            self.register_registry(EntityType.PROJECT, ProjectRegistry)
-            self.register_registry(EntityType.PROJECT_INTEGRATION, ProjectIntegrationRegistry)
+            IntegrationRegistry(self.registry_manager)
+            ProjectRegistry(self.registry_manager)
+            ProjectIntegrationRegistry(self.registry_manager)
 
+            ApiRegistry(self.registry_manager)
             
             self.logger.info("Application initialized successfully")
             return True
@@ -86,7 +83,7 @@ class ApplicationContext:
         
         # Create and configure the colored handler
         handler = colorlog.StreamHandler(stream=sys.stdout)
-        formatter = colorlog.ColoredFormatter(
+        formatter = ExceptionFormatter(
             '%(log_color)s%(asctime)s - %(levelname)s - %(name)s - %(message)s',
             log_colors={
                 'DEBUG': 'cyan',

@@ -1,19 +1,18 @@
-from src.script.constants import EntityType
-from src.script.entity._project import Project
-from src.script.registry._base import CommandableRegistry
+from src.script.common.constants import EntityType
+from src.script.entity.project import Project
+from src.script.registry._registry import CreatableEntityRegistry
 
 
-class ProjectRegistry(CommandableRegistry):
-    def __init__(self):
-        super().__init__(EntityType.PROJECT, Project)
+class ProjectRegistry(CreatableEntityRegistry):
 
-    def load(self):
-        """Load projects from database."""
-        self.loader.load_from_database(EntityType.PROJECT)
+    def __init__(self, manager):
+        super().__init__(EntityType.PROJECT, Project, manager)
 
-    def handle_create(self, name: str, title: str = "", emoji: str = "", **kwargs):
+        self.loader.load_from_database(EntityType.PROJECT.value)
+
+    @classmethod
+    def handle_create(cls, registry, name: str, title: str = "", emoji: str = "", **kwargs):
         """Create a new project."""
-        project = Project(registry=self, name=name, title=title, emoji=emoji, kwargs={})
-        self.db.upsert(EntityType.PROJECT, project)
-        self.register_entity(project)
+        project = Project(registry=registry, name=name, title=title, emoji=emoji, kwargs={})
+        registry.db.upsert(EntityType.PROJECT.value, project)
         return project
