@@ -4,8 +4,8 @@ from typing import Dict
 from uuid import uuid4
 
 import pytz
-from src.script.common.constants import CommandType, EntityType, HandlerType
-from src.script.common.decorators import register_handlers
+from src.script.api._enum import CommandType
+from src.script.common.decorators import entity_quantity, register_handlers
 from src.script.common.mixins import (
     ClassWithHandlers,
     Creatable,
@@ -14,8 +14,8 @@ from src.script.common.mixins import (
     Storable,
 )
 from src.script.entity._base import Entity
-from src.script.input.factory import InputFactory
-from src.script.input.input import Input, InputField, InputGroup, InputPermissions
+from src.script.entity._enum import EntityQuantity, EntityType, HandlerType
+from src.script.input.input import Input, InputField, InputPermissions
 from src.script.input.validation import InputValidator
 from src.script.registry._base import Registry
 
@@ -51,6 +51,7 @@ class EntityWithHandlers(ClassWithHandlers):
             handler_type=HandlerType.SYSTEM,
             entity_registry=self.registry,
             command_type=command_type,
+            source_class=source_class,
             needs_target=True
         )
 
@@ -63,14 +64,11 @@ class EntityWithHandlers(ClassWithHandlers):
  ######   ######   #####       ###    ### ##  ######    ####     #####
 
 class ListableEntity(Entity, Listable, EntityWithHandlers):
-    def __init__(self, registry: 'Registry', name: str, **kwargs):
-        
+    def __init__(self, registry: 'Registry', **kwargs):
         self._handler_registry = registry.manager.get_by_entity_type(EntityType.HANDLER)
 
-        super().__init__(registry)
+        super().__init__(registry, **kwargs)
         EntityWithHandlers.__init__(self)
-
-        self._name = name
 
   #####     ##                                ##        ###
  ##   ##    ##                                ##         ##
@@ -79,6 +77,7 @@ class ListableEntity(Entity, Listable, EntityWithHandlers):
       ##    ##     ##   ##  ##       ##   ##  ##   ##    ##     #######
  ##   ##    ##     ##   ##  ##       ##  ###  ##   ##    ##     ##
   #####      ###    #####   ##        ### ##  ######    ####     #####
+
 
 @register_handlers(
     {
@@ -93,9 +92,12 @@ class ListableEntity(Entity, Listable, EntityWithHandlers):
     }
 )
 class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
-    def __init__(self, registry: 'Registry', name, **kwargs):
+    # Subclasses should define this as a list of InputField objects
+    _config_fields = []
+    
+    def __init__(self, registry: 'Registry', **kwargs):
 
-        super().__init__(registry, name)    
+        super().__init__(registry, **kwargs)    
 
         # load_dotenv()
         
@@ -106,17 +108,43 @@ class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
             self._db = None
         
         self._db_fields = {}
-        self._config_input_fields = []
-
 
         # Load config from DB
-
         db_id = kwargs.get('db_id', None)
         if db_id:
             self._db_id = db_id
             registry.set_next_id(db_id)
         else:
             self._db_id = registry.get_next_id()
+
+        # Initialize config Input object as None - will be created on first access
+        self._config_input = None
+        
+        # Store config data for lazy loading
+        self._config_data = kwargs.get('config_data', None)
+
+    def _initialize_config(self):
+        """Initialize the config Input object from class-defined fields"""
+        # Use the class-defined fields directly as children
+        # The fields are defined at the subclass level and contain all the specifications
+        
+        try:
+            # Create the Input object using the class-defined fields
+            self._config_input = Input(
+                name=f"{self.type.value}_config_{self.uuid}",
+                title=f"Configure {self.display_title}",
+                description=f"Set configuration values for the {self.type}",
+                children=self._config_fields,  # Use fields defined in subclass
+                handler_registry=self.handler_registry,
+                permissions=getattr(self, '_config_permissions', InputPermissions())
+            )
+
+            if self._config_data:
+                self._config_input.load_from_dict(self._config_data)
+
+        except Exception as e:
+            self.logger.error(f"Error creating config Input object: {e}")
+            raise
 
     @property
     @abstractmethod
@@ -134,28 +162,47 @@ class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
         else:
             NotImplementedError("No interface implemented")
             self.logger.error(f"Interface not implemented for {self.type}")
-        
-    @property
-    def config_input(self):
-        return InputGroup(
-            name=f"{self.type}_config_{self.uuid}",
-            title=f"Configure {self.display_title}",
-            description=f"Set configuration values for the {self.type}",
-            children=self._config_input_fields,
-            handler_registry=self.handler_registry,
-            permissions=self._config_permissions if hasattr(self, '_config_permissions') else InputPermissions()
-        ).load_from_dict(self._db_config_data)
 
-    @config_input.setter
+    @property
+    def config(self):
+        """Return the Input object containing configuration fields"""
+        if self._config_input is None:
+            self._initialize_config()
+        return self._config_input
+
+    @config.setter
     def config(self, val):
-        self._config_input_fields = val.children
+        """Allow setting config data as a dictionary"""
+        if isinstance(val, dict):
+            self._config_input.load_from_dict(val)
+        else:
+            raise ValueError("Config must be set as a dictionary")
     
     def get_config_value(self, field_name: str):
         """Helper method to get configuration values from form fields"""
-        child = self.config.get_child(field_name)
+        if self.config is None:
+            return None
+        child = self.config.children.get(field_name)
         if child and hasattr(child, 'value'):
             return child.value
         return None
+
+    def set_config_value(self, field_name: str, value):
+        """Helper method to set configuration values"""
+        child = self.config.children.get(field_name)
+        if child and isinstance(child, InputField):
+            child.value = value
+            child.commit_value()
+        else:
+            raise ValueError(f"Config field '{field_name}' not found")
+
+    def get_config_dict(self):
+        """Get configuration as a dictionary for DB storage"""
+        return self.config.to_dict()
+
+    def load_config_from_dict(self, config_data: Dict):
+        """Load configuration from dictionary (e.g., from DB)"""
+        self.config.load_from_dict(config_data)
 
     @property
     def db_id(self):
@@ -163,7 +210,10 @@ class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
     
     @property
     def db_fields(self):
-        return self._db_fields
+        # Include config data in db_fields for persistence
+        base_fields = self._db_fields.copy()
+        base_fields['config_data'] = self.get_config_dict()
+        return base_fields
 
     @property
     def date_created(self):
@@ -184,44 +234,73 @@ class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
     def db(self, db_ref):
         self._db = db_ref
 
+     ######                                ##
+       ##                                  ##
+       ##     ## ###   ######   ##   ##  ######
+       ##     ###  ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##  ###    ##
+     ######   ##   ##  ######    ### ##     ###
+                       ##
+
     @classmethod
-    def get_edit_inputs(cls, entity, registry, handler_registry, **kwargs) -> Input:
+    def get_edit_inputs(cls, registry, handler_registry, **kwargs) -> Input:
+
+        entity = kwargs.get(registry.entity_type.value, None)
+        children = [entity.config] if entity else []
+
         return Input(
-            name=f"{entity.type.value}_edit",
-            title=f"Edit {entity.type.value.title()}s",
-            entity_type=entity.type,
+            name=f"{registry.entity_type.value}_edit",
+            title=f"Edit {registry.entity_type.value.title()}s",
+            entity_type=registry.entity_type,
             command_type=CommandType.EDIT,
             handler_registry=handler_registry,
-            children=[
-                InputFactory.entity_target_selector_field(registry),
-
-            ]
+            children=children
         )
 
     @classmethod
-    def handle_edit(cls, entity, **kwargs):
+    def get_detail_inputs(cls, registry, handler_registry, **kwargs) -> Input:
+
+        return Input(
+            name=f"{registry.entity_type.value}_detail",
+            title=f"{registry.entity_type.value.title()} Details",
+            entity_type=registry.entity_type,
+            command_type=CommandType.DETAIL,
+            handler_registry=handler_registry,
+            children=[]
+        )
+
+     ##   ##                         ##   ###
+     ##   ##                         ##    ##
+     ##   ##   ######  ## ###    ######    ##      #####   ## ###
+     #######  ##   ##  ###  ##  ##   ##    ##     ##   ##  ###
+     ##   ##  ##   ##  ##   ##  ##   ##    ##     #######  ##
+     ##   ##  ##  ###  ##   ##  ##   ##    ##     ##       ##
+     ##   ##   ### ##  ##   ##   ######   ####     #####   ##
+
+
+    @classmethod
+    @entity_quantity(EntityQuantity.SINGLE)
+    def handle_edit(cls, registry, **kwargs):
+
+        entity = kwargs.get(registry.entity_type.value)
         
         entity.ui.respond(f"Editing configuration for '{entity.name}'", "info")
         
         success = entity.ui.form_builder.fill_form_interactive(entity.config)
         if success:
             entity.ui.respond("Editing completed!", "success")
+            # Save the updated config to database
+            entity.db.upsert(entity.type, entity)
         else:
             return None
 
     @classmethod
-    def get_detail_inputs(cls, entity, registry, handler_registry, **kwargs) -> Input:
-        return Input(
-            name=f"{entity.type.value}_detail",
-            title=f"{entity.type.value.title()} Details",
-            entity_type=entity.type,
-            command_type=CommandType.DETAIL,
-            handler_registry=handler_registry,
-            children=[InputFactory.entity_target_input_group(registry)]
-        )
+    @entity_quantity(EntityQuantity.SINGLE)
+    def handle_detail(cls, registry, **kwargs) -> Dict:
 
-    @classmethod
-    def handle_detail(cls, entity, **kwargs) -> Dict:
+        entity = kwargs.get(registry.entity_type.value)
+
         try:
             detail = vars(entity)
             detail['_config'] = entity.config.to_dict()
@@ -240,6 +319,7 @@ class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
         except Exception as e:
             entity.logger.error(f"Error getting details for entity: {e}")
             return False
+
 
    ####                                ##              ##        ###
   ##  ##                               ##              ##         ##
@@ -276,45 +356,33 @@ class CreatableEntity(StorableEntity, Creatable, EntityWithHandlers):
             **self._db_fields
         }
 
+     ######                                ##
+       ##                                  ##
+       ##     ## ###   ######   ##   ##  ######
+       ##     ###  ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##  ###    ##
+     ######   ##   ##  ######    ### ##     ###
+                       ##
     @classmethod
-    def get_delete_inputs(cls, entity, handler_registry, registry, **kwargs) -> Input:
+    def get_delete_inputs(cls, handler_registry, registry, **kwargs) -> Input:
         """Create standard entity deletion input specification"""
         return Input(
-            name=f"{entity.type.value}_delete",
-            title=f"Delete {entity.type.value.title()}",
-            entity_type=entity.type,
+            name=f"{registry.entity_type.value}_delete",
+            title=f"Delete {registry.entity_type.value.title()}",
+            entity_type=registry.entity_type,
             handler_registry=handler_registry,
             confirm_submit=False,
             command_type=CommandType.DELETE,
-            children=[
-                InputFactory.entity_target_input_group(registry),
-                InputField(
-                    name="confirm",
-                    title="Confirm Deletion",
-                    field_type=bool,
-                    required=True,
-                    param_type="flag",
-                    short_name="y",
-                    prompt="Are you sure you want to delete? (y/N): ",
-                    validation_rules=[
-                        InputValidator.confirmation_required()
-                    ]
-                )
-            ]
+            children=[]
         )
 
     @classmethod
-    @abstractmethod
-    def handle_delete(cls, **kwargs):
-        pass
-
-    @classmethod
-    def get_rename_inputs(cls, entity, handler_registry, registry, **kwargs) -> Input:
-        """Create entity rename input specification - needs specific entity context"""
+    def get_rename_inputs(cls, handler_registry, registry, **kwargs) -> Input:
         return Input(
-            name=f"{entity.type.value}_rename",
-            title=f"Rename {entity.type.value.title()}",
-            entity_type=entity.type,
+            name=f"{registry.entity_type.value}_rename",
+            title=f"Rename {registry.entity_type.value.title()}",
+            entity_type=registry.entity_type,
             handler_registry=handler_registry,
             command_type=CommandType.RENAME,
             children=[
@@ -325,7 +393,7 @@ class CreatableEntity(StorableEntity, Creatable, EntityWithHandlers):
                     required=True,
                     short_name="n",
                     prompt="Enter new name: ",
-                    default_value=entity.name,
+                    default_value=lambda value: value[registry.entity_type.value].name,
                     validation_rules=[
                         InputValidator.is_kebabcase(),
                         InputValidator.is_new_entity(registry)
@@ -338,14 +406,32 @@ class CreatableEntity(StorableEntity, Creatable, EntityWithHandlers):
                     required=False,
                     short_name="e",
                     prompt="Enter new emoji (or leave empty to keep current): ",
-                    default_value=entity.emoji,
+                    default_value=lambda value: value[registry.entity_type.value].emoji,
                     validation_rules=[InputValidator.is_emoji()]
                 )
             ]
         )
 
+     ##   ##                         ##   ###
+     ##   ##                         ##    ##
+     ##   ##   ######  ## ###    ######    ##      #####   ## ###
+     #######  ##   ##  ###  ##  ##   ##    ##     ##   ##  ###
+     ##   ##  ##   ##  ##   ##  ##   ##    ##     #######  ##
+     ##   ##  ##  ###  ##   ##  ##   ##    ##     ##       ##
+     ##   ##   ### ##  ##   ##   ######   ####     #####   ##
+
+
     @classmethod
-    def handle_rename(cls, entity, new_emoji, new_name, **kwargs):
+    @abstractmethod
+    def handle_delete(cls, **kwargs):
+        pass
+
+    @classmethod
+    @entity_quantity(EntityQuantity.SINGLE)
+    def handle_rename(cls, registry, new_emoji, new_name, **kwargs):
+
+        entity = kwargs.get(registry.entity_type.value)
+
         old_name = entity.name
         old_emoji = entity.emoji
         old_title = entity.title

@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from typing import List
 
-from src.script.common.constants import EntityType
-from src.script.common.decorators import classproperty
-from src.script.entity._entity import CreatableFromModuleEntity
+from src.script.common.decorators import classproperty, entity_quantity
+from src.script.entity._entity import CreatableFromModuleEntity, EntityType
+from src.script.entity._enum import EntityQuantity
 from src.script.entity.project import Project
 from src.script.input.input import Input
 from src.script.templates.processor import TemplateProcessor
@@ -56,7 +56,6 @@ class Integration(CreatableFromModuleEntity):
        ##     ##   ##  ##   ##  ##  ###    ##         ##
      ######   ##   ##  ######    ### ##     ###   #####
                        ##
-
     @classmethod
     @abstractmethod
     def get_publish_inputs(cls, entity, handler_registry, registry, **kwargs):
@@ -79,39 +78,40 @@ class Integration(CreatableFromModuleEntity):
     
     @classmethod
     @abstractmethod
-    def handle_stage(cls, entity, **kwargs):
+    def handle_stage(cls, integration, **kwargs):
         pass
 
     @classmethod
     @abstractmethod    
-    def handle_edit(cls, entity, **kwargs):
+    def handle_edit(cls, integration, **kwargs):
         pass
 
     @classmethod
     @abstractmethod
-    def handle_publish(cls, entity, **kwargs):
+    def handle_publish(cls, integration, **kwargs):
         pass
 
     @classmethod
-    def handle_delete(cls, entity, **kwargs):
+    @entity_quantity(EntityQuantity.SINGLE)
+    def handle_delete(cls, integration, **kwargs):
         """Delete this integration."""
         try:
             # Remove all project integrations
-            pi_registry = entity.registry.manager.get_by_entity_type(EntityType.PROJECT_INTEGRATION)
-            pi_registry.remove_pis_for_integration(entity.ref)
+            pi_registry = integration.registry.manager.get_by_entity_type(EntityType.PROJECT_INTEGRATION)
+            pi_registry.remove_pis_for_integration(integration.ref)
             
             # Delete from DB
-            with entity.db.transaction():
-                table = getattr(entity.db.dal, EntityType.INTEGRATION.value)
-                entity.db.dal(table.id == entity.db_id).delete()
+            with integration.db.transaction():
+                table = getattr(integration.db.dal, EntityType.INTEGRATION.value)
+                integration.db.dal(table.id == integration.db_id).delete()
                 
             # Unregister from registry
-            entity.registry.unregister_entity(entity)
+            integration.registry.unregister_entity(integration)
             
-            entity.logger.info(f"Deleted integration {entity.name}")
+            integration.logger.info(f"Deleted integration {integration.name}")
             return True
         except Exception as e:
-            entity.logger.error(f"Error deleting integration: {e}")
+            integration.logger.error(f"Error deleting integration: {e}")
             raise
      
         return None

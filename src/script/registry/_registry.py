@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Dict, List
 
-from src.script.common.constants import CommandType, EntityType, HandlerType
+from src.script.api._enum import CommandType
 from src.script.common.decorators import register_handlers
 from src.script.common.mixins import (
     ClassWithHandlers,
@@ -10,10 +10,12 @@ from src.script.common.mixins import (
     Listable,
     Storable,
 )
-from src.script.entity.handler import Handler
+from src.script.entity._enum import EntityType
+from src.script.entity.handler import Handler, HandlerType
 from src.script.input.input import Input, InputField
 from src.script.input.validation import InputValidator
 from src.script.registry._base import Registry
+from src.script.registry._loader import RegistryLoaderFactory
 
 
 class RegistryWithHandlers(ClassWithHandlers):
@@ -44,6 +46,7 @@ class RegistryWithHandlers(ClassWithHandlers):
             entity_type=self.entity_type,
             entity_registry=self,
             command_type=command_type,
+            source_class=source_class,
             needs_target=False
         )
 
@@ -68,10 +71,22 @@ class ListableEntityRegistry(Registry, Listable, RegistryWithHandlers):
         
         self.handler_registry = manager.get_by_entity_type(EntityType.HANDLER)
 
+        self.module_loader = RegistryLoaderFactory.create_module_loader(self)
+        self.database_loader = None
+
         super().__init__(entity_type, entity_class, manager)
 
         RegistryWithHandlers.__init__(self)
-        
+    
+     ######                                ##
+       ##                                  ##
+       ##     ## ###   ######   ##   ##  ######
+       ##     ###  ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##  ###    ##
+     ######   ##   ##  ######    ### ##     ###
+                       ##
+
     @classmethod
     def get_list_inputs(cls, registry, handler_registry, **kwargs) -> Input:
         """Create standard entity listing input specification"""
@@ -102,6 +117,15 @@ class ListableEntityRegistry(Registry, Listable, RegistryWithHandlers):
                 )
             ]
         )
+
+     ##   ##                         ##   ###
+     ##   ##                         ##    ##
+     ##   ##   ######  ## ###    ######    ##      #####   ## ###
+     #######  ##   ##  ###  ##  ##   ##    ##     ##   ##  ###
+     ##   ##  ##   ##  ##   ##  ##   ##    ##     #######  ##
+     ##   ##  ##  ###  ##   ##  ##   ##    ##     ##       ##
+     ##   ##   ### ##  ##   ##   ######   ####     #####   ##
+
 
     @classmethod
     def handle_list(cls, registry, sort_by='name', **kwargs) -> List[Dict]:
@@ -141,6 +165,10 @@ class StorableEntityRegistry(ListableEntityRegistry, Storable):
     def __init__(self, entity_type, entity_class, manager):
         
         super().__init__(entity_type, entity_class, manager)
+
+        self.module_loader = None
+        self.database_loader = RegistryLoaderFactory.create_database_loader(self)
+        
 
         self._db = self.manager.db_ref
 
@@ -182,6 +210,34 @@ class CreatableEntityRegistry(StorableEntityRegistry, Creatable, RegistryWithHan
     def __init__(self, entity_type, entity_class, manager):
         super().__init__(entity_type, entity_class, manager)
 
+        self.database_loader = RegistryLoaderFactory.create_database_loader(self)
+        self.module_loader = None
+
+    @staticmethod
+    def on_create_callback(success, results, inputs, internal_api, **kwargs):
+        
+        created_entity = None
+        for handler_result in results:
+            if handler_result.success and handler_result.handler_type is HandlerType.SYSTEM and handler_result.result:
+                created_entity = handler_result.result
+
+        params = {
+            'entity_type': created_entity.type,
+            'command_type': CommandType.EDIT,
+            created_entity.type.value: created_entity
+        }
+
+        internal_api.execute_command(**params)
+
+     ######                                ##
+       ##                                  ##
+       ##     ## ###   ######   ##   ##  ######
+       ##     ###  ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##  ###    ##
+     ######   ##   ##  ######    ### ##     ###
+                       ##
+
     @classmethod
     def get_create_inputs(cls, registry, handler_registry, **kwargs) -> Input:
         """Create standard entity creation input specification"""
@@ -190,6 +246,7 @@ class CreatableEntityRegistry(StorableEntityRegistry, Creatable, RegistryWithHan
             title=f"Create {registry.entity_type.value.title()}",
             entity_type=registry.entity_type,
             command_type=CommandType.CREATE,
+            on_submit=cls.on_create_callback,
             handler_registry=handler_registry,
             children=[
                 InputField(
@@ -225,6 +282,15 @@ class CreatableEntityRegistry(StorableEntityRegistry, Creatable, RegistryWithHan
             ]
         )
 
+     ##   ##                         ##   ###
+     ##   ##                         ##    ##
+     ##   ##   ######  ## ###    ######    ##      #####   ## ###
+     #######  ##   ##  ###  ##  ##   ##    ##     ##   ##  ###
+     ##   ##  ##   ##  ##   ##  ##   ##    ##     #######  ##
+     ##   ##  ##  ###  ##   ##  ##   ##    ##     ##       ##
+     ##   ##   ### ##  ##   ##   ######   ####     #####   ##
+
+
     @classmethod
     @abstractmethod
     def handle_create(cls, **kwargs):
@@ -254,6 +320,18 @@ class CreatableFromModuleEntityRegistry(CreatableEntityRegistry, CreatableFromMo
     def __init__(self, entity_type, entity_class, manager):
         super().__init__(entity_type, entity_class, manager)
 
+        self.database_loader = RegistryLoaderFactory.create_database_loader(self)
+        self.module_loader = RegistryLoaderFactory.create_module_loader(self)
+
+     ######                                ##
+       ##                                  ##
+       ##     ## ###   ######   ##   ##  ######
+       ##     ###  ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##   ##    ##
+       ##     ##   ##  ##   ##  ##  ###    ##
+     ######   ##   ##  ######    ### ##     ###
+                       ##
+
     @classmethod
     def get_list_modules_inputs(cls, registry, handler_registry, **kwargs) -> Input:
         return Input(
@@ -263,11 +341,6 @@ class CreatableFromModuleEntityRegistry(CreatableEntityRegistry, CreatableFromMo
             handler_registry=handler_registry,
             children=[]
         )
-
-    @classmethod
-    @abstractmethod
-    def handle_list_modules(cls, **kwargs):
-        pass
 
     @classmethod
     def get_create_inputs(cls, registry, handler_registry, **kwargs) -> Input:
@@ -321,3 +394,17 @@ class CreatableFromModuleEntityRegistry(CreatableEntityRegistry, CreatableFromMo
                 ),
             ]
         )
+
+     ##   ##                         ##   ###
+     ##   ##                         ##    ##
+     ##   ##   ######  ## ###    ######    ##      #####   ## ###
+     #######  ##   ##  ###  ##  ##   ##    ##     ##   ##  ###
+     ##   ##  ##   ##  ##   ##  ##   ##    ##     #######  ##
+     ##   ##  ##  ###  ##   ##  ##   ##    ##     ##       ##
+     ##   ##   ### ##  ##   ##   ######   ####     #####   ##
+
+
+    @classmethod
+    @abstractmethod
+    def handle_list_modules(cls, **kwargs):
+        pass

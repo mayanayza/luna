@@ -2,8 +2,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
-from src.script.common.constants import CommandType, EntityType, HandlerType
+from src.script.api._enum import CommandType
 from src.script.entity._base import EntityRef
+from src.script.entity._enum import EntityType, HandlerType
 from src.script.input.validation import InputValidator, ValidationLevel, ValidationRule
 from src.script.registry._base import Registry
 
@@ -35,18 +36,32 @@ class InputPermissions:
 class HandlerResult:
     """Simplified handler result wrapper"""
     
-    def __init__(self, result=None, error=None):
+    def __init__(self, result, error, handler_ref, handler_type):
         self._result = result
         self._error = error or None
         self._success = self._error is None
+        self._handler_ref = handler_ref
+        self._handler_type = handler_type
     
     @property
     def result(self):
         return self._result
+
+    @property
+    def success(self):
+        return self._success
     
     @property
     def has_result(self) -> bool:
         return self.result is not None
+
+    @property
+    def handler_ref(self):
+        return self._handler_ref
+
+    @property
+    def handler_type(self):
+        return self._handler_type
 
     @property
     def has_error(self) -> bool:
@@ -87,8 +102,11 @@ class InputNode(ABC):
 
     @property
     def permissions(self):
-        return self.parent.permissions if self.parent else InputPermissions()
-    
+        return self.parent._permissions if self.parent else InputPermissions()
+
+    @permissions.setter
+    def permissions(self, val):
+        self._permissions = val
 
     @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
@@ -107,6 +125,7 @@ class InputField(InputNode):
                  default_value: Any = None,
                  description: Optional[str] = None,
                  choices: Optional[Union[List[Any], Dict[str, Any], Callable]] = None,
+                 allow_multiple: Optional[bool] = False,
                  validation_rules: Optional[Union[List[ValidationRule], Callable]] = None,
                  # UI hints
                  prompt: Optional[str] = None,
@@ -126,6 +145,7 @@ class InputField(InputNode):
         self.default_value = default_value
         self.description = description
         self.choices = choices
+        self.allow_multiple = allow_multiple
         self.validation_rules = validation_rules or []
         
         # UI hints
@@ -208,7 +228,6 @@ class InputField(InputNode):
                     field_values = self._get_sibling_field_values()
                 
                 computed_value = self.default_value(field_values)
-                self.logger.debug(f"Computed dynamic value for {self.name}: {computed_value}")
                 return computed_value
             except Exception as e:
                 self.logger.error(f"Error computing dynamic value for {self.name}: {e}")
@@ -309,7 +328,6 @@ class InputGroup(InputNode):
     def __init__(self,
                  children: List[Union[InputField, 'InputGroup']],
                  description: Optional[str] = None,
-                 permissions: Optional[InputPermissions] = InputPermissions(),
                  **kwargs):
 
         super().__init__(**kwargs)
@@ -326,21 +344,21 @@ class InputGroup(InputNode):
         return self._children.copy()
 
     def append_child(self, child: InputNode):
-        if self.permissions.can_add_fields:
-            self._children.append(child)
+        if self._permissions.can_add_fields:
+            self._children = self._children | {child.name : child }
         else:
             self.logger.warning("Can't add children")
 
     def prepend_child(self, child: InputNode):
-        if self.permissions.can_add_fields:
-            self._children.prepend(child)
+        if self._permissions.can_add_fields:
+            self._children =  {child.name : child } | self._children
         else:
             self.logger.warning("Can't add children")
 
     def remove_child(self, child: InputNode):
-        if self.permissions.can_remove_fields:
+        if self._permissions.can_remove_fields:
             if child in self._children:
-                self._children.remove(child)
+                del self._children[child.name]
             else:
                 self.logger.error("Child not present in input children")
         else:
@@ -378,20 +396,6 @@ class InputGroup(InputNode):
                     success = False
         return success
 
-    def validate_modification(self, operation: str, **kwargs) -> Dict[str, Any]:
-        """Validate if a modification is allowed based on permissions"""
-        if operation == "add_field":
-            if not self.permissions.can_add_fields:
-                return {"allowed": False, "reason": "Adding fields not permitted"}
-        elif operation == "remove_field":
-            if not self.permissions.can_remove_fields:
-                return {"allowed": False, "reason": "Removing fields not permitted"}
-        elif operation == "modify_structure":
-            if not self.permissions.can_modify_structure:
-                return {"allowed": False, "reason": "Modifying structure not permitted"}
-        
-        return {"allowed": True}
-
     def to_dict(self) -> Dict[str, Any]:
         """Serialize group to dictionary - only stores children values"""
         return {
@@ -415,8 +419,9 @@ class Input(InputGroup):
                  command_type: Optional[CommandType] = None,
                  requires_auth: bool = True,
                  confirm_submit: bool = True,
+                 on_submit: Optional[Callable[[Dict[str, Any]], None]] = None,
                  idempotent: bool = False,
-                 permissions: Optional[InputPermissions] = InputPermissions,
+                 permissions: Optional[InputPermissions] = None,
                  **kwargs):
         
         super().__init__(**kwargs)
@@ -426,15 +431,22 @@ class Input(InputGroup):
         self.command_type = command_type
         self.requires_auth = requires_auth
         self.confirm_submit = confirm_submit
+        self.on_submit = on_submit
         self.idempotent = idempotent
+        self._permissions = permissions or InputPermissions()
         
         # Handler support
+        self._system_handler_ref = None
         self._handler_registry = handler_registry
         self._handler_refs = []
 
+    def add_system_handler(self, handler_ref: EntityRef):
+        self._system_handler_ref = handler_ref
+        self.add_handler(handler_ref)
+
     def add_handler(self, handler_ref: EntityRef) -> Dict:
         
-        handler = self.handler_registry.get_by_ref(handler_ref)
+        handler = self._handler_registry.get_by_ref(handler_ref)
 
         if handler.handler_type is HandlerType.USER and self.permissions.can_set_user_handler is False:
             self.logger.warning("Not allowed to add handlers to input")
@@ -443,6 +455,14 @@ class Input(InputGroup):
             self._handler_refs.append(handler_ref)
             return {'success': True, 'code': ''}
 
+    @property
+    def handler_registry(self):
+        return self._handler_registry
+
+    @property
+    def system_handler_ref(self):
+        return self._system_handler_ref
+    
     @property
     def handler_refs(self) -> Optional[str]:
         return self._handler_refs
@@ -454,21 +474,24 @@ class Input(InputGroup):
     def invoke_handlers(self, context, **kwargs) -> HandlerResult:
         """Invoke both system-defined and user-defined handlers"""
 
-        results = {}
+        results = []
+
+        kwargs['context'] = context
 
         if self._handler_registry:
             for handler_ref in self._handler_refs:
                 error = None
+                handler_type = None
                 try:
                     handler = self._handler_registry.get_by_ref(handler_ref)
-                    result = handler.handler(context, **kwargs)
+                    handler_type = handler.handler_type
+                    result = handler(**kwargs)
                 except Exception as e:
                     self.logger.error(f"System handler failed: {e}", exc_info=True)
                     error = {
                         "type": handler.handler_type, 
-                        "handler_ref": str(self._system_handler_ref), 
                         "error": str(e)
                     }
-                results[handler.name] = HandlerResult(result, error)
+                results.append(HandlerResult(result, error, handler_ref, handler_type))
 
         return results

@@ -5,9 +5,10 @@ Database registry that manages database implementations.
 import os
 from typing import Optional
 
-from src.script.common.constants import CommandType, EntityType
+from src.script.api._enum import CommandType
 from src.script.common.decorators import register_handlers
 from src.script.entity._base import EntityRef
+from src.script.entity._enum import EntityType
 from src.script.entity.db import Database
 from src.script.input.factory import InputFactory
 from src.script.registry._registry import ListableEntityRegistry
@@ -27,7 +28,7 @@ class DatabaseRegistry(ListableEntityRegistry):
         super().__init__(EntityType.DB, Database, manager)
         
         self._active_db_ref: Optional[EntityRef] = None        
-        self.loader.load_from_module('src.script.db')
+        self.module_loader.load('src.script.db')
 
         try:
             # Get database type from environment or config, default to 'sqlite'

@@ -1,7 +1,12 @@
 
-from src.script.common.constants import CommandType, EntityType
-from src.script.common.decorators import classproperty, register_handlers
-from src.script.entity._entity import StorableEntity
+from src.script.api._enum import CommandType
+from src.script.common.decorators import (
+    classproperty,
+    entity_quantity,
+    register_handlers,
+)
+from src.script.entity._entity import EntityType, StorableEntity
+from src.script.entity._enum import EntityQuantity
 from src.script.input.input import Input
 from src.script.registry._base import Registry
 
@@ -28,14 +33,17 @@ class ProjectIntegration(StorableEntity):
     """
     
     def __init__(self, registry: Registry, project_uuid: str, integration_uuid: str, **kwargs):
-        
-        super().__init__(registry, EntityType.PROJECT_INTEGRATION, **kwargs)
 
-        integration_registry = registry.manager.get_by_name(EntityType.INTEGRATION)
-        project_registry = registry.manager.get_by_name(EntityType.PROJECT)
+        super().__init__(registry, **kwargs)
 
-        integration = integration_registry.get_by_id(project_uuid)
-        project = project_registry.get_by_id(integration_uuid)
+        integration_registry = registry.manager.get_by_entity_type(EntityType.INTEGRATION)
+        project_registry = registry.manager.get_by_entity_type(EntityType.PROJECT)
+
+        integration = integration_registry.get_by_id(integration_uuid)
+        project = project_registry.get_by_id(project_uuid)
+
+        self._name = f"{EntityType.PROJECT_INTEGRATION.value}-{project.name}-{integration.name}-{self.uuid}"
+
 
         self._db_fields.update({
             'project_uuid': project_uuid,
@@ -81,12 +89,30 @@ class ProjectIntegration(StorableEntity):
                        ##
     
     @classmethod    
-    def get_publish_inputs(cls, entity, **kwargs) -> Input:
-        return entity.integration.__class__.get_publish_inputs(**kwargs)
-
+    def get_publish_inputs(cls, registry, handler_registry, **kwargs) -> Input:
+        return Input(
+            name="project_integration_publish",
+            title="Publish Project to Integration",
+            entity_type=EntityType.PROJECT_INTEGRATION,
+            handler_registry=handler_registry,
+            command_type=CommandType.PUBLISH,
+            children=[
+                # lambda project_integration: project_integration.integration.__class__.get_publish_inputs(**kwargs)        
+            ]
+        )
+        
     @classmethod
-    def get_stage_inputs(cls, entity, **kwargs) -> Input:
-        return entity.integration.__class__.get_stage_inputs(**kwargs)
+    def get_stage_inputs(cls, registry, handler_registry, **kwargs) -> Input:
+        return Input(
+            name="project_integration_stage",
+            title="Stage Project to Integration",
+            entity_type=EntityType.PROJECT_INTEGRATION,
+            handler_registry=handler_registry,
+            command_type=CommandType.PUBLISH,
+            children=[
+                # lambda project_integration: project_integration.integration.__class__.get_stage_inputs(**kwargs)        
+            ]
+        )
 
      ##   ##                         ##   ###
      ##   ##                         ##    ##
@@ -98,11 +124,14 @@ class ProjectIntegration(StorableEntity):
 
 
     @classmethod
-    def handle_publish(cls, entity, **kwargs):
-        entity.integration.__class__.handle_publish(**kwargs)
+    @entity_quantity(EntityQuantity.SINGLE)
+    def handle_publish(cls, project_integration, **kwargs):
+        project_integration.integration.__class__.handle_publish(**kwargs)
 
-    def handle_stage(cls, entity, **kwargs):
-        entity.integration.__class__.handle_stage(**kwargs)
+    @classmethod
+    @entity_quantity(EntityQuantity.SINGLE)
+    def handle_stage(cls, project_integration, **kwargs):
+        project_integration.integration.__class__.handle_stage(**kwargs)
 
     def remove(self):
         try:

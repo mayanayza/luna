@@ -1,42 +1,6 @@
 from enum import Enum
 
 
-class HandlerType(Enum):
-    SYSTEM = 'system'
-    USER = 'user'
-
-class EntityType(Enum):
-    PROJECT = 'project'
-    INTEGRATION = 'integration'
-    PROJECT_INTEGRATION = 'project_integration'
-    API = 'api'
-    DB = 'database'
-    HANDLER = 'handler'
-
-class CommandType(Enum):
-    
-    # General
-    CREATE = 'create'
-    RENAME = 'rename'
-    DETAIL = 'detail'
-    LIST = 'list'
-    LIST_MODULES = 'list_modules'
-    DELETE = 'delete'
-    EDIT = 'edit'
-
-    # Project
-    ADD_INTEGRATION = 'add_integration'
-    REMOVE_INTEGRATION = 'remove_integration'
-
-    # Project integration
-    PUBLISH = 'publish'
-    STAGE = 'stage'
-
-    # Database
-    CLEAR = 'clear'
-
-
-
 class MediaProperties:
    def __init__(self, TYPE, EXTENSIONS):
       self.TYPE = TYPE

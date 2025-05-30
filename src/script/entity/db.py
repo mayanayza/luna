@@ -2,16 +2,14 @@
 Database base class that integrates PyDAL with the registry pattern.
 """
 
-import logging
 import os
 import threading
 from abc import abstractmethod
 from typing import TypeVar
 
 from pydal import DAL, Field
-from src.script.common.constants import EntityType
 from src.script.common.decorators import classproperty
-from src.script.entity._entity import ListableEntity, StorableEntity
+from src.script.entity._entity import EntityType, ListableEntity, StorableEntity
 
 # Type aliases for common database types
 T = TypeVar('T')
@@ -24,7 +22,7 @@ class Database(ListableEntity):
     This class extends EntityBase to be managed by the registry system.
     """
     
-    def __init__(self, registry, name: str, **kwargs):
+    def __init__(self, registry, **kwargs):
         """
         Initialize the database.
         
@@ -32,7 +30,7 @@ class Database(ListableEntity):
             registry: The registry this database belongs to
         """
         # Initialize ModuleEntity first
-        super().__init__(registry, name)
+        super().__init__(registry, **kwargs)
         
         self._init_env_vars()
 
@@ -248,8 +246,8 @@ class Database(ListableEntity):
                 check_reserved=['all']
             )
 
-            if logging.getLogger().level == logging.DEBUG:
-                self.dal._debug = True
+            # if logging.getLogger().level == logging.DEBUG:
+            #     self.dal._debug = True
             
             # Verify connection was established
             if not self.dal:
@@ -303,7 +301,7 @@ class Database(ListableEntity):
                 'name': entity.name,
                 'date_created': entity.date_created,
                 'uuid': entity.uuid,
-                'config': entity.config.to_dict(),
+                'config': entity.get_config_dict(),
                 **entity.db_fields
             }
 

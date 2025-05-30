@@ -28,9 +28,18 @@ class EntityRef:
 class Entity(ABC):
     """Base class for all entities in the system."""
     
-    def __init__(self, registry: 'Registry'):
+    def __init__(self, registry: 'Registry', **kwargs):
+
+        name = kwargs.get('name', None)
+        filename = kwargs.get('filename', None)
+
         self._uuid = uuid4()
-        self._name = self._uuid
+        self._name = (
+            name if name else 
+            filename if filename else 
+            f"{type(self).type.value}-{self._uuid}"
+        )
+
         self._registry = registry
         self._logger = logging.getLogger(f"{self.__class__.__name__}")
         self._command_handlers = {}

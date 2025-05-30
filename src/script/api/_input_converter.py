@@ -15,17 +15,12 @@ class ApiInputConverter(ABC):
     
     @abstractmethod
     def to_api_spec(self, input_obj: Input) -> Dict[str, Any]:
-        """Convert input object to API-specific specification format"""
+        """Convert input object to API-specific format so that it can be interacted with by the user through the API presentation layer"""
         pass
     
     @abstractmethod
-    def collect_missing_inputs(self, input_obj: Input, provided_inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
+    def collect_inputs(self, input_obj: Input, provided_inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Collect missing inputs in an API-appropriate way"""
-        pass
-    
-    @abstractmethod
-    def display_structure(self, input_obj: Input, context: Dict[str, Any] = None) -> Any:
-        """Display the input structure in an API-appropriate way"""
         pass
     
     def execute_with_input_collection(self, input_obj: Input, command_type: str, provided_inputs: Dict[str, Any] = None, context: Dict[str, Any] = None) -> Any:

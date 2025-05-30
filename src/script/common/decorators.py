@@ -1,4 +1,8 @@
-from src.script.input.validation import InputValidator
+from functools import wraps
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from src.script.entity._enum import EntityQuantity
 
 
 class classproperty:
@@ -32,28 +36,29 @@ def register_handlers(*handler_configs):
         return cls
     return decorator
 
-def entity_input(class_method):
+def entity_quantity(quantity: 'EntityQuantity'):
     """
-    Decorator that wraps input generation methods to handle entity parameter.
+    Decorator to specify entity quantity requirements for handler methods.
     
-    Allows the method to be called either with an entity (instance-specific)
-    or without (class-level for CLI parsing).
+    Usage:
+        @entity_quantity(EntityQuantity.SINGLE)
+        @classmethod
+        def handle_delete(cls, project, **kwargs):
+            ...
+            
+        @entity_quantity(EntityQuantity.MULTIPLE)
+        @classmethod
+        def handle_add_integration(cls, projects, **kwargs):
+            ...
     """
-    def wrapper(entity=None, entity_type=None, handler_registry=None, validator=None):
-        if entity is not None:
-            # Instance-specific call - use entity's properties
-            return class_method(
-                entity_type=entity.type,
-                handler_registry=entity.handler_registry,
-                validator=InputValidator(registry=entity.registry, entity=entity),
-                entity=entity
-            )
-        else:
-            # Class-level call - use provided parameters
-            return class_method(
-                entity_type=entity_type,
-                handler_registry=handler_registry,
-                validator=validator,
-                entity=None
-            )
-    return wrapper
+    def decorator(func: Callable) -> Callable:
+        func._entity_quantity = quantity
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        
+        wrapper._entity_quantity = quantity
+        return wrapper
+    
+    return decorator

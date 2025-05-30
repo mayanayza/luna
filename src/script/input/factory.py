@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from src.script.common.constants import CommandType
+from src.script.api._enum import CommandType
 from src.script.input.input import Input, InputField
 from src.script.input.validation import InputValidator
 
@@ -22,9 +22,10 @@ class InputFactory:
     @staticmethod
     def entity_target_selector_field(
         registry, 
+        name: Optional[str] = None,
         allow_multiple: bool = False,
         allow_all: bool = False,
-        required: bool = True
+        required: bool = True,
     ) -> InputField:
         """
         Create entity selection field from registry that returns actual entities.
@@ -43,21 +44,24 @@ class InputFactory:
             # Add individual entity choices
             for entity in entities:
                 display_name = getattr(entity, 'display_title', None) or entity.name
-                choices[display_name] = entity
+                choices[display_name] = [entity] if allow_multiple else entity
             
             # Add "all" option if enabled and multiple entities exist
             if allow_all and len(entities) > 1:
                 choices[f"All {registry.entity_type.value}s"] = entities
             
             return choices
+
+        field_type = List[registry.entity_class] if allow_all or allow_multiple else registry.entity_class
         
         # Determine field type based on options        
         return InputField(
-            name=registry.entity_type.value,
+            name=name if name else registry.entity_type.value,
             title=f"Select {registry.entity_type.value.title()}",
-            field_type=List[registry.entity_class],
+            field_type=field_type,
             required=required,
-            choices=get_entity_choices,  # Pass the function, not the result
+            choices=get_entity_choices,
+            allow_multiple=allow_multiple,
             prompt=f"Select {registry.entity_type.value}: ",
             description=f"Choose {'one or more ' if allow_multiple else 'a '}{registry.entity_type.value}{'(s)' if allow_multiple else ''}"
         )

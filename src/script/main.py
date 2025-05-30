@@ -2,7 +2,7 @@ import logging
 import traceback
 
 from src.script.application.context import ApplicationContext
-from src.script.common.constants import EntityType
+from src.script.entity._enum import EntityType
 
 
 def main():

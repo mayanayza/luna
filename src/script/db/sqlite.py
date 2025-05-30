@@ -8,7 +8,7 @@ class SQLiteDatabase(Database):
     
     def __init__(self, registry, **kwargs):
 
-        super().__init__(registry, 'sqlite', **kwargs)
+        super().__init__(registry, **kwargs)
         self._db_path = os.path.join(self._db_dir, f"{self._db_name}.sqlite")
         self._connection_string = f"sqlite://{self._db_path}"
 

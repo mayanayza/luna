@@ -4,14 +4,222 @@ import shlex
 from typing import Any, Dict, List, Optional
 
 from src.script.api._input_converter import ApiInputConverter
-from src.script.common.constants import CommandType, EntityType
+from src.script.api._ui import UserInterface
 from src.script.entity.api import Api
 from src.script.entity.handler import Handler
-from src.script.input.factory import InputFactory
 from src.script.input.input import Input, InputField, InputGroup
 
+   ##     ######   ######
+   ##     ##   ##    ##
+  ####    ##   ##    ##
+  ## #    ######     ##
+ ######   ##         ##
+ ##   #   ##         ##
+###   ##  ##       ######
 
-class CliUserInterface:
+
+class CliApi(Api):
+    """Command-line interface that dynamically builds from entity interfaces"""
+    
+    def __init__(self, registry, **kwargs):
+        super().__init__(registry, **kwargs)        
+        # Parser will be built dynamically
+        self.parser = None
+        self._running = False
+    
+    @property
+    def input_converter(self):
+        return CliInputConverter()
+    
+    @property
+    def user_interface(self):
+        return CliUserInterface()
+    
+
+    def start(self):
+        """Start the CLI session"""
+        self._build_parser_from_handler_registry()
+        self._running = True
+        
+        print("Starting CLI session. Type 'cli exit' to quit.\n")
+        self._setup_readline()
+        
+        while self._running:
+            try:
+                command = input("Luna CLI> ").strip()
+                if not command:
+                    continue
+                
+                self._execute_cli_command(command)
+                    
+            except KeyboardInterrupt:
+                print("\nUse 'cli exit' to quit.")
+            except EOFError:
+                print("\nExiting CLI session.")
+                self._running = False
+
+
+    def _build_parser_from_handler_registry(self):
+        """Build the argparse structure from entity interfaces"""
+        
+        # Create a fresh parser each time
+        self.parser = argparse.ArgumentParser(description='Luna CLI')
+        
+        # Create entity type subparsers
+        entity_type_subparsers = self.parser.add_subparsers(
+            dest='entity_type',
+            help='Target entity type',
+            required=True
+        )
+        
+        # Add CLI control commands
+        self._add_cli_control_commands(entity_type_subparsers)
+
+        command_handlers_by_entity_type = {}
+
+        for command_handler in self.handler_registry.get_all_entities():
+            if isinstance(command_handler, Handler):
+                entity_type = command_handler.entity_type
+                if command_handler.entity_type not in command_handlers_by_entity_type:
+                    command_handlers_by_entity_type[entity_type] = []
+                command_handlers_by_entity_type[entity_type].append(command_handler)
+
+        for entity_type, handlers in command_handlers_by_entity_type.items():
+            self._build_entity_type_parser(entity_type_subparsers, entity_type, handlers)
+
+    def _build_entity_type_parser(self, entity_type_subparsers, entity_type, command_handlers):
+        """Build parser for a specific entity type"""
+
+        # Create entity type parser
+        entity_parser = entity_type_subparsers.add_parser(
+            entity_type.value,
+            help=f"Commands for {entity_type.value}"
+        )
+        
+        # Create command subparsers
+        command_type_subparsers = entity_parser.add_subparsers(
+            dest='command_type',
+            help='Command to execute',
+            required=True
+        )
+
+        for command_handler in command_handlers:
+            self._add_input_as_command(command_type_subparsers, command_handler.command_type.value, command_handler.proxy_input_obj)
+        
+    def _add_input_as_command(self, command_subparsers, command_type: str, input_obj):
+        """Add an input as a CLI command"""
+        if input_obj:
+            cli_spec = self.input_converter.to_api_spec(input_obj)
+            
+            # Create command parser
+            cmd_parser = command_subparsers.add_parser(
+                command_type,
+                help=cli_spec.get('help', f"Execute {command_type}")
+            )
+            
+            # Add arguments from CLI spec
+            self._add_arguments_from_spec(cmd_parser, cli_spec.get('args', []))
+
+    def _add_arguments_from_spec(self, parser, args_spec: List[Dict[str, Any]]):
+        """Add arguments to parser from CLI specification"""
+        
+        for arg_spec in args_spec:
+            try:
+                # Regular argument
+                arg_names = [arg_spec['name']]
+                if 'short' in arg_spec:
+                    arg_names.append(arg_spec['short'])
+                
+                # Filter out metadata keys
+                kwargs = {k: v for k, v in arg_spec.items() 
+                         if k not in ['name', 'short']}
+                                    
+                parser.add_argument(*arg_names, **kwargs)
+                    
+            except Exception as e:
+                self.logger.error(f"Error adding argument {arg_spec}: {e}")
+
+    def _execute_cli_command(self, command: str):
+        """Parse and execute a CLI command"""
+        try:
+            args = self.parser.parse_args(shlex.split(command))
+            
+            if args.entity_type == 'cli':
+                self._handle_cli_command(args)
+            else:
+                # Convert argparse results to parameters
+                params = {k: v for k, v in vars(args).items() 
+                         if not k.startswith('_') and k not in ['entity_type', 'command_type']}
+                
+                # Use inherited execute_command from base Api class
+                command_result = self.execute_command(
+                    args.entity_type,  # Will be converted to enum in base class
+                    args.command_type,  # Will be converted to enum in base class
+                    **params
+                )
+                
+                # Rebuild parser after successful command execution
+                if command_result.get("success"):
+                    self._build_parser_from_handler_registry()
+                
+        except SystemExit:
+            # argparse error - continue
+            pass
+
+    
+    def _handle_cli_command(self, args):
+        """Handle CLI control commands"""
+        if args.command in ['exit', 'quit']:
+            self._running = False
+            print("Exiting CLI session.")
+        elif args.command == 'help':
+            self.user_interface.help(self.parser)
+        
+    def _add_cli_control_commands(self, entity_type_subparser):
+        """Add CLI-specific control commands"""
+        cli_parser = entity_type_subparser.add_parser(
+            'cli',
+            help='CLI control commands'
+        )
+        
+        cli_commands = cli_parser.add_subparsers(
+            dest='command',
+            help='CLI command',
+            required=True
+        )
+        
+        cli_commands.add_parser('exit', help='Exit the CLI')
+        cli_commands.add_parser('quit', help='Exit the CLI (alias for exit)')
+        cli_commands.add_parser('help', help='Show available commands')
+    
+    def _setup_readline(self):
+        """Setup command history"""
+        try:
+            import atexit
+            import os
+            import readline
+            
+            histfile = os.path.join(os.path.expanduser("~"), ".luna_history")
+            try:
+                readline.read_history_file(histfile)
+                readline.set_history_length(1000)
+            except FileNotFoundError:
+                pass
+            atexit.register(readline.write_history_file, histfile)
+            
+        except ImportError:
+            pass  # No readline available
+
+ ##   ##                             ######              ##                         ####
+ ##   ##                               ##                ##                        ##
+ ##   ##   #####    #####   ## ###     ##     ## ###   ######    #####   ## ###   #####     ######   #####    #####
+ ##   ##  ##       ##   ##  ###        ##     ###  ##    ##     ##   ##  ###       ##      ##   ##  ##       ##   ##
+ ##   ##   ####    #######  ##         ##     ##   ##    ##     #######  ##        ##      ##   ##  ##       #######
+ ##   ##      ##   ##       ##         ##     ##   ##    ##     ##       ##        ##      ##  ###  ##       ##
+  #####   #####     #####   ##       ######   ##   ##     ###    #####   ##        ##       ### ##   #####    #####
+
+
+class CliUserInterface(UserInterface):
     """CLI user interface - handles display operations"""
     
     def __init__(self):
@@ -86,280 +294,14 @@ class CliUserInterface:
         print("  cli help      - Show this help message")
 
 
-class Cli(Api):
-    """Command-line interface that dynamically builds from entity interfaces"""
-    
-    def __init__(self, registry, **kwargs):
-        super().__init__(registry, 'cli', **kwargs)
-        
-        # Single CLI converter handles both conversion and input collection
-        self._cli_converter = CliInputConverter()
-        self._user_interface = CliUserInterface()
-        
-        # Parser will be built dynamically
-        self.parser = None
-        self._running = False
-    
-    @property
-    def user_interface(self):
-        return self._user_interface
-
-    @property
-    def cli_converter(self):
-        return self._cli_converter
-    
-    def start(self):
-        """Start the CLI session"""
-        self._build_parser_from_handler_registry()
-        self._running = True
-        
-        print("Starting CLI session. Type 'cli exit' to quit.\n")
-        self._setup_readline()
-        
-        while self._running:
-            try:
-                command = input("Luna CLI> ").strip()
-                if not command:
-                    continue
-                
-                self._execute_command(command)
-                    
-            except KeyboardInterrupt:
-                print("\nUse 'cli exit' to quit.")
-            except EOFError:
-                print("\nExiting CLI session.")
-                self._running = False
-
-    def _build_parser_from_handler_registry(self):
-        """Build the argparse structure from entity interfaces"""
-        
-        # Create a fresh parser each time
-        self.parser = argparse.ArgumentParser(description='Luna CLI')
-        
-        # Create entity type subparsers
-        entity_type_subparsers = self.parser.add_subparsers(
-            dest='entity_type',
-            help='Target entity type',
-            required=True
-        )
-        
-        # Add CLI control commands
-        self._add_cli_control_commands(entity_type_subparsers)
-
-        command_handlers_by_entity_type = {}
-
-        for command_handler in self.handler_registry.get_all_entities():
-            if isinstance(command_handler, Handler):
-                entity_type = command_handler.entity_type
-                if command_handler.entity_type not in command_handlers_by_entity_type:
-                    command_handlers_by_entity_type[entity_type] = []
-                command_handlers_by_entity_type[entity_type].append(command_handler)
-
-        for entity_type, handlers in command_handlers_by_entity_type.items():
-            self._build_entity_type_parser(entity_type_subparsers, entity_type, handlers)
-
-    def _build_entity_type_parser(self, entity_type_subparsers, entity_type, command_handlers):
-        """Build parser for a specific entity type"""
-
-        # Create entity type parser
-        entity_parser = entity_type_subparsers.add_parser(
-            entity_type.value,
-            help=f"Commands for {entity_type.value}"
-        )
-        
-        # Create command subparsers
-        command_type_subparsers = entity_parser.add_subparsers(
-            dest='command_type',
-            help='Command to execute',
-            required=True
-        )
-
-        for command_handler in command_handlers:
-            self._add_input_as_command(command_type_subparsers, command_handler.command_type.value, command_handler.input_obj)
-        
-    def _add_input_as_command(self, command_subparsers, command_type: str, input_obj):
-        """Add an input as a CLI command"""
-        if input_obj:
-            cli_spec = self.cli_converter.to_api_spec(input_obj)
-            
-            # Create command parser
-            cmd_parser = command_subparsers.add_parser(
-                command_type,
-                help=cli_spec.get('help', f"Execute {command_type}")
-            )
-            
-            # Add arguments from CLI spec
-            self._add_arguments_from_spec(cmd_parser, cli_spec.get('args', []))
-
-    def _add_arguments_from_spec(self, parser, args_spec: List[Dict[str, Any]]):
-        """Add arguments to parser from CLI specification"""
-        
-        for arg_spec in args_spec:
-            try:
-                # Regular argument
-                arg_names = [arg_spec['name']]
-                if 'short' in arg_spec:
-                    arg_names.append(arg_spec['short'])
-                
-                # Filter out metadata keys
-                kwargs = {k: v for k, v in arg_spec.items() 
-                         if k not in ['name', 'short']}
-                                    
-                parser.add_argument(*arg_names, **kwargs)
-                    
-            except Exception as e:
-                self.logger.error(f"Error adding argument {arg_spec}: {e}")
-
-    def _execute_command(self, command: str):
-        """Parse and execute a command"""
-        try:
-            args = self.parser.parse_args(shlex.split(command))
-            
-            if args.entity_type == 'cli':
-                self._handle_cli_command(args)
-            else:
-                command_success = self._process_entity_command(args)
-                
-                # Rebuild parser after successful command execution
-                if command_success:
-                    self._build_parser_from_handler_registry()
-                
-        except SystemExit:
-            # argparse error - continue
-            pass
-
-    def _process_entity_command(self, args) -> bool:
-        """Process a command for an entity type and return success status"""
-        entity_type_enum = EntityType(args.entity_type)
-        command_type_enum = CommandType(args.command_type)
-        handler = self.handler_registry.get_handler_by_entity_and_command_types(entity_type_enum, command_type_enum)
-
-        params = {k: v for k, v in vars(args).items() 
-                 if not k.startswith('_') and k not in ['entity_type', 'command_type']}
-
-        input_obj = handler.input_obj
-
-        print(f"Initial params: {params}")
-
-        if not handler.needs_target:
-            # Registry-level commands (like list, create)
-            return self._convert_and_execute(
-                input_obj,
-                args.command_type, 
-                params,
-                {
-                    "interface": "cli", 
-                    "authenticated": True,
-                }
-            )
-        else:
-
-            input_obj.prepend_child(
-                InputFactory.entity_target_selector_field(
-                    registry=input_obj.handler_registry.manager.get_by_entity_type(entity_type_enum),
-                    handler_registry=input_obj.handler_registry
-                ))
-
-            return self._convert_and_execute(
-                input_obj,
-                args.command_type, 
-                params,
-                {
-                    "interface": "cli", 
-                    "authenticated": True,
-                }
-            )
-    
-    def _convert_and_execute(self, input_obj, command_type, params, context) -> bool:
-        """Convert and execute command, return success status"""
-        try:
-            result = self.cli_converter.execute_with_input_collection(
-                input_obj,
-                command_type, 
-                params,
-                context
-            )
-
-            command_output = []
-            
-            # Display results based on success/failure
-            if result.get("success"):
-                
-                for handler_result in result.handler_results:
-
-                    if hasattr(handler_result, 'success'):
-                        if handler_result.success:
-                            self.display_results(command_type, handler_result.result)                            
-                            command_output.append(handler_result.result)
-                        else:
-                            # Handler execution failed
-                            error = handler_result.error
-                            self.logger.error(f"Command '{command_type}' {error['type']} handler execution failed: {error.error}")                                
-                            command_output.append(error)
-
-                return command_output
-
-            else:
-                # Handle different types of errors more specifically
-                if result.get("validation_errors"):
-                    self.logger.error(f"Command '{command_type}' failed due to validation errors:")
-                    self.user_interface.display_validation_errors(result["validation_errors"])
-                elif result.get("cancelled"):
-                    self.logger.warning(f"Command '{command_type}' was cancelled by user.")
-                elif result.get("error"):
-                    self.logger.error(f"Command '{command_type}' failed: {result['error']}")
-                else:
-                    self.logger.error(f"Command '{command_type}' failed for unknown reason.")
-                    print(f"Full result: {result}")
-                
-                return False  # Command failed
-            
-        except Exception as e:
-            self.logger.error(f"Error executing {command_type}: {e}", exc_info=True)
-            return False  # Command failed due to exception
-
-    def _handle_cli_command(self, args):
-        """Handle CLI control commands"""
-        if args.command in ['exit', 'quit']:
-            self._running = False
-            print("Exiting CLI session.")
-        elif args.command == 'help':
-            self.user_interface.help(self.parser)
-        
-    def _add_cli_control_commands(self, entity_type_subparser):
-        """Add CLI-specific control commands"""
-        cli_parser = entity_type_subparser.add_parser(
-            'cli',
-            help='CLI control commands'
-        )
-        
-        cli_commands = cli_parser.add_subparsers(
-            dest='command',
-            help='CLI command',
-            required=True
-        )
-        
-        cli_commands.add_parser('exit', help='Exit the CLI')
-        cli_commands.add_parser('quit', help='Exit the CLI (alias for exit)')
-        cli_commands.add_parser('help', help='Show available commands')
-    
-    def _setup_readline(self):
-        """Setup command history"""
-        try:
-            import atexit
-            import os
-            import readline
-            
-            histfile = os.path.join(os.path.expanduser("~"), ".luna_history")
-            try:
-                readline.read_history_file(histfile)
-                readline.set_history_length(1000)
-            except FileNotFoundError:
-                pass
-            atexit.register(readline.write_history_file, histfile)
-            
-        except ImportError:
-            pass  # No readline available
+ ######                                ##       ####                                                  ##
+   ##                                  ##      ##  ##                                                 ##
+   ##     ## ###   ######   ##   ##  ######   ##        #####   ## ###   ### ###   #####   ## ###   ######    #####   ## ###
+   ##     ###  ##  ##   ##  ##   ##    ##     ##       ##   ##  ###  ##   ## ##   ##   ##  ###        ##     ##   ##  ###
+   ##     ##   ##  ##   ##  ##   ##    ##     ##       ##   ##  ##   ##   ## ##   #######  ##         ##     #######  ##
+   ##     ##   ##  ##   ##  ##  ###    ##      ##  ##  ##   ##  ##   ##    ###    ##       ##         ##     ##       ##
+ ######   ##   ##  ######    ### ##     ###     ####    #####   ##   ##    ###     #####   ##          ###    #####   ##
+                   ##
 
 class CliInputConverter(ApiInputConverter):
     """CLI-specific input converter with integrated input collection"""
@@ -434,20 +376,34 @@ class CliInputConverter(ApiInputConverter):
             "args": args
         }
 
-    def display_structure(self, input_obj: Input, context: Dict[str, Any] = None) -> None:
-        """Display the CLI input structure"""
-        self._display_node_recursive(input_obj, level=0)
-
-    def collect_missing_inputs(self, input_obj: Input, provided_inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Collect missing inputs interactively via CLI"""
-        inputs = provided_inputs.copy()                
-        success = self._collect_node_inputs_interactive(input_obj, inputs, context)
+    def collect_inputs(self, input_obj: Input, provided_inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Collect and validate inputs for CLI execution - implements base class interface"""
+        inputs = provided_inputs.copy()
         
-        if success:
+        try:
+            # Check for missing required inputs
+            missing_inputs = self.check_missing_inputs(input_obj, provided_inputs)
+            
+            if missing_inputs:
+                # CLI prompts interactively for missing inputs
+                self.logger.debug(f"Missing inputs detected, prompting user: {missing_inputs}")
+                success = self._collect_node_inputs_interactive(input_obj, inputs, context)
+                
+                if not success:
+                    print("Input collection cancelled")
+                    return {"success": False, "cancelled": True}
+            else:
+                # Load existing inputs into the object
+                self._apply_inputs_to_input(input_obj, inputs)
+            
+            # Handle submission confirmation
             return self._handle_cli_submission(inputs, input_obj.confirm_submit)
-        else:
-            print("Input collection cancelled")
-            return {"success": False, "cancelled": True}
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"CLI input collection failed: {str(e)}"
+            }
     
     def _collect_node_inputs_interactive(self, node, inputs: Dict[str, Any], context: Dict[str, Any], path: str = "") -> bool:
         """Recursively collect inputs for a node via CLI"""        
@@ -474,6 +430,7 @@ class CliInputConverter(ApiInputConverter):
         """Collect input for a single field via CLI"""
         
         # Handle choice fields with numbered selection
+        
         if hasattr(field, 'choices') and field.choices:
             title = field.title or f"Select {field.name}"
             options = []
@@ -487,15 +444,40 @@ class CliInputConverter(ApiInputConverter):
                     'default_value': field.default_value if str(field.default_value) == display_name else None
                 })
             
-            selected_option, success = self._display_and_select_from_options(title, options)
-            if not success:
-                return False
+            if getattr(field, 'allow_multiple', False):
+                # Handle multiple selection
+                selected_values = []
+                while True:
+                    selected_option, success = self._display_and_select_from_options(
+                        f"{title} (selected: {len(selected_values)}, 'done' to finish)", 
+                        options + [{'name': 'done', 'description': 'Finish selection'}]
+                    )
+                    if not success:
+                        return False
+                    
+                    if selected_option['name'] == 'done':
+                        break
+                        
+                    # Get the actual value and ensure it's a list
+                    choice_value = field.get_choice_value(selected_option['name'])
+                    if isinstance(choice_value, list):
+                        selected_values.extend(choice_value)
+                    else:
+                        selected_values.append(choice_value)
+                
+                inputs[field.name] = selected_values
+            else:
+                # Handle single selection
+                selected_option, success = self._display_and_select_from_options(title, options)
+                if not success:
+                    return False
+                
+                # Get the actual value - should already be a list from factory
+                selected_value = field.get_choice_value(selected_option['name'])
+                inputs[field.name] = selected_value
             
-            # Get the actual value for the selected display name
-            selected_value = field.get_choice_value(selected_option['name'])
-            inputs[field.name] = selected_value
             return True
-        
+
         # Handle regular fields (existing logic)
         prefill_value = None
 
@@ -642,18 +624,3 @@ class CliInputConverter(ApiInputConverter):
             return {"success": False, "cancelled": True}
         
         return {"success": True, "inputs": inputs}
-    
-    def _display_node_recursive(self, node, level: int = 0):
-        """Recursively display node structure for CLI"""
-        indent = "  " * level
-        
-        if isinstance(node, InputField):  # Field-like
-            # Show hidden fields in display but mark them
-            hidden_marker = " (auto)" if getattr(node, 'hidden', False) else ""
-            value_display = getattr(node, 'value', "(empty)")
-            print(f"{indent}{node.title}{hidden_marker}: {value_display}")
-        elif isinstance(node, InputGroup):  # Group-like (including Input)
-            if hasattr(node, 'title'):
-                print(f"{indent}[{node.title}]")
-            for child in node.children.values():
-                self._display_node_recursive(child, level + 1)

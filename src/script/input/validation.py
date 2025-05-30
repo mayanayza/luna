@@ -3,6 +3,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type
 
+from src.script.application._error import Error, ErrorCategory
+from src.script.application._result import Result
+
 
 class ValidationMode(Enum):
     ON_SET = "on_set"
@@ -13,7 +16,6 @@ class ValidationLevel(Enum):
     CLIENT = "client"  # UX validation - runs on frontend for immediate feedback
     SERVER = "server"  # Business/security validation - authoritative, cannot be circumvented
     BOTH = "both"     # Runs on both client and server
-
 
 class ValidationRule:
     def __init__(self, validation_function: Callable[[str], bool], error: Dict[str, Any], level: ValidationLevel = ValidationLevel.BOTH):
@@ -33,6 +35,47 @@ class ValidationRule:
                 return {"passed": False, "error": self._error}
         except Exception as e:
             raise ValueError(f"Failed to validate input {user_input}: {e}")
+
+class ValidationResult(Result[bool]):
+    """Specialized result for validation operations"""
+    
+    def __init__(self, field_errors: Dict[str, List[Error]] = None):
+        self.field_errors = field_errors or {}
+        
+        # Flatten field errors for base Result
+        all_errors = []
+        for errors in self.field_errors.values():
+            all_errors.extend(errors)
+        
+        super().__init__(
+            value=len(all_errors) == 0,
+            errors=all_errors
+        )
+    
+    def add_error(self, field: str, message: str, code: str = "invalid") -> 'ValidationResult':
+        """Add validation error for field"""
+        if field not in self.field_errors:
+            self.field_errors[field] = []
+        
+        error = Error(
+            code=code,
+            message=message,
+            category=ErrorCategory.VALIDATION,
+            field=field
+        )
+        
+        self.field_errors[field].append(error)
+        self._errors.append(error)
+        
+        # Update value
+        self._value = len(self._errors) == 0
+        
+        return self
+    
+    @staticmethod
+    def success() -> 'ValidationResult':
+        """Create successful validation"""
+        return ValidationResult()
 
 class InputValidator:
     

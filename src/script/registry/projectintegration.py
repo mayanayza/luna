@@ -1,8 +1,8 @@
 
 from typing import Dict, List
 
-from src.script.common.constants import EntityType
 from src.script.entity._base import EntityRef
+from src.script.entity._enum import EntityType
 from src.script.entity.projectintegration import ProjectIntegration
 from src.script.registry._registry import StorableEntityRegistry
 
@@ -13,7 +13,7 @@ class ProjectIntegrationRegistry(StorableEntityRegistry):
         super().__init__(EntityType.PROJECT_INTEGRATION, ProjectIntegration, manager)
         self._pi_project_tree: Dict[Dict[str]] = {}
         self._pi_integration_tree: Dict[Dict[str]] = {}
-        self.loader.load_from_database(EntityType.PROJECT_INTEGRATION.value)
+        self.database_loader.load(EntityType.PROJECT_INTEGRATION.value)
 
     
     def add_pi(self, project_ref: EntityRef, integration_ref: EntityRef) -> ProjectIntegration:
