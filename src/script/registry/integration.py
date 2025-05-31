@@ -1,5 +1,5 @@
 
-from src.script.entity._enum import EntityType
+from src.script.common.enums import EntityType
 from src.script.entity.integration import Integration
 from src.script.registry._registry import CreatableFromModuleEntityRegistry
 

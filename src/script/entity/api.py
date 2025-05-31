@@ -1,22 +1,29 @@
-# Enhanced api.py - Clear command lifecycle with streamlined debug logging
+# Enhanced api.py - Complete file with smart input collection
 
 import time
 from abc import abstractmethod
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, TypeVar, Union
 
-from src.script.api._enum import CommandType
 from src.script.common.decorators import classproperty
+from src.script.common.enums import CommandType, EntityQuantity, EntityType
+from src.script.common.results import (
+    ApiResult,
+    BatchOperationResult,
+    BatchResult,
+    HandlerResult,
+)
 from src.script.entity._entity import ListableEntity
-from src.script.entity._enum import EntityType
 from src.script.input.factory import InputFactory
-from src.script.input.input import Input, InputPermissions
+from src.script.input.input import Input, InputField, InputPermissions
 
+T = TypeVar('T')
 
 class Api(ListableEntity):
-    """Base API class with clear command lifecycle"""
+    """Base API class with input collection and command execution"""
     
     def __init__(self, registry, **kwargs):
         super().__init__(registry, **kwargs)
+        self.current_command_type = None
     
     @classproperty
     def type(self):
@@ -39,20 +46,36 @@ class Api(ListableEntity):
         """Start the API with the provided application context."""
         pass
 
+    def get_entity_quantity_for_command(self, command_type: CommandType) -> EntityQuantity:
+        """
+        Get the entity quantity setting for a specific command.
+        
+        Args:
+            command_type: The command type
+            
+        Returns:
+            EntityQuantity enum value:
+            - SINGLE: exactly one entity
+            - MULTIPLE: one or more entities
+            - OPTIONAL_MULTIPLE: zero or more entities
+        """
+        # Default implementation - subclasses can override
+        return EntityQuantity.SINGLE
+
     def execute_command(self, 
                        entity_type: Union[EntityType, str], 
                        command_type: Union[CommandType, str], 
-                       **params) -> Dict[str, Any]:
+                       params: List[Dict[str, Any]]) -> ApiResult:
         """
-        Execute a command - main entry point for all API types
+        Execute a command with input collection and command execution
         
         Args:
-            entity_type: EntityType enum or string
-            command_type: CommandType enum or string  
-            **params: Command parameters
+            entity_type: The entity type to operate on
+            command_type: The command to execute
+            params: List of parameter dictionaries, each representing one operation
             
         Returns:
-            Dict with success status and results
+            ApiResult containing list of individual results
         """
         start_time = time.time()
         
@@ -63,93 +86,335 @@ class Api(ListableEntity):
             if isinstance(command_type, str):
                 command_type = CommandType(command_type)
 
-            self.logger.info(f"Executing {command_type.value} on {entity_type.value} with params: {params}")
-            
-            # 1. Prepare command - find handlers and input object
-            prep_start = time.time()
-            input_obj = self._prepare_command(entity_type, command_type)
-            prep_time = time.time() - prep_start
-            self.logger.debug(f"Command preparation: {prep_time:.3f}s")
-            
-            # 2. Collect inputs - convert and gather missing inputs, submit inputs
-            collect_start = time.time()
-            collected_inputs = self._collect_inputs(input_obj, params)
-            collect_time = time.time() - collect_start
-            self.logger.debug(f"Input collection: {collect_time:.3f}s")
-            
-            self.logger.debug(f"Collected inputs: {collected_inputs}")
+            # Store current command type for entity quantity decisions
+            self.current_command_type = command_type
 
-            if not collected_inputs.get("success"):
-                self.logger.error(f"Input collection failed: {collected_inputs.get('error', 'Unknown error')}")
-                return collected_inputs
+            self.logger.info(f"Executing {command_type.value} on {entity_type.value} with {len(params)} parameter sets")
             
-            # 3. Execute handlers with collected inputs
-            exec_start = time.time()
-            handler_results = self._execute_handlers(input_obj, collected_inputs["inputs"])
-            exec_time = time.time() - exec_start
-            self.logger.debug(f"Handler execution: {exec_time:.3f}s")
+            # 1. Prepare command template
+            prep_result = self._prepare_command(entity_type, command_type)
+            if prep_result.is_failure:
+                return prep_result
+
+            input_obj = prep_result.value
             
-            # 4. Process results and handle callbacks
-            process_start = time.time()
-            final_result = self._process_results(handler_results, command_type, input_obj, collected_inputs["inputs"])
-            process_time = time.time() - process_start
-            self.logger.debug(f"Result processing: {process_time:.3f}s")
+            # 2. Process batch parameters with smart input collection
+            batch_result = self._process_batch_params(input_obj, params, entity_type, command_type)
+            if batch_result.is_failure:
+                return batch_result
             
+            param_sets = batch_result.value
+            
+            # 3. Execute each parameter set independently
+            batch_result = BatchResult.success([])
+            
+            for i, param_set in enumerate(param_sets):
+                self.logger.debug(f"Processing parameter set {i+1}/{len(param_sets)}: {param_set}")
+                
+                try:
+                    # Create fresh input object for this parameter set
+                    input_obj = self._create_input_from_template(input_obj)
+                    
+                    # Collect inputs for this specific parameter set
+                    collect_result = self._collect_inputs(input_obj, param_set)
+                    if collect_result.is_failure:
+                        self.logger.warning(f"Parameter set {i+1} failed input collection: {collect_result.error_message}")
+                        operation_result = BatchOperationResult.failure(
+                            param_set_index=i,
+                            params=param_set,
+                            message=f"Input collection failed: {collect_result.error_message}",
+                            code="input_collection_failed"
+                        )
+                        batch_result.add_operation_result(operation_result)
+                        continue
+                    
+                    collected_inputs = collect_result.value
+                    
+                    # Execute handlers for this parameter set
+                    handler_result = self._execute_handlers(input_obj, collected_inputs)
+                    if handler_result.is_failure:
+                        self.logger.warning(f"Parameter set {i+1} failed handler execution: {handler_result.error_message}")
+                        operation_result = BatchOperationResult.failure(
+                            param_set_index=i,
+                            params=param_set,
+                            message=f"Handler execution failed: {handler_result.error_message}",
+                            code="handler_execution_failed"
+                        )
+                        batch_result.add_operation_result(operation_result)
+                        continue
+                    
+                    # Process results for this parameter set
+                    process_result = self._process_results(handler_result.value, command_type, input_obj, collected_inputs)
+                    if process_result.is_failure:
+                        self.logger.warning(f"Parameter set {i+1} failed result processing: {process_result.error_message}")
+                        operation_result = BatchOperationResult.failure(
+                            param_set_index=i,
+                            params=param_set,
+                            message=f"Result processing failed: {process_result.error_message}",
+                            code="result_processing_failed"
+                        )
+                        batch_result.add_operation_result(operation_result)
+                        continue
+                    
+                    # Success case
+                    operation_result = BatchOperationResult.success(
+                        param_set_index=i,
+                        params=param_set,
+                        value=process_result.value
+                    )
+                    batch_result.add_operation_result(operation_result)
+                    
+                except Exception as e:
+                    self.logger.warning(f"Parameter set {i+1} failed with exception: {e}")
+                    operation_result = BatchOperationResult.failure(
+                        param_set_index=i,
+                        params=param_set,
+                        message=f"Unexpected error: {str(e)}",
+                        code="unexpected_error"
+                    )
+                    batch_result.add_operation_result(operation_result)
+            
+            # 4. Summary logging
             total_time = time.time() - start_time
-            self.logger.info(f"Command completed successfully in {total_time:.3f}s")
+            self.logger.info(f"Command {command_type.value} completed in {total_time:.3f}s: {batch_result.success_count} successful, {batch_result.failure_count} failed")
             
-            return final_result
+            return ApiResult.success(batch_result)
             
         except Exception as e:
             total_time = time.time() - start_time
-            self.logger.error(f"Command failed after {total_time:.3f}s: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e)
+            self.logger.error(f"Command {command_type.value} failed after {total_time:.3f}s: {e}", exc_info=True)
+            return ApiResult.failure(
+                message=str(e),
+                code="batch_command_execution_failed"
+            )
+
+    def _process_batch_params(self, 
+                             input_obj: Input, 
+                             params: List[Dict[str, Any]], 
+                             entity_type: EntityType, 
+                             command_type: CommandType) -> ApiResult:
+        """
+        Process batch parameters with smart entity selection and field collection
+        """
+        try:
+            # Check if we need entity targets
+            system_handler = self.handler_registry.get_system_handler_for_entity_and_command_type(
+                entity_type, command_type
+            )
+            
+            if not system_handler or not system_handler.needs_target:
+                return ApiResult.success(params)
+            
+            entity_param_name = system_handler.get_entity_param_name()
+            
+            # Analyze what we have and what we need using the existing input_obj
+            required_fields = self._get_required_fields(input_obj, entity_param_name)
+            first_param_set = params[0] if params else {}
+            
+            has_entities = entity_param_name in first_param_set and first_param_set[entity_param_name] is not None
+            provided_fields = {k for k, v in first_param_set.items() 
+                              if k != entity_param_name and v is not None}
+            missing_fields = required_fields - provided_fields
+            
+            # Step 1: Collect entities if not provided
+            if not has_entities:
+                entities = self._collect_entities(entity_type)
+                if not entities:
+                    return ApiResult.failure("No entities selected", "no_entities")
+            else:
+                # Extract entities from existing parameter sets
+                entities = self._extract_entities_from_params(params, entity_param_name)
+            
+            # Step 2: Create parameter sets for each entity with provided fields
+            expanded_params = []
+            for entity in entities:
+                param_set = first_param_set.copy()
+                param_set[entity_param_name] = entity
+                expanded_params.append(param_set)
+            
+            # Step 3: Collect any missing required fields (these are collected individually per entity)
+            if missing_fields:
+                expanded_params = self._collect_missing_fields_per_entity(expanded_params, input_obj, missing_fields)
+            
+            return ApiResult.success(expanded_params)
+                
+        except Exception as e:
+            return ApiResult.failure(message=f"Parameter processing failed: {str(e)}")
+
+    def _get_required_fields(self, input_obj: Input, entity_param_name: str) -> set:
+        """Get all required field names (excluding entity field and hidden fields)"""
+        required_fields = set()
+        for field_name, field in input_obj.children.items():
+            if (isinstance(field, InputField) and 
+                field.required and 
+                not getattr(field, 'hidden', False) and 
+                field_name != entity_param_name):
+                required_fields.add(field_name)
+        return required_fields
+
+    def _collect_entities(self, entity_type: EntityType) -> List[Any]:
+        """Collect entity targets from user"""
+        quantity_setting = self.get_entity_quantity_for_command(self.current_command_type)
+        return self._collect_entity_targets(entity_type, quantity_setting, 1)
+
+    def _extract_entities_from_params(self, params: List[Dict[str, Any]], entity_param_name: str) -> List[Any]:
+        """Extract entities from existing parameter sets"""
+        entities = []
+        for param_set in params:
+            entity = param_set.get(entity_param_name)
+            if entity:
+                if isinstance(entity, list):
+                    entities.extend(entity)
+                else:
+                    entities.append(entity)
+        return entities
+
+    def _collect_missing_fields_per_entity(self, param_sets: List[Dict[str, Any]], input_obj: Input, missing_fields: set) -> List[Dict[str, Any]]:
+        """Collect missing fields individually for each entity"""
+        
+        missing_field_input = self._create_fields_input(input_obj, missing_fields)
+        entity_param_name = self._get_entity_param_name(input_obj)
+        
+        for i, param_set in enumerate(param_sets):
+            entity = param_set.get(entity_param_name)
+            entity_name = getattr(entity, 'display_title', f'entity {i+1}')
+            
+            self.user_interface.respond(f"Configuring {entity_name}...")
+            
+            context = {"api_type": self.name, "target_entity": entity}
+            collection_result = self.input_converter.collect_inputs(missing_field_input, param_set, context)
+            
+            if collection_result.is_failure:
+                raise Exception(f"Field collection failed for {entity_name}: {collection_result.error_message}")
+            
+            param_set.update(collection_result.value)
+        
+        return param_sets
+
+    def _create_fields_input(self, input_obj: Input, field_names: set) -> Input:
+        """Create input object with only specified fields from the existing input_obj"""
+        
+        field_children = []
+        for field_name in field_names:
+            if field_name in input_obj.children:
+                field_children.append(input_obj.children[field_name])
+        
+        return Input(
+            name=f"{input_obj.name}_fields",
+            title="Configure Fields",
+            handler_registry=input_obj.handler_registry,
+            children=field_children
+        )
+
+    def _get_entity_param_name(self, input_obj: Input) -> str:
+        """Get the entity parameter name from the input_obj"""
+        # Find the entity field (field with choices that are entities)
+        for field_name, field in input_obj.children.items():
+            if isinstance(field, InputField) and hasattr(field, 'choices') and callable(field.choices):
+                return field_name
+        return None
+
+    def _collect_entity_targets(self, 
+                               entity_type: EntityType, 
+                               quantity_setting: EntityQuantity, 
+                               param_set_count: int) -> List[Any]:
+        """
+        Collect entity targets based on quantity setting
+        
+        Args:
+            entity_type: Type of entities to select
+            quantity_setting: Single, multiple, or optional multiple
+            param_set_count: Number of parameter sets that need entities
+            
+        Returns:
+            List of entity targets
+        """
+        try:
+            # Create entity selector
+            registry = self.handler_registry.manager.get_by_entity_type(entity_type)
+            
+            selector_config = {
+                'title': f'Select {entity_type.value}(s)',
+                'description': f'Choose {entity_type.value}(s) for this operation',
+                'allow_multiple': quantity_setting in [EntityQuantity.MULTIPLE, EntityQuantity.OPTIONAL_MULTIPLE],
+                'required': quantity_setting != EntityQuantity.OPTIONAL_MULTIPLE
             }
+            
+            entity_selector_field = InputFactory.entity_target_selector_field(
+                name='entities',
+                registry=registry,
+                **selector_config
+            )
+            
+            # Create temporary input for entity collection
+            temp_input = Input('entity_collection', title='Entity Selection')
+            temp_input.add_child(entity_selector_field)
+            
+            # Collect entity targets
+            context = {"api_type": self.name}
+            collect_result = self.input_converter.collect_inputs(temp_input, {}, context=context)
+            
+            if collect_result.is_failure:
+                self.logger.error(f"Failed to collect entity targets: {collect_result.error_message}")
+                return []
+            
+            entities = collect_result.value.get('entities', [])
+            if not isinstance(entities, list):
+                entities = [entities] if entities else []
+            
+            return entities
+            
+        except Exception as e:
+            self.logger.error(f"Entity target collection failed: {e}")
+            return []
 
     def _prepare_command(self, 
                         entity_type: EntityType, 
-                        command_type: CommandType) -> tuple[List, Input]:
+                        command_type: CommandType) -> ApiResult:
         """
-        Prepare command for execution - find handlers and prepare input object
+        Prepare command for execution - find handlers and prepare input object template
         
         Args:
             entity_type: The entity type enum
             command_type: The command type enum
             
         Returns:
-            Tuple of (handlers_list, input_object)
-        """
-        # Find the handlers
-        system_handler = self.handler_registry.get_system_handler_for_entity_and_command_type(
-            entity_type, command_type
-        )
-        
-        if not system_handler:
-            raise ValueError(f"No system handler found for {entity_type.value}.{command_type.value}")
+            ApiResult containing input object template
+        """        
+        try:
+            system_handler = self.handler_registry.get_system_handler_for_entity_and_command_type(
+                entity_type, command_type
+            )
+            
+            if not system_handler:
+                return ApiResult.failure(
+                    message=f"No system handler found for {entity_type.value}.{command_type.value}",
+                    code="handler_not_found"
+                )
 
-        self.logger.debug(f"Found system handler: {system_handler.ref} (needs_target: {system_handler.needs_target})")
+            self.logger.debug(f"Found system handler: {system_handler.ref} (needs_target: {system_handler.needs_target})")
 
-        input_obj = system_handler.input_obj
+            input_obj = system_handler.input_obj
 
-        all_handlers = self.handler_registry.get_handlers_by_entity_and_command_types(
-            entity_type, command_type
-        )
-        
-        self.logger.debug(f"Found {len(all_handlers)} handlers: {[h.ref for h in all_handlers]}")
-        
-        for handler in all_handlers:
-            input_obj.add_handler(handler.ref)
+            all_handlers = self.handler_registry.get_handlers_by_entity_and_command_types(
+                entity_type, command_type
+            )
+            
+            self.logger.debug(f"Found {len(all_handlers)} handlers: {[h.ref for h in all_handlers]}")
+            
+            for handler in all_handlers:
+                input_obj.add_handler(handler.ref)
 
-        # For entity-specific commands, add target selector if needed
-        if system_handler.needs_target:
-            input_obj = self._add_target_selector(input_obj, system_handler)
-            self.logger.debug("Added target selector to input object")
+            # For entity-specific commands, add target selector if needed
+            if system_handler.needs_target:
+                input_obj = self._add_target_selector(input_obj, system_handler, entity_type, command_type)
+                self.logger.debug("Added target selector to input object")
 
-        return input_obj
+            return ApiResult.success(input_obj)
+        except Exception as e:
+            return ApiResult.failure(message=str(e))
 
-    def _add_target_selector(self, input_obj: Input, handler) -> Input:
+    def _add_target_selector(self, input_obj: Input, handler, entity_type: EntityType, command_type: CommandType) -> Input:
         """Add entity target selector to input if needed"""
         # Temporarily allow field addition
         original_permissions = input_obj.permissions.to_dict()
@@ -159,10 +424,23 @@ class Api(ListableEntity):
         
         # Get entity selector configuration from handler
         selector_config = handler.get_entity_selector_config()
-        entity_type = handler.entity_type
         param_name = handler.get_entity_param_name()
 
-        # Create entity selector field with handler-specific configuration
+        # Get the entity quantity setting for this API and command
+        quantity_setting = self.get_entity_quantity_for_command(command_type)
+        
+        # Update selector configuration based on quantity setting
+        if quantity_setting == EntityQuantity.SINGLE:
+            selector_config['allow_multiple'] = False
+            selector_config['required'] = True
+        elif quantity_setting == EntityQuantity.MULTIPLE:
+            selector_config['allow_multiple'] = True
+            selector_config['required'] = True
+        elif quantity_setting == EntityQuantity.OPTIONAL_MULTIPLE:
+            selector_config['allow_multiple'] = True
+            selector_config['required'] = False
+
+        # Create entity selector field with updated configuration
         registry = input_obj.handler_registry.manager.get_by_entity_type(entity_type)
         entity_selector_field = InputFactory.entity_target_selector_field(
             name=param_name,
@@ -179,40 +457,26 @@ class Api(ListableEntity):
 
     def _collect_inputs(self, 
                        input_obj: Input, 
-                       provided_params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Collect and validate inputs using the converter
-        
-        Args:
-            input_obj: The input specification
-            provided_params: Parameters already provided
-            
-        Returns:
-            Dict with success status and collected inputs
-        """
-        context = {"api_type": self.name}
-        
+                       provided_params: Dict[str, Any]) -> ApiResult:
+        """Collect and validate inputs using the converter"""
         try:
+            context = {"api_type": self.name}
             result = self.input_converter.collect_inputs(input_obj, provided_params, context=context)
             
-            if result.get("success"):
-                collected = result.get("inputs", {})
-                self.logger.debug(f"Collected inputs: {list(collected.keys())}")
+            if result.is_success:
+                return result
             else:
-                self.logger.error(f"Input collection failed: {result.get('error', 'Unknown error')}")
-                
-            return result
+                return result
             
         except Exception as e:
-            self.logger.error(f"Exception during input collection: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": f"Input collection failed: {str(e)}"
-            }
+            return ApiResult.failure(
+                message=f"Input collection failed: {str(e)}",
+                code="input_collection_failed"
+            )
 
     def _execute_handlers(self, 
                          input_obj: Input, 
-                         collected_inputs: Dict[str, Any]) -> Dict[str, Any]:
+                         collected_inputs: Dict[str, Any]) -> ApiResult:
         """
         Execute all handlers with the collected inputs
         
@@ -221,39 +485,34 @@ class Api(ListableEntity):
             collected_inputs: All collected and validated inputs
             
         Returns:
-            Dict of handler results keyed by handler.ref
+            ApiResult containing handler results
         """
-        handler_count = len(input_obj.handlers) if hasattr(input_obj, 'handlers') else 0
+        handler_count = len(input_obj.handler_refs) if hasattr(input_obj, 'handler_refs') else 0
         self.logger.debug(f"Executing {handler_count} handlers with inputs: {list(collected_inputs.keys())}")
         
         try:
             context = {"api_type": self.__class__.__name__.lower()}
             handler_results = input_obj.invoke_handlers(context, **collected_inputs)
-            
-            # Log handler execution results
-            if isinstance(handler_results, list):
-                success_count = sum(1 for r in handler_results if hasattr(r, 'success') and r.success)
-                self.logger.debug(f"Handler results: {success_count}/{len(handler_results)} successful")
-                
-                for result in handler_results:
-                    if hasattr(result, 'success') and not result.success:
-                        handler_ref = getattr(result, 'handler_ref', 'unknown')
-                        error = getattr(result, 'error', 'Unknown error')
-                        self.logger.warning(f"Handler {handler_ref} failed: {error}")
-            
-            return handler_results
+
+            # Check for any handler failures
+            failed_handlers = [r for r in handler_results if r.is_failure]
+            if failed_handlers:
+                error_messages = [f"{r.name}: {r.error_message}" for r in failed_handlers]
+                return ApiResult.failure(
+                    message=f"Handler failures: {'; '.join(error_messages)}",
+                    code="handler_execution_failed"
+                )
+
+            return ApiResult.success(handler_results)
             
         except Exception as e:
-            self.logger.error(f"Handler execution failed: {e}", exc_info=True)
-            return {
-                "error": f"Handler execution failed: {str(e)}"
-            }
+            return ApiResult.failure(message=f"Handler execution failed: {str(e)}")
 
     def _process_results(self, 
-                        handler_results: Dict[str, Any], 
+                        handler_results: List['HandlerResult'], 
                         command_type: CommandType,
                         input_obj: Input,
-                        collected_inputs: Dict[str, Any]) -> Dict[str, Any]:
+                        collected_inputs: Dict[str, Any]) -> ApiResult:
         """
         Process handler results and execute callbacks
         
@@ -264,38 +523,13 @@ class Api(ListableEntity):
             collected_inputs: The inputs that were used
             
         Returns:
-            Final processed result dictionary
+            Final processed result
         """
-        if hasattr(handler_results, 'error'):
-            self.logger.error(f"Handler results contain error: {handler_results.error}")
-            return {
-                "success": False,
-                "error": f"Handler execution failed: {handler_results.error}"
-            }
-
         try:                        
             # Process each handler result
-            successful_results = []
-            for i, handler_result in enumerate(handler_results):
-                if hasattr(handler_result, 'success') and handler_result.success:
-                    successful_results.append(handler_result)
-                    
-                    # Display results for successful handlers
-                    if hasattr(handler_result, 'result'):
-                        self.display_results(command_type, handler_result.result)
-                else:
-                    # Handler execution failed
-                    handler_ref = getattr(handler_result, 'handler_ref', f"handler_{i+1}")
-                    error_info = getattr(handler_result, 'error', "Unknown error")
-                    
-                    self.logger.error(f"Handler {handler_ref} failed: {error_info}")
-                    error_msg = f"Handler {handler_ref} failed: {error_info.get('error', 'Unknown error') if isinstance(error_info, dict) else error_info}"
-                    
-                    return {
-                        "success": False,
-                        "error": error_msg,
-                        "handler_error": error_info
-                    }
+            for handler_result in handler_results:
+                if handler_result.is_success and handler_result.value:
+                    self.display_results(command_type, handler_result.value)
 
             # Execute on_submit callback if present
             if hasattr(input_obj, 'on_submit') and input_obj.on_submit:
@@ -303,7 +537,7 @@ class Api(ListableEntity):
                     self.logger.debug("Executing on_submit callback")
                     callback_result = {
                         "success": True,
-                        "results": successful_results,
+                        "results": handler_results,
                         "inputs": collected_inputs,
                         "internal_api": self.registry.manager.get_by_entity_type(EntityType.API).get_by_name('internal')
                     }
@@ -311,20 +545,12 @@ class Api(ListableEntity):
                     input_obj.on_submit(**callback_result)
                     
                 except Exception as e:
-                    # Log callback errors but don't fail the main operation
-                    self.logger.error(f"On-submit callback failed: {e}", exc_info=True)
+                    self.logger.error(f"On-submit callback failed: {e}")
 
-            return {
-                "success": True,
-                "results": successful_results
-            }
+            return ApiResult.success(handler_results)
             
         except Exception as e:
-            self.logger.error(f"Result processing failed: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": f"Result processing failed: {str(e)}"
-            }
+            return ApiResult.failure(message=f"Result processing failed: {str(e)}")
     
     def display_results(self, command_type: CommandType, results: Any) -> None:
         """Display command results appropriately based on command type"""

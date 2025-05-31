@@ -1,4 +1,4 @@
-from src.script.entity._enum import EntityType
+from src.script.common.enums import EntityType
 from src.script.entity.project import Project
 from src.script.registry._registry import CreatableEntityRegistry
 

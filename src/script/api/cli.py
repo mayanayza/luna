@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 
 from src.script.api._input_converter import ApiInputConverter
 from src.script.api._ui import UserInterface
+from src.script.common.enums import CommandType, EntityQuantity
+from src.script.common.results import ApiResult
 from src.script.entity.api import Api
 from src.script.entity.handler import Handler
 from src.script.input.input import Input, InputField, InputGroup
@@ -35,6 +37,25 @@ class CliApi(Api):
     def user_interface(self):
         return CliUserInterface()
     
+    def get_entity_quantity_for_command(self, command_type: CommandType) -> EntityQuantity:
+        """
+        CLI-specific entity quantity settings - generally prefers single entity operations
+        for better user experience, but allows multiple for bulk operations.
+        """
+        # CLI-specific overrides for better UX
+        cli_quantities = {
+            # Most CLI operations work better with single entities
+            CommandType.DELETE: EntityQuantity.SINGLE,  # Safer to delete one at a time
+            CommandType.RENAME: EntityQuantity.SINGLE,  # Renaming multiple doesn't make sense
+            CommandType.DETAIL: EntityQuantity.SINGLE,  # Detail view for one entity
+            CommandType.LIST: EntityQuantity.OPTIONAL_MULTIPLE,  # Can list all or filtered
+            
+            # Bulk operations that make sense in CLI
+            CommandType.ADD_INTEGRATION: EntityQuantity.MULTIPLE,  # Add integration to multiple projects
+            CommandType.REMOVE_INTEGRATION: EntityQuantity.SINGLE,  # Remove from one project at a time
+        }
+        
+        return cli_quantities.get(command_type, EntityQuantity.SINGLE)  # Default to single for CLI
 
     def start(self):
         """Start the CLI session"""
@@ -57,7 +78,6 @@ class CliApi(Api):
             except EOFError:
                 print("\nExiting CLI session.")
                 self._running = False
-
 
     def _build_parser_from_handler_registry(self):
         """Build the argparse structure from entity interfaces"""
@@ -151,21 +171,39 @@ class CliApi(Api):
                 params = {k: v for k, v in vars(args).items() 
                          if not k.startswith('_') and k not in ['entity_type', 'command_type']}
                 
+                # Create parameter list for batch processing
+                param_list = [params]  # CLI processes one parameter set at a time
+                
                 # Use inherited execute_command from base Api class
                 command_result = self.execute_command(
                     args.entity_type,  # Will be converted to enum in base class
                     args.command_type,  # Will be converted to enum in base class
-                    **params
+                    param_list  # Now expects a list of parameter sets
                 )
                 
-                # Rebuild parser after successful command execution
-                if command_result.get("success"):
+                if command_result.is_success:
+                    batch_result = command_result.value
+                    self._display_batch_results(batch_result)
+                    self.logger.info("Command executed successfully")
                     self._build_parser_from_handler_registry()
+                else:
+                    self.logger.error(f"Command failed: {command_result.error_message}")
+                    if command_result.error and command_result.error.source:
+                        self.logger.error(f"Source: {command_result.error.source}")
                 
         except SystemExit:
             # argparse error - continue
             pass
-
+    
+    def _display_batch_results(self, batch_result):
+        """Display results from batch operation using BatchResult"""
+        if batch_result.success_count > 0:
+            self.logger.success(f"\n✓ {batch_result.success_count} operation(s) completed successfully")
+            
+        if batch_result.failure_count > 0:
+            self.logger.warning(f"\n✗ {batch_result.failure_count} operation(s) failed:")
+            for failed_op in batch_result.failed_operations:
+                self.logger.warning(f"  - Parameter set {failed_op.param_set_index + 1}: {failed_op.error_message}")
     
     def _handle_cli_command(self, args):
         """Handle CLI control commands"""
@@ -376,35 +414,46 @@ class CliInputConverter(ApiInputConverter):
             "args": args
         }
 
-    def collect_inputs(self, input_obj: Input, provided_inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Dict[str, Any]:
+    # Replace the collect_inputs method:
+    def collect_inputs(self, input_obj: Input, provided_inputs: Dict[str, Any], context: Dict[str, Any] = None) -> ApiResult:
         """Collect and validate inputs for CLI execution - implements base class interface"""
         inputs = provided_inputs.copy()
         
         try:
+            
             # Check for missing required inputs
             missing_inputs = self.check_missing_inputs(input_obj, provided_inputs)
-            
+                        
             if missing_inputs:
-                # CLI prompts interactively for missing inputs
-                self.logger.debug(f"Missing inputs detected, prompting user: {missing_inputs}")
                 success = self._collect_node_inputs_interactive(input_obj, inputs, context)
-                
                 if not success:
-                    print("Input collection cancelled")
-                    return {"success": False, "cancelled": True}
+                    return ApiResult.failure(message="Input collection cancelled", code="cancelled")
+            
+            
+            submission_result = self._handle_cli_submission(inputs, input_obj.confirm_submit)
+            
+            if submission_result.get("success"):
+                # Get the final inputs from submission (this includes user confirmations)
+                final_inputs = submission_result["inputs"]
+                
+                # NOW apply the final inputs to the input object
+                self._apply_inputs_to_input(input_obj, final_inputs, context)
+                
+                # Extract ALL field values from the input object, including computed hidden fields
+                final_values = self._extract_field_values_from_input(input_obj)
+                return ApiResult.success(final_values)
             else:
-                # Load existing inputs into the object
-                self._apply_inputs_to_input(input_obj, inputs)
-            
-            # Handle submission confirmation
-            return self._handle_cli_submission(inputs, input_obj.confirm_submit)
-            
+                return ApiResult.failure(
+                    message=submission_result.get("error", "Submission failed"),
+                    code="submission_failed"
+                )
+                
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"CLI input collection failed: {str(e)}"
-            }
-    
+            self.logger.error(f"Exception in collect_inputs: {e}", exc_info=True)
+            return ApiResult.failure(
+                message=f"CLI input collection failed: {str(e)}"
+            )
+
     def _collect_node_inputs_interactive(self, node, inputs: Dict[str, Any], context: Dict[str, Any], path: str = "") -> bool:
         """Recursively collect inputs for a node via CLI"""        
         if isinstance(node, InputField):  # Field-like
@@ -523,8 +572,9 @@ class CliInputConverter(ApiInputConverter):
                 # Use field's native validation
                 validation_result = field.validate(user_input)
 
-                if not validation_result["passed"]:
-                    error_msg = validation_result.get('error', {}).get('message', 'Validation failed')
+                if validation_result.is_failure:
+                    print(validation_result)
+                    error_msg = validation_result.error.message
                     print(f"Error: {error_msg}")
                     continue
                 

@@ -6,17 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Type
 
-
-@dataclass
-class LoadResult:
-    """Result of a loading operation with entities and metadata."""
-    entities: List[Any]
-    count: int
-    errors: List[str]
-    
-    def __post_init__(self):
-        if self.count is None:
-            self.count = len(self.entities)
+from src.script.common.results import LoadResult
 
 
 @dataclass
@@ -91,7 +81,7 @@ class RegistryModuleLoader(RegistryLoader):
                     errors.append(error_msg)
         
         self.logger.info(f"Loaded {len(entities)} {self.entity_type_name}(s) from modules")
-        return LoadResult(entities=entities, count=len(entities), errors=errors)
+        return LoadResult(entities=entities, errors=errors)
     
     def discover_modules(self, package_name: str, recursive: bool = False) -> List[ModuleInfo]:
         """
@@ -244,7 +234,7 @@ class RegistryDatabaseLoader(RegistryLoader):
                 errors.append(error_msg)
         
         self.logger.info(f"Loaded {len(entities)} {self.entity_type_name}(s) from database")
-        return LoadResult(entities=entities, count=len(entities), errors=errors)
+        return LoadResult(entities=entities, errors=errors)
     
     def fetch_raw_data(self, table_name: str) -> List[Dict[str, Any]]:
         """

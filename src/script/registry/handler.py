@@ -2,8 +2,7 @@
 
 from typing import List
 
-from src.script.api._enum import CommandType
-from src.script.entity._enum import EntityType, HandlerType
+from src.script.common.enums import CommandType, EntityType, HandlerType
 from src.script.entity.handler import Handler
 from src.script.registry._base import Registry
 

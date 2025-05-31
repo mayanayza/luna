@@ -9,7 +9,8 @@ from typing import TypeVar
 
 from pydal import DAL, Field
 from src.script.common.decorators import classproperty
-from src.script.entity._entity import EntityType, ListableEntity, StorableEntity
+from src.script.common.enums import EntityType
+from src.script.entity._entity import ListableEntity, StorableEntity
 
 # Type aliases for common database types
 T = TypeVar('T')

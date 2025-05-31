@@ -5,10 +5,9 @@ Database registry that manages database implementations.
 import os
 from typing import Optional
 
-from src.script.api._enum import CommandType
 from src.script.common.decorators import register_handlers
+from src.script.common.enums import CommandType, EntityType
 from src.script.entity._base import EntityRef
-from src.script.entity._enum import EntityType
 from src.script.entity.db import Database
 from src.script.input.factory import InputFactory
 from src.script.registry._registry import ListableEntityRegistry

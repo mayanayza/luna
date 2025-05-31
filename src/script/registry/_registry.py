@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Dict, List
 
-from src.script.api._enum import CommandType
 from src.script.common.decorators import register_handlers
+from src.script.common.enums import CommandType, EntityType, HandlerType
 from src.script.common.mixins import (
     ClassWithHandlers,
     Creatable,
@@ -10,8 +10,7 @@ from src.script.common.mixins import (
     Listable,
     Storable,
 )
-from src.script.entity._enum import EntityType
-from src.script.entity.handler import Handler, HandlerType
+from src.script.entity.handler import Handler
 from src.script.input.input import Input, InputField
 from src.script.input.validation import InputValidator
 from src.script.registry._base import Registry
@@ -145,6 +144,7 @@ class ListableEntityRegistry(Registry, Listable, RegistryWithHandlers):
             result = {
                 'name': entity.name,
                 'uuid': str(entity.uuid),
+                'date_created': entity.date_created
             }
             if hasattr(entity,'_db_fields'):
                 result.update(entity._db_fields)
@@ -213,18 +213,19 @@ class CreatableEntityRegistry(StorableEntityRegistry, Creatable, RegistryWithHan
         self.database_loader = RegistryLoaderFactory.create_database_loader(self)
         self.module_loader = None
 
+    # Replace the on_create_callback method:
     @staticmethod
     def on_create_callback(success, results, inputs, internal_api, **kwargs):
         
         created_entity = None
         for handler_result in results:
-            if handler_result.success and handler_result.handler_type is HandlerType.SYSTEM and handler_result.result:
-                created_entity = handler_result.result
+            if handler_result.is_success and handler_result.handler_type is HandlerType.SYSTEM and handler_result.value:
+                created_entity = handler_result.value
 
         params = {
             'entity_type': created_entity.type,
             'command_type': CommandType.EDIT,
-            created_entity.type.value: created_entity
+            'params': [{created_entity.type.value:created_entity}]
         }
 
         internal_api.execute_command(**params)

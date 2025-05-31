@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, List, Optional
 
+from src.script.common.enums import EntityType
 from src.script.entity._base import Entity, EntityRef
-from src.script.entity._enum import EntityType
 from src.script.registry._base import Registry
 from src.script.registry._registry import StorableEntityRegistry
 

@@ -2,12 +2,25 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
-from src.script.api._enum import CommandType
+from src.script.common.enums import CommandType, EntityType, HandlerType
+from src.script.common.results import HandlerResult
 from src.script.entity._base import EntityRef
-from src.script.entity._enum import EntityType, HandlerType
-from src.script.input.validation import InputValidator, ValidationLevel, ValidationRule
+from src.script.input.validation import (
+    InputValidator,
+    ValidationLevel,
+    ValidationResult,
+    ValidationRule,
+)
 from src.script.registry._base import Registry
 
+ ######                                ##     ######                                ##                         ##
+   ##                                  ##     ##   ##
+   ##     ## ###   ######   ##   ##  ######   ##   ##   #####   ## ###   ### ##   ####      #####    #####   ####      #####   ## ###    #####
+   ##     ###  ##  ##   ##  ##   ##    ##     ######   ##   ##  ###      ## # ##    ##     ##       ##         ##     ##   ##  ###  ##  ##
+   ##     ##   ##  ##   ##  ##   ##    ##     ##       #######  ##       ## # ##    ##      ####     ####      ##     ##   ##  ##   ##   ####
+   ##     ##   ##  ##   ##  ##  ###    ##     ##       ##       ##       ## # ##    ##         ##       ##     ##     ##   ##  ##   ##      ##
+ ######   ##   ##  ######    ### ##     ###   ##        #####   ##       ##   ##  ######   #####    #####    ######    #####   ##   ##  #####
+                   ##
 
 class InputPermissions:
     """Permissions for Input modifications"""
@@ -33,54 +46,15 @@ class InputPermissions:
     def from_dict(cls, data: Dict[str, bool]) -> 'InputPermissions':
         return cls(**data)    
 
-class HandlerResult:
-    """Simplified handler result wrapper"""
-    
-    def __init__(self, result, error, handler_ref, handler_type):
-        self._result = result
-        self._error = error or None
-        self._success = self._error is None
-        self._handler_ref = handler_ref
-        self._handler_type = handler_type
-    
-    @property
-    def result(self):
-        return self._result
+ ######                                ##     ##   ##                ##
+   ##                                  ##     ###  ##                ##
+   ##     ## ###   ######   ##   ##  ######   ###  ##   #####    ######   #####
+   ##     ###  ##  ##   ##  ##   ##    ##     ## # ##  ##   ##  ##   ##  ##   ##
+   ##     ##   ##  ##   ##  ##   ##    ##     ## # ##  ##   ##  ##   ##  #######
+   ##     ##   ##  ##   ##  ##  ###    ##     ##  ###  ##   ##  ##   ##  ##
+ ######   ##   ##  ######    ### ##     ###   ##   ##   #####    ######   #####
+                   ##
 
-    @property
-    def success(self):
-        return self._success
-    
-    @property
-    def has_result(self) -> bool:
-        return self.result is not None
-
-    @property
-    def handler_ref(self):
-        return self._handler_ref
-
-    @property
-    def handler_type(self):
-        return self._handler_type
-
-    @property
-    def has_error(self) -> bool:
-        return len(self.error) > 0
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        return {
-            "success": self._success,
-            "result": self._result,
-            "error": self._error
-        }
-    
-    def __str__(self):
-        return str(self.result)
-    
-    def __repr__(self):
-        return f"HandlerResult(success={self.success}, result={self.result})"
-        
 class InputNode(ABC):
     def __init__(self,
                  name: str,
@@ -116,6 +90,14 @@ class InputNode(ABC):
     def load_from_dict(self, data: Dict[str, bool]) -> Dict[str, Any]:
         pass
 
+ ######                                ##     #######    ##               ###          ##
+   ##                                  ##     ##                           ##          ##
+   ##     ## ###   ######   ##   ##  ######   ##       ####      #####     ##      ######
+   ##     ###  ##  ##   ##  ##   ##    ##     #####      ##     ##   ##    ##     ##   ##
+   ##     ##   ##  ##   ##  ##   ##    ##     ##         ##     #######    ##     ##   ##
+   ##     ##   ##  ##   ##  ##  ###    ##     ##         ##     ##         ##     ##   ##
+ ######   ##   ##  ######    ### ##     ###   ##       ######    #####    ####     ######
+                   ##
 
 class InputField(InputNode):
     """Unified input field - can be used as spec or resolved input"""
@@ -264,9 +246,9 @@ class InputField(InputNode):
             return True
         
         try:
-            # Validate before commit
+            # Validate before commit - now returns ValidationResult
             validation_result = self.validate(self._pending_value)
-            if not validation_result["passed"]:
+            if validation_result.is_failure:  # Changed from not validation_result["passed"]
                 return False
             
             # Commit the value
@@ -277,14 +259,39 @@ class InputField(InputNode):
             
         except Exception:
             return False
-    
-    def validate(self, value: Any = None) -> Dict[str, Any]:
+
+    # Replace the existing validate method in InputField class:
+    def validate(self, value: Any = None) -> ValidationResult:
         """Validate a value"""
-        test_value = value if value is not None else self._value
+        if value is not None:
+            test_value = value
+        elif self.is_pending:
+            test_value = self._pending_value  # This is the fix!
+        else:
+            test_value = self._value
 
         complete_rules = self._setup_validation_rules()
 
-        return InputValidator.validate(test_value, complete_rules)
+        result = InputValidator.validate(test_value, complete_rules)
+        
+        # Update field names in errors (since ValidationRule doesn't know the field name)
+        if result.is_failure:
+            updated_field_errors = {}
+            updated_errors = []
+            
+            for error in result._errors:
+                error.field = self.name  # Set the correct field name
+                updated_errors.append(error)
+            
+            updated_field_errors[self.name] = updated_errors
+            
+            new_result = ValidationResult()
+            new_result.field_errors = updated_field_errors
+            new_result._errors = updated_errors
+            new_result._value = False
+            return new_result
+        
+        return result
 
     def _setup_validation_rules(self) -> List[ValidationRule]:
         """Set up complete validation rules including required and type checking"""
@@ -322,6 +329,14 @@ class InputField(InputNode):
             except (ValueError, TypeError) as e:
                 self.logger.error(f"Failed to load value for field {self.name}: {e}")
 
+ ######                                ##       ####
+   ##                                  ##      ##  ##
+   ##     ## ###   ######   ##   ##  ######   ##       ## ###    #####   ##   ##  ######
+   ##     ###  ##  ##   ##  ##   ##    ##     ##       ###      ##   ##  ##   ##  ##   ##
+   ##     ##   ##  ##   ##  ##   ##    ##     ##  ###  ##       ##   ##  ##   ##  ##   ##
+   ##     ##   ##  ##   ##  ##  ###    ##      ##  ##  ##       ##   ##  ##  ###  ##   ##
+ ######   ##   ##  ######    ### ##     ###     #####  ##        #####    ### ##  ######
+                   ##                                                             ##
 
 class InputGroup(InputNode):
     """Unified input group - can be used as spec or resolved input"""
@@ -364,25 +379,27 @@ class InputGroup(InputNode):
         else:
             self.logger.warning("Can't add children")
     
-    def validate_all(self) -> Dict[str, Any]:
+    def validate_all(self) -> ValidationResult:
         """Validate all children"""
         
-        results = {"passed": True, "errors": {}}
+        combined_result = ValidationResult.success()
         
         for name, child in self._children.items():
             if isinstance(child, InputField):
                 result = child.validate()
-                if not result["passed"]:
-                    results["passed"] = False
-                    results["errors"][name] = result["error"]
+                if result.is_failure:
+                    combined_result.field_errors.update(result.field_errors)
+                    combined_result._errors.extend(result._errors)
+                    combined_result._value = False
             elif isinstance(child, InputGroup):
                 result = child.validate_all()
-                if not result["passed"]:
-                    results["passed"] = False
-                    results["errors"][name] = result["errors"]
+                if result.is_failure:
+                    combined_result.field_errors.update(result.field_errors)
+                    combined_result._errors.extend(result._errors)
+                    combined_result._value = False
         
-        return results
-    
+        return combined_result
+        
     def commit_all_values(self) -> bool:
         """Commit all pending values in children"""
         
@@ -410,6 +427,14 @@ class InputGroup(InputNode):
             if name in children_data:
                 child.load_from_dict(children_data[name])
 
+ ######                                ##
+   ##                                  ##
+   ##     ## ###   ######   ##   ##  ######
+   ##     ###  ##  ##   ##  ##   ##    ##
+   ##     ##   ##  ##   ##  ##   ##    ##
+   ##     ##   ##  ##   ##  ##  ###    ##
+ ######   ##   ##  ######    ### ##     ###
+                   ##
 
 class Input(InputGroup):
     """Main input container"""
@@ -480,18 +505,19 @@ class Input(InputGroup):
 
         if self._handler_registry:
             for handler_ref in self._handler_refs:
-                error = None
-                handler_type = None
                 try:
                     handler = self._handler_registry.get_by_ref(handler_ref)
-                    handler_type = handler.handler_type
                     result = handler(**kwargs)
+                    handler_result = HandlerResult.success(
+                        value=result,
+                        handler=handler,
+                    )
                 except Exception as e:
-                    self.logger.error(f"System handler failed: {e}", exc_info=True)
-                    error = {
-                        "type": handler.handler_type, 
-                        "error": str(e)
-                    }
-                results.append(HandlerResult(result, error, handler_ref, handler_type))
+                    handler_result = HandlerResult.failure(
+                        message=str(e),
+                        handler=handler
+                    )
+
+            results.append(handler_result)
 
         return results

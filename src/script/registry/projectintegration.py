@@ -1,8 +1,8 @@
 
 from typing import Dict, List
 
+from src.script.common.enums import EntityType
 from src.script.entity._base import EntityRef
-from src.script.entity._enum import EntityType
 from src.script.entity.projectintegration import ProjectIntegration
 from src.script.registry._registry import StorableEntityRegistry
 

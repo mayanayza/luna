@@ -1,8 +1,7 @@
-from functools import wraps
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.script.entity._enum import EntityQuantity
+    pass
 
 
 class classproperty:
@@ -34,31 +33,4 @@ def register_handlers(*handler_configs):
     def decorator(cls):
         cls._handler_configs = handler_configs
         return cls
-    return decorator
-
-def entity_quantity(quantity: 'EntityQuantity'):
-    """
-    Decorator to specify entity quantity requirements for handler methods.
-    
-    Usage:
-        @entity_quantity(EntityQuantity.SINGLE)
-        @classmethod
-        def handle_delete(cls, project, **kwargs):
-            ...
-            
-        @entity_quantity(EntityQuantity.MULTIPLE)
-        @classmethod
-        def handle_add_integration(cls, projects, **kwargs):
-            ...
-    """
-    def decorator(func: Callable) -> Callable:
-        func._entity_quantity = quantity
-        
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-        
-        wrapper._entity_quantity = quantity
-        return wrapper
-    
     return decorator

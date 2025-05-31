@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from typing import List
 
-from src.script.common.decorators import classproperty, entity_quantity
-from src.script.entity._entity import CreatableFromModuleEntity, EntityType
-from src.script.entity._enum import EntityQuantity
+from src.script.common.decorators import classproperty
+from src.script.common.enums import EntityType
+from src.script.entity._entity import CreatableFromModuleEntity
 from src.script.entity.project import Project
 from src.script.input.input import Input
 from src.script.templates.processor import TemplateProcessor
@@ -92,7 +92,6 @@ class Integration(CreatableFromModuleEntity):
         pass
 
     @classmethod
-    @entity_quantity(EntityQuantity.SINGLE)
     def handle_delete(cls, integration, **kwargs):
         """Delete this integration."""
         try:

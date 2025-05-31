@@ -4,8 +4,8 @@ from typing import Dict
 from uuid import uuid4
 
 import pytz
-from src.script.api._enum import CommandType
-from src.script.common.decorators import entity_quantity, register_handlers
+from src.script.common.decorators import register_handlers
+from src.script.common.enums import CommandType, EntityType, HandlerType
 from src.script.common.mixins import (
     ClassWithHandlers,
     Creatable,
@@ -14,7 +14,6 @@ from src.script.common.mixins import (
     Storable,
 )
 from src.script.entity._base import Entity
-from src.script.entity._enum import EntityQuantity, EntityType, HandlerType
 from src.script.input.input import Input, InputField, InputPermissions
 from src.script.input.validation import InputValidator
 from src.script.registry._base import Registry
@@ -122,6 +121,9 @@ class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
         
         # Store config data for lazy loading
         self._config_data = kwargs.get('config_data', None)
+
+    
+    
 
     def _initialize_config(self):
         """Initialize the config Input object from class-defined fields"""
@@ -280,23 +282,21 @@ class StorableEntity(ListableEntity, Storable, EntityWithHandlers):
 
 
     @classmethod
-    @entity_quantity(EntityQuantity.SINGLE)
     def handle_edit(cls, registry, **kwargs):
 
         entity = kwargs.get(registry.entity_type.value)
         
-        entity.ui.respond(f"Editing configuration for '{entity.name}'", "info")
+        # entity.ui.respond(f"Editing configuration for '{entity.name}'", "info")
         
-        success = entity.ui.form_builder.fill_form_interactive(entity.config)
-        if success:
-            entity.ui.respond("Editing completed!", "success")
-            # Save the updated config to database
-            entity.db.upsert(entity.type, entity)
-        else:
-            return None
+        # success = entity.ui.form_builder.fill_form_interactive(entity.config)
+        # if success:
+        #     entity.ui.respond("Editing completed!", "success")
+        #     # Save the updated config to database
+        #     entity.db.upsert(entity.type, entity)
+        # else:
+        #     return None
 
     @classmethod
-    @entity_quantity(EntityQuantity.SINGLE)
     def handle_detail(cls, registry, **kwargs) -> Dict:
 
         entity = kwargs.get(registry.entity_type.value)
@@ -427,7 +427,6 @@ class CreatableEntity(StorableEntity, Creatable, EntityWithHandlers):
         pass
 
     @classmethod
-    @entity_quantity(EntityQuantity.SINGLE)
     def handle_rename(cls, registry, new_emoji, new_name, **kwargs):
 
         entity = kwargs.get(registry.entity_type.value)

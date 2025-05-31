@@ -1,13 +1,11 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
-from src.script.api._enum import CommandType
 from src.script.common.decorators import (
     classproperty,
-    entity_quantity,
     register_handlers,
 )
-from src.script.entity._entity import CreatableEntity, EntityType
-from src.script.entity._enum import EntityQuantity
+from src.script.common.enums import CommandType, EntityType
+from src.script.entity._entity import CreatableEntity
 from src.script.input.factory import InputFactory
 from src.script.input.input import Input, InputField
 from src.script.registry._base import Registry
@@ -29,6 +27,16 @@ class Project(CreatableEntity):
 
     def __init__(self, registry: Registry, **kwargs) -> None:    
         super().__init__(registry, **kwargs)
+
+        self._config_fields: List = [
+            InputField(
+                name='use_git',
+                title='Testing config fields',
+                description='Test config field',
+                default_value=True,
+                field_type=bool
+            )
+        ]
 
     @classproperty
     def type(self):
@@ -95,7 +103,6 @@ class Project(CreatableEntity):
      ##   ##   ### ##  ##   ##   ######   ####     #####   ##       #####
 
     @classmethod
-    @entity_quantity(EntityQuantity.SINGLE)
     def handle_rename(cls, project, **kwargs) -> Dict[str, Any]:
         """Rename this project."""
         try:
@@ -121,7 +128,6 @@ class Project(CreatableEntity):
             raise
 
     @classmethod
-    @entity_quantity(EntityQuantity.SINGLE)
     def handle_delete(cls, project, **kwargs):
         """Delete this project."""
         try:
@@ -146,21 +152,17 @@ class Project(CreatableEntity):
         return None
 
     @classmethod
-    @entity_quantity(EntityQuantity.MULTIPLE)
-    def handle_add_integration(cls, projects, integration, **kwargs):
+    def handle_add_integration(cls, project, integration, **kwargs):
 
-        pi_registry = projects[0].registry.manager.get_by_entity_type(EntityType.PROJECT_INTEGRATION)
-
-        for project in projects:
-            pi = pi_registry.add_pi(project.ref, integration.ref)
-            pi.setup()
+        pi_registry = project.registry.manager.get_by_entity_type(EntityType.PROJECT_INTEGRATION)
+        pi = pi_registry.add_pi(project.ref, integration.ref)
+        pi.setup()
             
-            project.logger.info(f"Added integration '{pi.name}' to project {project.name}")
+        project.logger.info(f"Added integration '{pi.name}' to project {project.name}")
         
         return pi
 
     @classmethod
-    @entity_quantity(EntityQuantity.SINGLE)
     def handle_remove_integration(cls, project, project_integration, **kwargs):            
         pi_registry = project.registry.manager.get_by_entity_type(EntityType.PROJECT_INTEGRATION)
         project_integration = project_integration

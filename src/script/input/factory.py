@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import Optional
 
-from src.script.api._enum import CommandType
+from src.script.common.enums import CommandType
 from src.script.input.input import Input, InputField
 from src.script.input.validation import InputValidator
 
@@ -51,14 +51,12 @@ class InputFactory:
                 choices[f"All {registry.entity_type.value}s"] = entities
             
             return choices
-
-        field_type = List[registry.entity_class] if allow_all or allow_multiple else registry.entity_class
         
         # Determine field type based on options        
         return InputField(
             name=name if name else registry.entity_type.value,
             title=f"Select {registry.entity_type.value.title()}",
-            field_type=field_type,
+            field_type=object,
             required=required,
             choices=get_entity_choices,
             allow_multiple=allow_multiple,

@@ -1,42 +1,10 @@
-from dataclasses import dataclass
 from typing import Any
 
-from src.script.api._enum import CommandType
-from src.script.application._error import Error, ErrorCategory
-from src.script.application._result import Result
 from src.script.common.decorators import classproperty
+from src.script.common.enums import CommandType, EntityQuantity, EntityType, HandlerType
 from src.script.entity._entity import Entity
-from src.script.entity._enum import EntityQuantity, EntityType, HandlerType
 from src.script.input.input import Input, InputField, InputGroup
 
-
-@dataclass 
-class HandlerResult(Result[Any]):
-    """Simple result for handler operations"""
-    handler_type: str = None
-    handler_ref: str = None
-    
-    @classmethod
-    def success(cls, value: Any, handler_type: str = None, handler_ref: str = None) -> 'HandlerResult':
-        """Create successful handler result"""
-        result = cls(value=value)
-        result.handler_type = handler_type
-        result.handler_ref = handler_ref
-        return result
-    
-    @classmethod
-    def failure(cls, message: str, handler_type: str = None, handler_ref: str = None) -> 'HandlerResult':
-        """Create failed handler result"""
-        error = Error(
-            code="handler_error",
-            message=message,
-            category=ErrorCategory.BUSINESS,
-            source=f"{handler_type}:{handler_ref}" if handler_type and handler_ref else None
-        )
-        result = cls(error=error)
-        result.handler_type = handler_type
-        result.handler_ref = handler_ref
-        return result
 
 class Handler(Entity):
     def __init__(self, 
@@ -371,7 +339,6 @@ class Handler(Entity):
                 **kwargs
             )
         return wrapped
-
 
 class EntityProxy:
     """Lightweight entity proxy for safe CLI parsing"""

@@ -3,7 +3,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from src.script.entity._enum import EntityType
+from src.script.common.enums import EntityType
 
 if TYPE_CHECKING:
     from src.script.entity._base import (

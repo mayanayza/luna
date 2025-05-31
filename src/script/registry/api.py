@@ -1,6 +1,6 @@
 
 
-from src.script.entity._enum import EntityType
+from src.script.common.enums import EntityType
 from src.script.entity.api import Api
 from src.script.registry._registry import ListableEntityRegistry
 

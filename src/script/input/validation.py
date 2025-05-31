@@ -3,8 +3,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type
 
-from src.script.application._error import Error, ErrorCategory
-from src.script.application._result import Result
+from src.script.common.results import ValidationResult
 
 
 class ValidationMode(Enum):
@@ -27,71 +26,48 @@ class ValidationRule:
     def level(self) -> ValidationLevel:
         return self._level
 
-    def validate(self, user_input) -> Dict:
+    def validate(self, user_input) -> ValidationResult:
         try:
             if self._validation_function(user_input):
-                return {"passed": True}
+                return ValidationResult.success()
             else:
-                return {"passed": False, "error": self._error}
+                result = ValidationResult()
+                result.add_error(
+                    field="unknown",  # Will be set by caller
+                    message=self._error.get("message", "Validation failed"),
+                    code=self._error.get("code", "invalid")
+                )
+                return result
         except Exception as e:
-            raise ValueError(f"Failed to validate input {user_input}: {e}")
-
-class ValidationResult(Result[bool]):
-    """Specialized result for validation operations"""
-    
-    def __init__(self, field_errors: Dict[str, List[Error]] = None):
-        self.field_errors = field_errors or {}
-        
-        # Flatten field errors for base Result
-        all_errors = []
-        for errors in self.field_errors.values():
-            all_errors.extend(errors)
-        
-        super().__init__(
-            value=len(all_errors) == 0,
-            errors=all_errors
-        )
-    
-    def add_error(self, field: str, message: str, code: str = "invalid") -> 'ValidationResult':
-        """Add validation error for field"""
-        if field not in self.field_errors:
-            self.field_errors[field] = []
-        
-        error = Error(
-            code=code,
-            message=message,
-            category=ErrorCategory.VALIDATION,
-            field=field
-        )
-        
-        self.field_errors[field].append(error)
-        self._errors.append(error)
-        
-        # Update value
-        self._value = len(self._errors) == 0
-        
-        return self
-    
-    @staticmethod
-    def success() -> 'ValidationResult':
-        """Create successful validation"""
-        return ValidationResult()
+            result = ValidationResult()
+            result.add_error(
+                field="unknown",
+                message=f"Failed to validate input {user_input}: {e}",
+                code="validation_exception"
+            )
+            return result
 
 class InputValidator:
     
     @staticmethod
-    def validate(user_input, validation_rules: List[ValidationRule], context: Dict = {}, level_filter: Optional[ValidationLevel] = None):
+    def validate(user_input, validation_rules: List[ValidationRule], context: Dict = {}, level_filter: Optional[ValidationLevel] = None) -> ValidationResult:
         """Validate input with optional level filtering for client/server separation"""
         filtered_rules = validation_rules
         if level_filter:
             filtered_rules = [rule for rule in validation_rules 
                             if rule.level == level_filter or rule.level == ValidationLevel.BOTH]
         
+        combined_result = ValidationResult.success()
+        
         for rule in filtered_rules:
             result = rule.validate(user_input)
-            if not result['passed']:
-                return result
-        return {'passed': True}
+            if result.is_failure:
+                # Copy errors from rule result to combined result
+                combined_result._errors.extend(result._errors)
+                combined_result._value = False
+                break
+        
+        return combined_result
 
     @staticmethod
     def input_provided(level: ValidationLevel = ValidationLevel.CLIENT):
