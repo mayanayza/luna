@@ -1,8 +1,8 @@
 import logging
 import traceback
 
+from src.script.api.cli.main import cli
 from src.script.application.context import ApplicationContext
-from src.script.common.enums import EntityType
 
 
 def main():
@@ -12,11 +12,9 @@ def main():
         app_context = ApplicationContext()
         
         if app_context.initialize():
-            # Get CLI API and start it
-            cli = app_context.get_registry(EntityType.API).get_by_name('cli')
             if cli:
                 # Start the persistent CLI session
-                cli.start()
+                cli(obj={'app_context': app_context})
             else:
                 logging.error("CLI API not found")
                 return

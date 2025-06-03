@@ -3,13 +3,11 @@ import sys
 import traceback
 
 import colorlog
-from src.script.registry._manager import RegistryManager
-from src.script.registry.api import ApiRegistry
-from src.script.registry.db import DatabaseRegistry
-from src.script.registry.handler import HandlerRegistry
-from src.script.registry.integration import IntegrationRegistry
-from src.script.registry.project import ProjectRegistry
-from src.script.registry.projectintegration import ProjectIntegrationRegistry
+from src.script.registries._manager import RegistryManager
+from src.script.registries.database import DatabaseRegistry
+from src.script.registries.integration import IntegrationRegistry
+from src.script.registries.project import ProjectRegistry
+from src.script.registries.project_integration import ProjectIntegrationRegistry
 
 
 class ExceptionFormatter(colorlog.ColoredFormatter):
@@ -35,14 +33,10 @@ class ApplicationContext:
     def initialize(self):
         """Initialize the application with registries."""
         try:
-            HandlerRegistry(self.registry_manager)
             DatabaseRegistry(self.registry_manager)
-
             IntegrationRegistry(self.registry_manager)
             ProjectRegistry(self.registry_manager)
             ProjectIntegrationRegistry(self.registry_manager)
-
-            ApiRegistry(self.registry_manager)
             
             self.logger.info("Application initialized successfully")
             return True

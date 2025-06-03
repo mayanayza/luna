@@ -12,3 +12,6 @@ colorlog
 tabulate
 emoji
 pydal>=20.5
+click
+pytz
+click-shell
