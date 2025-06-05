@@ -1,0 +1,9 @@
+api
+application
+common
+entities
+integrations_pending_update
+registries
+services
+templates
+tests
