@@ -1,8 +1,8 @@
 media-internal/
 content/
-src/.env
+.env
 src/exhibitions.yml
-src/personal-info.yml
+personal-info.yml
 temp/
 src/.venv/
 **/__pycache__
